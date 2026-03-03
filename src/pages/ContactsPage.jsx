@@ -240,7 +240,7 @@ export default function ContactsPage() {
       <section className="cnt-section cnt-section-wa">
         <div className="cnt-inner cnt-centered">
           <h2 className="cnt-section-title">Группа и канал WhatsApp</h2>
-          <p className="cnt-section-sub">Присоединяйтесь к группе и каналу TLV Auto Korea</p>
+          <p className="cnt-section-sub">Присоединяйтесь к группе и каналу AVT Auto V Korea</p>
           <div className="cnt-wa-btns">
             <a
               href="https://wa.me/996705188088"

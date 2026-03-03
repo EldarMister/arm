@@ -56,7 +56,7 @@ export default function Advantages() {
       <div className="section-inner">
         <h2 className="section-title reveal">Наши преимущества</h2>
         <p className="section-subtitle reveal reveal-delay-1">
-          Почему клиенты выбирают TLV Auto Korea для покупки автомобилей из Кореи
+          Почему клиенты выбирают AVT Auto V Korea для покупки автомобилей из Кореи
         </p>
 
         <div className="adv-grid">

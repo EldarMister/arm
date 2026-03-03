@@ -41,13 +41,21 @@ const BadgeIcon = () => (
 const stats = [
   { value: '12-23', label: 'дней доставка', cls: 'stat-val-navy' },
   { value: '7%',    label: 'возврат НДС',   cls: 'stat-val-teal' },
-  { value: '$300',  label: 'комиссия',      cls: 'stat-val-navy' },
+  { value: '$200',  label: 'комиссия',      cls: 'stat-val-navy' },
 ]
 
 const advantages = [
   { icon: <PeopleIcon />, value: '1000+', label: 'Довольных клиентов', labelCls: '' },
   { icon: <CarSmallIcon />, value: '1000+', label: 'Доставленных авто', labelCls: '' },
-  { icon: <BadgeIcon />, value: '1+ год', label: 'На рынке', labelCls: 'adv-label-accent' },
+  { icon: <BadgeIcon />, value: '3+ года', label: 'На рынке', labelCls: 'adv-label-accent' },
+]
+
+const whyReasons = [
+  'Экономия — цены ниже рынка',
+  'Строгий техосмотр в Корее',
+  'Богатая комплектация уже в базе',
+  'Отличное качество кузова и двигателя',
+  'Богатый выбор: Корейцы, Немцы, Японцы и др.',
 ]
 
 export default function Hero() {
@@ -97,11 +105,14 @@ export default function Hero() {
           <h2 className="why-title">
             Почему автомобили из Кореи?
           </h2>
-          <p className="why-sub">
-            Корейские автомобили славятся своим качеством, надёжностью и доступной ценой.
-            Благодаря строгим требованиям к техническому обслуживанию в Корее,
-            даже подержанные автомобили находятся в отличном состоянии.
-          </p>
+          <ul className="why-list">
+            {whyReasons.map((reason) => (
+              <li key={reason} className="why-list-item">
+                <span className="why-list-check">✓</span>
+                {reason}
+              </li>
+            ))}
+          </ul>
 
           <div className="advantages-grid">
             {advantages.map(({ icon, value, label, labelCls }) => (

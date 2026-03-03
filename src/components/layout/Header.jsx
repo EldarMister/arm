@@ -41,14 +41,15 @@ const MoonIcon = () => (
   </svg>
 )
 
-const TLVLogo = () => (
+const AVTLogo = () => (
   <Link to="/" className="header-logo">
     <div>
       <div style={{ display: 'flex', alignItems: 'center', lineHeight: 1 }}>
-        <span className="logo-tl">TL</span>
+        <span className="logo-a">A</span>
         <span className="logo-v">V</span>
+        <span className="logo-t">T</span>
       </div>
-      <div className="logo-sub">AUTO</div>
+      <div className="logo-sub">Auto V Korea</div>
     </div>
   </Link>
 )
@@ -76,7 +77,7 @@ export default function Header() {
       <div className="header-row">
 
         {/* Logo */}
-        <TLVLogo />
+        <AVTLogo />
 
         {/* Desktop Nav */}
         <nav className="header-nav">

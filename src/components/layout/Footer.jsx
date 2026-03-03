@@ -103,13 +103,13 @@ export default function Footer() {
               <li>
                 <a href="#" className="footer-link">
                   <span className="footer-link-icon green"><WhatsAppIcon /></span>
-                  <span>Канал WhatsApp: <strong>TLV Auto Korea</strong></span>
+                  <span>Канал WhatsApp: <strong>AVT Auto V Korea</strong></span>
                 </a>
               </li>
               <li>
                 <a href="#" className="footer-link">
                   <span className="footer-link-icon green"><GroupIcon /></span>
-                  <span>Группа WhatsApp: <strong>TLV Auto Korea</strong></span>
+                  <span>Группа WhatsApp: <strong>AVT Auto V Korea</strong></span>
                 </a>
               </li>
             </ul>
@@ -172,12 +172,16 @@ export default function Footer() {
           <div className="footer-col">
             <div className="footer-brand">
               <div className="footer-logo">
-                <span className="footer-logo-tlv">TLV</span>
-                <span className="footer-logo-auto">AUTO</span>
+                <div style={{ display: 'flex', alignItems: 'center', lineHeight: 1 }}>
+                  <span className="logo-a">A</span>
+                  <span className="logo-v">V</span>
+                  <span className="logo-t">T</span>
+                </div>
+                <span className="logo-sub">Auto V Korea</span>
               </div>
               <h3 className="footer-col-title" style={{ marginTop: '12px' }}>О нас</h3>
               <p className="footer-about-text">
-                ТЛВ — Твой Лучший Выбор. Доставка автомобилей из Кореи в Кыргызстан под ключ. Качественное обслуживание и прозрачные цены.
+                AVT — Auto V Korea. Доставка автомобилей из Кореи в Кыргызстан под ключ. Качественное обслуживание и прозрачные цены.
               </p>
             </div>
           </div>
@@ -188,7 +192,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="footer-bottom">
         <div className="footer-bottom-inner">
-          <span className="footer-copy">© 2024 TLV Auto. Все права защищены.</span>
+          <span className="footer-copy">© 2025 AVT Auto V Korea. Все права защищены.</span>
           <a href="tel:+996999599600" className="footer-phone-link">
             <ChatIcon />
             +996 999 59 96 00

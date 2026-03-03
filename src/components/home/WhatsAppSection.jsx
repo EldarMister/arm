@@ -21,7 +21,7 @@ export default function WhatsAppSection() {
       <div className="section-inner" style={{ textAlign: 'center' }}>
         <h2 className="section-title">Группа и канал WhatsApp</h2>
         <p className="section-subtitle">
-          Присоединяйтесь к группе и каналу TLV Auto Korea
+          Присоединяйтесь к группе и каналу AVT Auto V Korea
         </p>
 
         <div className="whatsapp-btns">
