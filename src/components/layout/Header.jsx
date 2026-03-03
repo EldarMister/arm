@@ -106,7 +106,7 @@ export default function Header() {
         {/* Theme toggle — desktop */}
         <button
           className="theme-toggle"
-          onClick={toggle}
+          onClick={e => toggle(e)}
           title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
         >
           {theme === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -126,7 +126,7 @@ export default function Header() {
           >
             <SearchIcon />
           </button>
-          <button className="theme-toggle" onClick={toggle} title="Сменить тему" style={{ width: 32, height: 32 }}>
+          <button className="theme-toggle" onClick={e => toggle(e)} title="Сменить тему" style={{ width: 32, height: 32 }}>
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
           <button

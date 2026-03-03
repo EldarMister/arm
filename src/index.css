@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* ========= THEME TRANSITION ========= */
+
+/* Отключаем дефолтный кросс-фейд — используем clip-path ripple */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) { z-index: 9999; }
+::view-transition-old(root) { z-index: 1; }
+
+/* Во время view transition отключаем все element-level transitions
+   чтобы не было двойной анимации и "лагов" */
+html:has(::view-transition) *,
+html:has(::view-transition) *::before,
+html:has(::view-transition) *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 /* ========= THEME VARIABLES ========= */
 :root {
   --bg:          #ffffff;
@@ -195,6 +215,16 @@ body {
 .search-input:focus {
   border-color: #00b894;
   box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.15);
+}
+
+/* Desktop theme toggle — hidden on mobile */
+.header-row > .theme-toggle {
+  display: none;
+}
+@media (min-width: 768px) {
+  .header-row > .theme-toggle {
+    display: flex;
+  }
 }
 
 /* Desktop login — hidden on mobile */
@@ -398,7 +428,7 @@ body {
 .hero-title {
   font-size: clamp(28px, 5vw, 56px);
   font-weight: 900;
-  color: #1a3c5e;
+  color: #000000;
   line-height: 1.15;
   margin: 0;
 }
@@ -434,12 +464,27 @@ body {
   background-color: #ffffff;
   border-radius: 16px;
   padding: 20px 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  transition: background-color 0.25s, box-shadow 0.25s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid transparent;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.25s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.25s;
+  cursor: default;
+}
+.stat-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0,184,148,0.15), 0 4px 12px rgba(0,0,0,0.08);
+  border-color: rgba(0,184,148,0.35);
+}
+.stat-card:hover .stat-value {
+  transform: scale(1.06);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
 }
 .stat-value {
+  display: inline-block;
   font-size: 30px;
   font-weight: 900;
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
 }
 .stat-val-navy { color: #1a3c5e; }
 .stat-val-teal { color: #00b894; }
@@ -2861,7 +2906,11 @@ body {
 }
 [data-theme="dark"] .stat-card {
   background-color: #162032;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .stat-card:hover {
+  box-shadow: 0 16px 36px rgba(0,201,167,0.18), 0 4px 12px rgba(0,0,0,0.35);
+  border-color: rgba(0,201,167,0.3);
 }
 [data-theme="dark"] .stat-val-navy {
   color: #c8daea;
@@ -3180,6 +3229,22 @@ body {
 }
 [data-theme="dark"] .filter-color-name {
   color: #94a3b8;
+}
+[data-theme="dark"] .filter-brand-name {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .filter-brand-count {
+  color: #5a7490;
+}
+[data-theme="dark"] .filter-brand-item:hover {
+  background: #1a2d40;
+}
+[data-theme="dark"] .filter-checkbox {
+  border-color: #2d4a60;
+  background: #162032;
+}
+[data-theme="dark"] .filter-brands-list::-webkit-scrollbar-thumb {
+  background: #1e3348;
 }
 [data-theme="dark"] .cat-sidebar-open {
   background: #111e2e;
