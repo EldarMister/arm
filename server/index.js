@@ -7,6 +7,7 @@ import pool from './db.js'
 import carsRouter from './routes/cars.js'
 import imagesRouter from './routes/images.js'
 import encarRouter from './routes/encar.js'
+import adminRouter from './routes/admin.js'
 
 dotenv.config()
 
@@ -23,9 +24,10 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 // Роуты
-app.use('/api/cars',        carsRouter)
-app.use('/api/cars',        imagesRouter)
-app.use('/api/encar',       encarRouter)
+app.use('/api/cars', carsRouter)
+app.use('/api/cars', imagesRouter)
+app.use('/api/encar', encarRouter)
+app.use('/api/admin', adminRouter)
 app.delete('/api/images/:id', (req, res, next) => {
   req.url = `/${req.params.id}`
   imagesRouter(req, res, next)

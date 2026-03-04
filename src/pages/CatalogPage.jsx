@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import FilterSidebar from '../components/catalog/FilterSidebar'
 import CarCard from '../components/catalog/CarCard'
@@ -6,38 +6,38 @@ import CarCard from '../components/catalog/CarCard'
 const HomeIcon = () => (
   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-    <polyline points="9 22 9 12 15 12 15 22" strokeWidth={2}/>
+      d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" strokeWidth={2} />
   </svg>
 )
 const ChevronRightIcon = () => (
   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <polyline points="9 18 15 12 9 6" strokeWidth={2} strokeLinecap="round"/>
+    <polyline points="9 18 15 12 9 6" strokeWidth={2} strokeLinecap="round" />
   </svg>
 )
 const FilterIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <line x1="4" y1="6" x2="20" y2="6" strokeWidth={2} strokeLinecap="round"/>
-    <line x1="8" y1="12" x2="16" y2="12" strokeWidth={2} strokeLinecap="round"/>
-    <line x1="11" y1="18" x2="13" y2="18" strokeWidth={2} strokeLinecap="round"/>
+    <line x1="4" y1="6" x2="20" y2="6" strokeWidth={2} strokeLinecap="round" />
+    <line x1="8" y1="12" x2="16" y2="12" strokeWidth={2} strokeLinecap="round" />
+    <line x1="11" y1="18" x2="13" y2="18" strokeWidth={2} strokeLinecap="round" />
   </svg>
 )
 const SortIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+      d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
   </svg>
 )
 const EncarIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" strokeWidth={2}/>
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8M12 8l4 4-4 4"/>
+    <circle cx="12" cy="12" r="10" strokeWidth={2} />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8M12 8l4 4-4 4" />
   </svg>
 )
 const WaGroupIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
   </svg>
 )
 
@@ -45,31 +45,31 @@ const WaGroupIcon = () => (
 // Маппинг из snake_case (БД) в camelCase (CarCard)
 function mapCar(c) {
   return {
-    id:               c.id,
-    name:             c.name,
-    model:            c.model,
-    year:             c.year,
-    mileage:          c.mileage || 0,
-    tags:             c.tags || [],
-    bodyColor:        c.body_color,
-    bodyColorDots:    c.body_color_dots || [],
-    interiorColor:    c.interior_color,
-    interiorColorDots:c.interior_color_dots || [],
-    location:         c.location,
-    vin:              c.vin,
-    priceKRW:         Number(c.price_krw) || 0,
-    priceUSD:         Number(c.price_usd) || 0,
-    commission:       Number(c.commission) || 200,
-    delivery:         Number(c.delivery) || 0,
-    loading:          Number(c.loading) || 0,
-    unloading:        Number(c.unloading) || 0,
-    storage:          Number(c.storage) || 0,
-    vatRefund:        Number(c.vat_refund) || 0,
-    total:            Number(c.total) || 0,
-    encarUrl:         c.encar_url,
-    canNegotiate:     c.can_negotiate,
-    imageCount:       (c.images || []).length || 1,
-    images:           c.images || [],
+    id: c.id,
+    name: c.name,
+    model: c.model,
+    year: c.year,
+    mileage: c.mileage || 0,
+    tags: c.tags || [],
+    bodyColor: c.body_color,
+    bodyColorDots: c.body_color_dots || [],
+    interiorColor: c.interior_color,
+    interiorColorDots: c.interior_color_dots || [],
+    location: c.location,
+    vin: c.vin,
+    priceKRW: Number(c.price_krw) || 0,
+    priceUSD: Number(c.price_usd) || 0,
+    commission: Number(c.commission) || 200,
+    delivery: Number(c.delivery) || 0,
+    loading: Number(c.loading) || 0,
+    unloading: Number(c.unloading) || 0,
+    storage: Number(c.storage) || 0,
+    vatRefund: Number(c.vat_refund) || 0,
+    total: Number(c.total) || 0,
+    encarUrl: c.encar_url,
+    canNegotiate: c.can_negotiate,
+    imageCount: (c.images || []).length || 1,
+    images: c.images || [],
   }
 }
 
@@ -83,7 +83,7 @@ export default function CatalogPage() {
   const [filters, setFilters] = useState({})
   const [page, setPage] = useState(1)
 
-  const fetchCars = async () => {
+  const fetchCars = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -103,10 +103,9 @@ export default function CatalogPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [sort, page, filters])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useState(() => { fetchCars() }, [])
+  useEffect(() => { fetchCars() }, [fetchCars])
 
   return (
     <div className="catalog-page">
@@ -167,7 +166,7 @@ export default function CatalogPage() {
               <select
                 className="cat-sort"
                 value={sort}
-                onChange={e => { setSort(e.target.value); setPage(1); fetchCars() }}
+                onChange={e => { setSort(e.target.value); setPage(1) }}
               >
                 <option value="newest">Новые объявления</option>
                 <option value="price_asc">Цена ↑</option>
@@ -204,13 +203,13 @@ export default function CatalogPage() {
                   <button
                     className="cat-page-btn"
                     disabled={meta.page <= 1}
-                    onClick={() => { setPage(p => p - 1); fetchCars() }}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
                   >← Назад</button>
                   <span className="cat-page-info">Стр. {meta.page} / {meta.pages}</span>
                   <button
                     className="cat-page-btn"
                     disabled={meta.page >= meta.pages}
-                    onClick={() => { setPage(p => p + 1); fetchCars() }}
+                    onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
                   >Вперёд →</button>
                 </div>
               )}
