@@ -37,9 +37,39 @@ CREATE TABLE IF NOT EXISTS car_images (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Дополнительные колонки если не существуют
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(100);
+
 -- Индексы для быстрых фильтров
 CREATE INDEX IF NOT EXISTS idx_cars_price_usd  ON cars(price_usd);
 CREATE INDEX IF NOT EXISTS idx_cars_year       ON cars(year);
 CREATE INDEX IF NOT EXISTS idx_cars_mileage    ON cars(mileage);
 CREATE INDEX IF NOT EXISTS idx_cars_encar_id   ON cars(encar_id);
 CREATE INDEX IF NOT EXISTS idx_car_images_car  ON car_images(car_id);
+
+-- Опции фильтров (управляется через Админ → Фильтры)
+CREATE TABLE IF NOT EXISTS filter_options (
+  id         SERIAL PRIMARY KEY,
+  type       VARCHAR(50)  NOT NULL,   -- brand, fuel, drive, body, color_body, color_interior
+  name       VARCHAR(100) NOT NULL,
+  color_hex  VARCHAR(20),
+  border_hex VARCHAR(20),
+  sort_order INTEGER DEFAULT 0
+);
+
+-- Конфигурация и статистика парсера
+CREATE TABLE IF NOT EXISTS scraper_config (
+  id             INTEGER PRIMARY KEY DEFAULT 1,
+  schedule       VARCHAR(20)  DEFAULT 'manual',   -- manual | hourly | daily
+  daily_limit    INTEGER      DEFAULT 100,
+  start_hour     INTEGER      DEFAULT 10,          -- час запуска daily (0-23)
+  interval_hours INTEGER      DEFAULT 1,           -- каждые N часов (hourly)
+  is_active      BOOLEAN      DEFAULT false,
+  total_scraped  INTEGER      DEFAULT 0,
+  today_scraped  INTEGER      DEFAULT 0,
+  last_run       TIMESTAMPTZ,
+  updated_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+
+-- Единственная строка конфига
+INSERT INTO scraper_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

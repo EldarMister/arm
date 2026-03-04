@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import AdminEncar from '../components/admin/AdminEncar'
 
 /* ── SVG Icon ── */
 const Ic = ({ d, s = 18 }) => (
@@ -626,10 +627,11 @@ export default function AdminPage() {
     if (!auth) return <Login onLogin={() => { sessionStorage.setItem('adm', PASS); setAuth(true) }} />
 
     const nav = [
-        { id: 'dashboard', label: 'Дашборд', icon: IC.dash },
-        { id: 'cars', label: 'Автомобили', icon: IC.car },
-        { id: 'calc', label: 'Калькулятор', icon: IC.calc },
-        { id: 'settings', label: 'Настройки', icon: IC.set },
+        { id: 'dashboard', label: 'Дашборд',     icon: IC.dash },
+        { id: 'cars',      label: 'Автомобили',   icon: IC.car  },
+        { id: 'scraper',   label: 'Encar Парсер', icon: IC.bolt },
+        { id: 'calc',      label: 'Калькулятор',  icon: IC.calc },
+        { id: 'settings',  label: 'Настройки',    icon: IC.set  },
     ]
 
     const goTo = id => { setTab(id); if (id === 'cars') { setInitAdd(false) } }
@@ -663,7 +665,8 @@ export default function AdminPage() {
                 </header>
                 <main className="adm-content">
                     {tab === 'dashboard' && <Dashboard onGo={id => { goTo(id); if (id === 'cars') setInitAdd(true) }} />}
-                    {tab === 'cars' && <Cars toast={toast} initAdd={initAdd} />}
+                    {tab === 'cars'    && <Cars toast={toast} initAdd={initAdd} />}
+                    {tab === 'scraper' && <AdminEncar />}
                     {tab === 'calc' && (
                         <div>
                             <h2 className="adm-section-heading" style={{ marginBottom: 20 }}>🧮 Калькулятор</h2>
