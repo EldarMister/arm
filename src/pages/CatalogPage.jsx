@@ -41,90 +41,72 @@ const WaGroupIcon = () => (
   </svg>
 )
 
-const MOCK_CARS = [
-  {
-    id: 1,
-    name: 'Jeep Cherokee 3.6 Overland',
-    model: 'WK2',
-    year: '2021-01',
-    mileage: 128697,
-    tags: ['Внедорожники и кроссоверы', 'Автомат', 'Бензин', '4WD (Полный)'],
-    bodyColor: 'Черный',
-    bodyColorDots: ['#1c1c1c', '#2d2d2d'],
-    interiorColor: 'Серия черного цвета',
-    interiorColorDots: ['#1c1c1c', '#3d3d3d'],
-    location: 'Incheon',
-    vin: '1C4RJFCG9MC529077',
-    priceKRW: 22300000,
-    priceUSD: 15712,
-    commission: 300,
-    delivery: 1750,
-    loading: 0,
-    unloading: 100,
-    storage: 310,
-    vatRefund: 990,
-    total: 17182,
-    imageCount: 20,
-    canNegotiate: true,
-    encarUrl: 'https://www.encar.com',
-  },
-  {
-    id: 2,
-    name: 'Hyundai Sonata 2.0 Luxury',
-    model: 'DN8',
-    year: '2022-03',
-    mileage: 45230,
-    tags: ['Седан', 'Автомат', 'Бензин', 'FWD (Передний)'],
-    bodyColor: 'Серебристый',
-    bodyColorDots: ['#c0c0c0', '#a8a8a8'],
-    interiorColor: 'Бежевый',
-    interiorColorDots: ['#d4b483', '#c4a46e'],
-    location: 'Seoul',
-    vin: 'KMHL14JA6PA123456',
-    priceKRW: 18500000,
-    priceUSD: 13028,
-    commission: 300,
-    delivery: 1750,
-    loading: 0,
-    unloading: 100,
-    storage: 200,
-    vatRefund: 822,
-    total: 14556,
-    imageCount: 15,
-    canNegotiate: false,
-    encarUrl: 'https://www.encar.com',
-  },
-  {
-    id: 3,
-    name: 'Kia K5 2.5 GT-Line',
-    model: 'DL3',
-    year: '2023-06',
-    mileage: 18500,
-    tags: ['Седан', 'Автомат', 'Бензин', 'FWD (Передний)'],
-    bodyColor: 'Белый',
-    bodyColorDots: ['#f0f0f0', '#e0e0e0'],
-    interiorColor: 'Черный',
-    interiorColorDots: ['#1c1c1c', '#2d2d2d'],
-    location: 'Busan',
-    vin: 'KNAGM4A73P5234567',
-    priceKRW: 25800000,
-    priceUSD: 18169,
-    commission: 300,
-    delivery: 1750,
-    loading: 0,
-    unloading: 100,
-    storage: 150,
-    vatRefund: 1145,
-    total: 19324,
-    imageCount: 18,
-    canNegotiate: true,
-    encarUrl: 'https://www.encar.com',
-  },
-]
+
+// Маппинг из snake_case (БД) в camelCase (CarCard)
+function mapCar(c) {
+  return {
+    id:               c.id,
+    name:             c.name,
+    model:            c.model,
+    year:             c.year,
+    mileage:          c.mileage || 0,
+    tags:             c.tags || [],
+    bodyColor:        c.body_color,
+    bodyColorDots:    c.body_color_dots || [],
+    interiorColor:    c.interior_color,
+    interiorColorDots:c.interior_color_dots || [],
+    location:         c.location,
+    vin:              c.vin,
+    priceKRW:         Number(c.price_krw) || 0,
+    priceUSD:         Number(c.price_usd) || 0,
+    commission:       Number(c.commission) || 200,
+    delivery:         Number(c.delivery) || 0,
+    loading:          Number(c.loading) || 0,
+    unloading:        Number(c.unloading) || 0,
+    storage:          Number(c.storage) || 0,
+    vatRefund:        Number(c.vat_refund) || 0,
+    total:            Number(c.total) || 0,
+    encarUrl:         c.encar_url,
+    canNegotiate:     c.can_negotiate,
+    imageCount:       (c.images || []).length || 1,
+    images:           c.images || [],
+  }
+}
 
 export default function CatalogPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sort, setSort] = useState('newest')
+  const [cars, setCars] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 })
+  const [filters, setFilters] = useState({})
+  const [page, setPage] = useState(1)
+
+  const fetchCars = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams({
+        sort,
+        page,
+        limit: 20,
+        ...filters,
+      })
+      const res = await fetch(`/api/cars?${params}`)
+      if (!res.ok) throw new Error('Ошибка загрузки')
+      const data = await res.json()
+      setCars(data.cars.map(mapCar))
+      setMeta({ total: data.total, page: data.page, pages: data.pages })
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => { fetchCars() }, [])
 
   return (
     <div className="catalog-page">
@@ -142,25 +124,25 @@ export default function CatalogPage() {
 
       <div className="cat-layout">
 
-        {/* Sidebar — desktop always visible, mobile toggled */}
+        {/* Sidebar */}
         <aside className={`cat-sidebar${sidebarOpen ? ' cat-sidebar-open' : ''}`}>
-          <FilterSidebar onClose={() => setSidebarOpen(false)} />
+          <FilterSidebar
+            filters={filters}
+            onFiltersChange={f => { setFilters(f); setPage(1); }}
+            onClose={() => setSidebarOpen(false)}
+          />
         </aside>
 
-        {/* Overlay behind mobile sidebar */}
         {sidebarOpen && (
           <div className="cat-sidebar-overlay" onClick={() => setSidebarOpen(false)} />
         )}
 
-        {/* Main content */}
         <main className="cat-main">
 
-          {/* Mobile filter button */}
           <button className="cat-filter-btn" onClick={() => setSidebarOpen(true)}>
             <FilterIcon /> Фильтры
           </button>
 
-          {/* Top action buttons */}
           <div className="cat-top-btns">
             <a href="https://www.encar.com" target="_blank" rel="noreferrer" className="btn-encar">
               <EncarIcon /> Encar
@@ -170,38 +152,70 @@ export default function CatalogPage() {
             </a>
           </div>
 
-          {/* Title */}
           <h1 className="cat-title">Каталог автомобилей — Корея</h1>
           <p className="cat-subtitle">Список машин с Encar (переводы ru/en/ko)</p>
 
-          {/* Results bar */}
           <div className="cat-results-bar">
             <div>
               <div className="cat-results-heading">Доступные автомобили</div>
-              <div className="cat-results-count">Найдено: 76 211 • Показано: 50</div>
+              <div className="cat-results-count">
+                {loading ? 'Загрузка...' : `Найдено: ${meta.total.toLocaleString()} • Стр. ${meta.page} из ${meta.pages}`}
+              </div>
             </div>
             <div className="cat-sort-wrap">
               <SortIcon />
               <select
                 className="cat-sort"
                 value={sort}
-                onChange={e => setSort(e.target.value)}
+                onChange={e => { setSort(e.target.value); setPage(1); fetchCars() }}
               >
                 <option value="newest">Новые объявления</option>
                 <option value="price_asc">Цена ↑</option>
                 <option value="price_desc">Цена ↓</option>
-                <option value="mileage_asc">Пробег ↑</option>
+                <option value="mileage">Пробег ↑</option>
                 <option value="year_desc">Год ↓</option>
               </select>
             </div>
           </div>
 
-          {/* Car list */}
-          <div className="cars-list">
-            {MOCK_CARS.map(car => (
-              <CarCard key={car.id} car={car} />
-            ))}
-          </div>
+          {error && (
+            <div className="cat-error">
+              ⚠️ {error} — <button onClick={fetchCars}>Повторить</button>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="cat-loading">
+              <div className="cat-loading-spinner" />
+              <span>Загрузка автомобилей...</span>
+            </div>
+          ) : (
+            <>
+              <div className="cars-list">
+                {cars.length === 0 ? (
+                  <div className="cat-empty">Автомобили не найдены. Измените фильтры.</div>
+                ) : (
+                  cars.map(car => <CarCard key={car.id} car={car} />)
+                )}
+              </div>
+
+              {meta.pages > 1 && (
+                <div className="cat-pagination">
+                  <button
+                    className="cat-page-btn"
+                    disabled={meta.page <= 1}
+                    onClick={() => { setPage(p => p - 1); fetchCars() }}
+                  >← Назад</button>
+                  <span className="cat-page-info">Стр. {meta.page} / {meta.pages}</span>
+                  <button
+                    className="cat-page-btn"
+                    disabled={meta.page >= meta.pages}
+                    onClick={() => { setPage(p => p + 1); fetchCars() }}
+                  >Вперёд →</button>
+                </div>
+              )}
+            </>
+          )}
 
         </main>
       </div>

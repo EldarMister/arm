@@ -1,29 +1,4 @@
-const FooterLogoV = () => (
-  <svg
-    className="logo-v-svg"
-    viewBox="0 0 30 32"
-    width="26"
-    height="32"
-    style={{ overflow: 'visible', display: 'block' }}
-  >
-    <defs>
-      <linearGradient id="ftVRed" x1="0.9" y1="0" x2="0.1" y2="1">
-        <stop offset="0%"   stopColor="#ff5252" />
-        <stop offset="30%"  stopColor="#e53935" />
-        <stop offset="65%"  stopColor="#b71c1c" />
-        <stop offset="100%" stopColor="#7f0000" />
-      </linearGradient>
-    </defs>
-    <polygon
-      points="0,12 9,32 15,32 24,10 18,10 12,30 6,12"
-      fill="url(#ftVRed)"
-    />
-    <polygon
-      points="13,11 29,11 23,-12"
-      fill="url(#ftVRed)"
-    />
-  </svg>
-)
+import logoImg from '../../assets/logo.png'
 
 const PhoneIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,12 +174,7 @@ export default function Footer() {
           <div className="footer-col">
             <div className="footer-brand">
               <div className="footer-logo">
-                <div style={{ display: 'flex', alignItems: 'flex-end', lineHeight: 1 }}>
-                  <span className="logo-a">A</span>
-                  <FooterLogoV />
-                  <span className="logo-t">T</span>
-                </div>
-                <span className="logo-sub">Auto V Korea</span>
+                <img src={logoImg} alt="AVT Auto V Korea" className="footer-logo-img" />
               </div>
               <h3 className="footer-col-title" style={{ marginTop: '12px' }}>О нас</h3>
               <p className="footer-about-text">
