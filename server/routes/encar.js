@@ -128,9 +128,9 @@ router.get('/:encarId', async (req, res) => {
     console.error('Encar parse error:', err.message)
     const status = err?.response?.status
     if (status === 404) {
-      return res.status(404).json({ error: 'Автомобиль не найден в Encar API' })
+      return res.status(404).json({ error: 'РђРІС‚РѕРјРѕР±РёР»СЊ РЅРµ РЅР°Р№РґРµРЅ РІ Encar API' })
     }
-    return res.status(500).json({ error: 'Ошибка парсинга Encar', details: err.message })
+    return res.status(500).json({ error: 'РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° Encar', details: err.message })
   }
 })
 
