@@ -3,7 +3,7 @@ import { fetchCarList, extractPhotoUrls, probePhotoUrls, sleep } from './encarAp
 import { downloadPhotos } from './downloader.js'
 import {
   MANUFACTURER_MAP, FUEL_MAP, GEAR_MAP, COLOR_MAP,
-  tr, parseYear, priceToKRW, krwToUsd,
+  tr, parseYear, priceToKRW, krwToUsd, translateVehicleText, hasHangul,
 } from './translator.js'
 import { state } from './state.js'
 
@@ -12,8 +12,8 @@ const PAGE_SIZE = 20
 // ─── Map raw Encar car to our DB shape ───────────────────────────────────────
 function mapCar(raw) {
   const rawManufacturer = String(raw.Manufacturer || '').trim()
-  const model = raw.Model || ''
-  const badge = raw.Badge || ''
+  const model = translateVehicleText(raw.Model || '')
+  const badge = translateVehicleText(raw.Badge || '')
   const year = parseYear(raw.Year)
   const mileage = Number(raw.Mileage) || 0
   const price_krw = priceToKRW(raw.Price)
@@ -25,8 +25,10 @@ function mapCar(raw) {
   const interior_color = tr(COLOR_MAP, interior_raw)
   const encar_id = String(raw.Id || '')
   const encar_url = `https://www.encar.com/dc/dc_cardetailview.do?carid=${raw.Id}`
-  const hasHangulInModel = /[\uAC00-\uD7A3]/.test(`${model} ${badge}`)
-  const manufacturer = hasHangulInModel ? rawManufacturer : tr(MANUFACTURER_MAP, rawManufacturer)
+  const translatedManufacturer = tr(MANUFACTURER_MAP, rawManufacturer)
+  const manufacturer = hasHangul(translatedManufacturer)
+    ? translateVehicleText(translatedManufacturer)
+    : translatedManufacturer
 
   const name = [manufacturer, model, badge].filter(Boolean).join(' ')
 
