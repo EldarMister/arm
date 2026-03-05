@@ -103,6 +103,34 @@ function shouldReplaceText(value) {
   return !text || text === '-' || hasHangulText(text)
 }
 
+function normalizeColorLabel(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const low = text.toLowerCase()
+  const compact = low.replace(/[\s_-]/g, '')
+
+  if (low.includes('black') || /^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(compact)) return 'Черный'
+  if (low.includes('white') || /^(baegsaek|huinsaek)$/.test(compact)) return 'Белый'
+  if (low.includes('silver') || /^(eunsaek)$/.test(compact)) return 'Серебристый'
+  if (low.includes('gray') || low.includes('grey') || /^(hoesaek|jwisaek)$/.test(compact)) return 'Серый'
+  if (low.includes('blue') || /^(cheongsaek|parangsaek)$/.test(compact)) return 'Синий'
+  if (low.includes('red') || /^(ppalgangsaek|hongsaek)$/.test(compact)) return 'Красный'
+  if (low.includes('green') || /^(noksaek|choroksaek)$/.test(compact)) return 'Зеленый'
+  if (low.includes('brown') || /^(galsaek)$/.test(compact)) return 'Коричневый'
+  if (low.includes('beige') || /^(beijisaek)$/.test(compact)) return 'Бежевый'
+  if (low.includes('yellow') || /^(norangsaek)$/.test(compact)) return 'Желтый'
+  if (low.includes('orange') || /^(juhwangsaek)$/.test(compact)) return 'Оранжевый'
+  if (low.includes('purple') || low.includes('violet') || /^(borasaek)$/.test(compact)) return 'Фиолетовый'
+
+  return text
+}
+
+function shouldReplaceColor(value) {
+  const text = String(value || '').trim()
+  if (shouldReplaceText(text)) return true
+  return /^[a-z]+saek$/i.test(text.replace(/[\s_-]/g, ''))
+}
+
 function toAbsoluteImageUrl(raw) {
   if (!raw) return ''
   const url = String(raw).trim()
@@ -149,8 +177,8 @@ function mapCar(c) {
     year: c.year || '-',
     yearNum: parseYear(c.year),
     mileage: Number(c.mileage || 0),
-    bodyColor: c.body_color || '-',
-    interiorColor: c.interior_color || c.body_color || '-',
+    bodyColor: normalizeColorLabel(c.body_color || '-'),
+    interiorColor: normalizeColorLabel(c.interior_color || c.body_color || '-'),
     location: c.location || 'Корея',
     vin: c.vin || '-',
     tags,
@@ -194,8 +222,8 @@ function mergeCarWithEncar(baseCar, detail) {
     year,
     yearNum: parseYear(year),
     mileage: baseCar.mileage || Number(detail?.mileage || 0),
-    bodyColor: shouldReplaceText(baseCar.bodyColor) ? (detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
-    interiorColor: shouldReplaceText(baseCar.interiorColor) ? (detail?.interior_color || baseCar.interiorColor || '-') : baseCar.interiorColor,
+    bodyColor: shouldReplaceColor(baseCar.bodyColor) ? normalizeColorLabel(detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
+    interiorColor: shouldReplaceColor(baseCar.interiorColor) ? normalizeColorLabel(detail?.interior_color || baseCar.interiorColor || '-') : baseCar.interiorColor,
     location: (baseCar.location === 'Корея' || shouldReplaceText(baseCar.location)) ? (detail?.location || baseCar.location) : baseCar.location,
     vin: baseCar.vin === '-' ? (detail?.vin || detail?.vehicle_no || '-') : baseCar.vin,
     fuelType: shouldReplaceText(baseCar.fuelType) ? (detail?.fuel_type || baseCar.fuelType || '') : baseCar.fuelType,

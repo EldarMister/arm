@@ -66,6 +66,7 @@ function normalizeColor(value) {
   const text = String(value || '').trim()
   if (!text) return ''
   const low = text.toLowerCase()
+  const compact = low.replace(/[\s_-]/g, '')
 
   if (low.includes('black') || text.includes('검정') || text.includes('블랙')) return 'Черный'
   if (low.includes('white') || text.includes('흰') || text.includes('백색') || text.includes('화이트')) return 'Белый'
@@ -79,6 +80,21 @@ function normalizeColor(value) {
   if (low.includes('yellow') || text.includes('노랑') || text.includes('옐로')) return 'Желтый'
   if (low.includes('orange') || text.includes('주황') || text.includes('오렌지')) return 'Оранжевый'
   if (low.includes('purple') || text.includes('보라') || text.includes('퍼플')) return 'Фиолетовый'
+
+  // Romanized Korean colors from Encar data (e.g. Jwisaek, Cheongsaek).
+  if (/^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(compact)) return 'Черный'
+  if (/^(baegsaek|huinsaek)$/.test(compact)) return 'Белый'
+  if (/^(eunsaek)$/.test(compact)) return 'Серебристый'
+  if (/^(hoesaek|jwisaek)$/.test(compact)) return 'Серый'
+  if (/^(cheongsaek|parangsaek)$/.test(compact)) return 'Синий'
+  if (/^(ppalgangsaek|hongsaek)$/.test(compact)) return 'Красный'
+  if (/^(noksaek|choroksaek)$/.test(compact)) return 'Зеленый'
+  if (/^(galsaek)$/.test(compact)) return 'Коричневый'
+  if (/^(beijisaek)$/.test(compact)) return 'Бежевый'
+  if (/^(norangsaek)$/.test(compact)) return 'Желтый'
+  if (/^(juhwangsaek)$/.test(compact)) return 'Оранжевый'
+  if (/^(borasaek)$/.test(compact)) return 'Фиолетовый'
+
   return normalizeText(text)
 }
 
