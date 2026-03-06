@@ -201,6 +201,9 @@ function normalizeDisplayText(value) {
 }
 
 const VEHICLE_NAME_FIXES = [
+  [/renault[-\s]*korea\s*\(\s*samseong\s*\)/gi, 'Renault Korea'],
+  [/renault[-\s]*korea\s*samsung/gi, 'Renault Korea'],
+  [/renault samsung/gi, 'Renault Korea'],
   [/kgmobilriti\s*\(\s*ssangyong\s*\)/gi, 'KG Mobility (SsangYong)'],
   [/kgmobilriti/gi, 'KG Mobility'],
   [/ssangyong/gi, 'SsangYong'],
@@ -266,6 +269,32 @@ function normalizeTags(tags) {
     if (!out.includes(normalized)) out.push(normalized)
   }
   return out
+}
+
+function pickTransmissionFromTags(tags) {
+  return tags.find((tag) => /(автомат|механика|робот|cvt)/i.test(String(tag))) || ''
+}
+
+function normalizeBodyTypeLabel(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const low = text.toLowerCase()
+
+  if (/gyeong(?:hyeong)?cha/i.test(text) || text.includes('\uACBD\uCC28')) return '\u041C\u0438\u043D\u0438'
+  if (/sohyeongcha/i.test(text) || text.includes('\uC18C\uD615\uCC28')) return '\u041C\u0430\u043B\u044B\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/junjunghyeongcha/i.test(text) || text.includes('\uC900\uC911\uD615\uCC28')) return '\u041A\u043E\u043C\u043F\u0430\u043A\u0442\u043D\u044B\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/junghyeongcha/i.test(text) || text.includes('\uC911\uD615\uCC28')) return '\u0421\u0440\u0435\u0434\u043D\u0438\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/daehyeongcha/i.test(text) || text.includes('\uB300\uD615\uCC28')) return '\u0411\u0438\u0437\u043D\u0435\u0441-\u043A\u043B\u0430\u0441\u0441'
+  if (low.includes('pickup') || text.includes('\uD53D\uC5C5')) return '\u041F\u0438\u043A\u0430\u043F'
+  if (low.includes('truck') || low.includes('cargo') || text.includes('\uD654\uBB3C')) return '\u0413\u0440\u0443\u0437\u043E\u0432\u043E\u0439 / \u043F\u0438\u043A\u0430\u043F'
+  if (low === 'rv' || low.includes('suv')) return 'SUV'
+  if (low.includes('sedan') || text.includes('\uC138\uB2E8')) return '\u0421\u0435\u0434\u0430\u043D'
+  if (low.includes('coupe') || text.includes('\uCFE0\uD398')) return '\u041A\u0443\u043F\u0435'
+  if (low.includes('hatch') || text.includes('\uD574\uCE58\uBC31')) return '\u0425\u044D\u0442\u0447\u0431\u0435\u043A'
+  if (low.includes('wagon') || text.includes('\uC65C\uAC74')) return '\u0423\u043D\u0438\u0432\u0435\u0440\u0441\u0430\u043B'
+  if (low.includes('van') || low.includes('minivan') || text.includes('\uBC34')) return '\u0412\u044D\u043D'
+
+  return normalizeDisplayText(text)
 }
 
 function normalizeColorLabel(value) {
@@ -378,6 +407,17 @@ function mapCar(c) {
   }
 }
 
+function mapCarWithNormalizedSpecs(c) {
+  const base = mapCar(c)
+  const tags = normalizeTags(Array.isArray(c?.tags) ? c.tags : [])
+
+  return {
+    ...base,
+    bodyType: normalizeBodyTypeLabel(c?.body_type || base.bodyType || '-') || '-',
+    transmission: normalizeTagLabel(c?.transmission || '') || pickTransmissionFromTags(tags) || base.transmission || '-',
+  }
+}
+
 function mergeCarWithEncar(baseCar, detail) {
   const detailImages = normalizeImages(detail?.photos?.length ? detail.photos : detail?.images)
   const baseImages = normalizeImages(baseCar.images)
@@ -417,6 +457,16 @@ function mergeCarWithEncar(baseCar, detail) {
   }
 }
 
+function mergeCarWithNormalizedEncar(baseCar, detail) {
+  const merged = mergeCarWithEncar(baseCar, detail)
+
+  return {
+    ...merged,
+    bodyType: normalizeBodyTypeLabel(detail?.body_type || merged.bodyType || '-') || merged.bodyType || '-',
+    transmission: normalizeTagLabel(detail?.transmission || '') || merged.transmission || '-',
+  }
+}
+
 export default function CarDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -437,7 +487,7 @@ export default function CarDetailsPage() {
         const data = await res.json()
         if (!active) return
 
-        const mapped = mapCar(data)
+        const mapped = mapCarWithNormalizedSpecs(data)
         const fuel = detectFuel(data)
         setCar(mapped)
         setImgIdx(0)
@@ -451,7 +501,7 @@ export default function CarDetailsPage() {
             const detail = await detailRes.json()
             if (!active) return
 
-            setCar((prev) => (prev ? mergeCarWithEncar(prev, detail) : prev))
+            setCar((prev) => (prev ? mergeCarWithNormalizedEncar(prev, detail) : prev))
             setImgIdx(0)
             setCalc((prev) => ({
               ...prev,

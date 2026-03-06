@@ -34,6 +34,15 @@ const KO = {
   orange: '\uC8FC\uD669',
   yellow: '\uB178\uB791',
   purple: '\uBCF4\uB77C',
+  sedan: '\uC138\uB2E8',
+  hatchback: '\uD574\uCE58\uBC31',
+  wagon: '\uC65C\uAC74',
+  minivan: '\uBBF8\uB2C8\uBC34',
+  van: '\uBC34',
+  coupe: '\uCFE0\uD398',
+  truck: '\uD2B8\uB7ED',
+  cargo: '\uD654\uBB3C',
+  crossover: '\uD06C\uB85C\uC2A4\uC624\uBC84',
 }
 
 function hasHangul(value) {
@@ -53,6 +62,9 @@ function normalizeDisplayText(value) {
 }
 
 const VEHICLE_NAME_FIXES = [
+  [/renault[-\s]*korea\s*\(\s*samseong\s*\)/gi, 'Renault Korea'],
+  [/renault[-\s]*korea\s*samsung/gi, 'Renault Korea'],
+  [/renault samsung/gi, 'Renault Korea'],
   [/kgmobilriti\s*\(\s*ssangyong\s*\)/gi, 'KG Mobility (SsangYong)'],
   [/kgmobilriti/gi, 'KG Mobility'],
   [/ssangyong/gi, 'SsangYong'],
@@ -138,7 +150,14 @@ function normalizeBodyTypeLabel(value) {
   if (!text) return ''
   const low = text.toLowerCase()
 
-  if (low.includes('truck') || low.includes('cargo') || low.includes('\u0433\u0440\u0443\u0437') || hasAnyToken(text, [KO.truck, KO.cargo])) return '\u0413\u0440\u0443\u0437\u043e\u0432\u0438\u043a'
+  if (/gyeong(?:hyeong)?cha/i.test(text) || text.includes('\uACBD\uCC28')) return '\u041C\u0438\u043D\u0438'
+  if (/sohyeongcha/i.test(text) || text.includes('\uC18C\uD615\uCC28')) return '\u041C\u0430\u043B\u044B\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/junjunghyeongcha/i.test(text) || text.includes('\uC900\uC911\uD615\uCC28')) return '\u041A\u043E\u043C\u043F\u0430\u043A\u0442\u043D\u044B\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/junghyeongcha/i.test(text) || text.includes('\uC911\uD615\uCC28')) return '\u0421\u0440\u0435\u0434\u043D\u0438\u0439 \u043A\u043B\u0430\u0441\u0441'
+  if (/daehyeongcha/i.test(text) || text.includes('\uB300\uD615\uCC28')) return '\u0411\u0438\u0437\u043D\u0435\u0441-\u043A\u043B\u0430\u0441\u0441'
+  if (low.includes('pickup') || text.includes('\uD53D\uC5C5')) return '\u041F\u0438\u043A\u0430\u043F'
+  if (low.includes('truck') || low.includes('cargo') || low.includes('\u0433\u0440\u0443\u0437') || hasAnyToken(text, [KO.truck, KO.cargo])) return '\u0413\u0440\u0443\u0437\u043E\u0432\u043E\u0439 / \u043F\u0438\u043A\u0430\u043F'
+  if (low === 'rv') return 'SUV'
   if (low.includes('suv') || low.includes('\u0432\u043d\u0435\u0434\u043e\u0440\u043e\u0436') || low.includes('\u043a\u0440\u043e\u0441\u0441') || hasAnyToken(text, [KO.crossover])) return 'SUV'
   if (low.includes('sedan') || low.includes('\u0441\u0435\u0434\u0430\u043d') || hasAnyToken(text, [KO.sedan])) return '\u0421\u0435\u0434\u0430\u043d'
   if (low.includes('hatch') || low.includes('\u0445\u044d\u0442\u0447') || hasAnyToken(text, [KO.hatchback])) return '\u0425\u044d\u0442\u0447\u0431\u0435\u043a'
@@ -228,6 +247,8 @@ function buildCarUpdatePatch(prevCar, nextCar) {
 
   if (nextCar.name && nextCar.name !== prevCar.name) patch.name = nextCar.name
   if (nextCar.model && nextCar.model !== prevCar.model) patch.model = nextCar.model
+  if (nextCar.transmission && nextCar.transmission !== prevCar.transmission) patch.transmission = nextCar.transmission
+  if (nextCar.bodyType && nextCar.bodyType !== prevCar.bodyType) patch.body_type = nextCar.bodyType
   if (nextCar.bodyColor && nextCar.bodyColor !== prevCar.bodyColor) patch.body_color = nextCar.bodyColor
   if (nextCar.interiorColor && nextCar.interiorColor !== prevCar.interiorColor) patch.interior_color = nextCar.interiorColor
   if (nextCar.location && nextCar.location !== prevCar.location) patch.location = nextCar.location
@@ -274,6 +295,8 @@ function hasWeakImages(car) {
 function needsEncarEnrichment(car) {
   if (!car?.encarId || car.encarId === '-') return false
   return (
+    !car.transmission || car.transmission === '-' ||
+    !car.bodyType || car.bodyType === '-' ||
     hasWeakImages(car) ||
     shouldUpgradeVehicleTitle(car.name) ||
     shouldUpgradeVehicleTitle(car.model) ||
@@ -377,7 +400,7 @@ function mapCar(c) {
   const normalizedLocation = normalizeDisplayText(c.location || '\u041a\u043e\u0440\u0435\u044f')
   const tags = normalizeTags(c.tags || [])
   const fuelType = normalizeTagLabel(c.fuel_type || '') || pickFuelFromTags(tags) || '-'
-  const transmission = pickTransmissionFromTags(tags) || '-'
+  const transmission = normalizeTagLabel(c.transmission || '') || pickTransmissionFromTags(tags) || '-'
   const bodyType = normalizeBodyTypeLabel(c.body_type || '') || '-'
 
   return {

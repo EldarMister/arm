@@ -33,8 +33,14 @@ function normalizeText(value) {
 }
 
 function normalizeManufacturer(value) {
-  const text = normalizeText(value)
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (/renault[-\s]*korea\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(raw)) return 'Renault Korea'
+
+  const text = normalizeText(raw)
   if (!text) return ''
+  if (/renault[-\s]*korea\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(text)) return 'Renault Korea'
+  if (/renault\s*samsung/i.test(text)) return 'Renault Korea'
   if (/kgmobilriti/i.test(text) || /kg mobility/i.test(text)) return 'KG Mobility (SsangYong)'
   if (/ssangyong/i.test(text)) return 'SsangYong'
   return text
@@ -100,17 +106,28 @@ function normalizeColor(value) {
 }
 
 function normalizeBodyType(value) {
-  const text = String(value || '').trim()
-  if (!text) return ''
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+
+  const text = normalizeText(raw)
   const low = text.toLowerCase()
-  if (low.includes('suv')) return 'SUV'
-  if (low.includes('sedan') || text.includes('세단')) return 'Седан'
-  if (low.includes('coupe') || text.includes('쿠페')) return 'Купе'
-  if (low.includes('hatch') || text.includes('해치백')) return 'Хэтчбек'
-  if (low.includes('wagon') || text.includes('왜건')) return 'Универсал'
-  if (low.includes('van') || low.includes('minivan') || text.includes('밴')) return 'Вэн'
-  if (low.includes('truck') || text.includes('화물')) return 'Грузовик'
-  return normalizeText(text)
+
+  if (low.includes('suv') || low === 'rv') return 'SUV'
+  if (low.includes('sedan') || raw.includes('세단')) return 'Седан'
+  if (low.includes('coupe') || raw.includes('쿠페')) return 'Купе'
+  if (low.includes('hatch') || raw.includes('해치백')) return 'Хэтчбек'
+  if (low.includes('wagon') || raw.includes('왜건')) return 'Универсал'
+  if (low.includes('van') || low.includes('minivan') || raw.includes('밴') || raw.includes('승합')) return 'Вэн'
+  if (low.includes('pickup') || raw.includes('픽업')) return 'Пикап'
+  if (low.includes('truck') || low.includes('cargo') || raw.includes('화물')) return 'Грузовой / пикап'
+
+  if (/gyeong(?:hyeong)?cha/i.test(text) || raw.includes('경차')) return 'Мини'
+  if (/sohyeongcha/i.test(text) || raw.includes('소형차')) return 'Малый класс'
+  if (/junjunghyeongcha/i.test(text) || raw.includes('준중형차')) return 'Компактный класс'
+  if (/junghyeongcha/i.test(text) || raw.includes('중형차')) return 'Средний класс'
+  if (/daehyeongcha/i.test(text) || raw.includes('대형차')) return 'Бизнес-класс'
+
+  return text
 }
 
 router.get('/:encarId', async (req, res) => {

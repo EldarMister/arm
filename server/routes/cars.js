@@ -415,6 +415,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       name, model, year, mileage,
+      fuel_type, transmission, body_type,
       body_color, body_color_dots,
       interior_color, interior_color_dots,
       location, vin,
@@ -426,14 +427,16 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO cars
         (name, model, year, mileage,
+         fuel_type, transmission, body_type,
          body_color, body_color_dots, interior_color, interior_color_dots,
          location, vin, price_krw, price_usd,
          commission, delivery, loading, unloading, storage, vat_refund, total,
          encar_url, encar_id, can_negotiate, tags)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
        RETURNING *`,
       [
         name, model, year, mileage || 0,
+        fuel_type, transmission, body_type,
         body_color, body_color_dots || [], interior_color, interior_color_dots || [],
         location, vin, price_krw || 0, price_usd || 0,
         commission || 200, delivery || 0, loading || 0, unloading || 0,
@@ -452,6 +455,7 @@ router.put('/:id', async (req, res) => {
   try {
     const fields = [
       'name', 'model', 'year', 'mileage',
+      'fuel_type', 'transmission', 'body_type',
       'body_color', 'body_color_dots', 'interior_color', 'interior_color_dots',
       'location', 'vin', 'price_krw', 'price_usd',
       'commission', 'delivery', 'loading', 'unloading', 'storage', 'vat_refund', 'total',

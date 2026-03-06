@@ -19,7 +19,7 @@ function mapCar(raw) {
   const price_krw = priceToKRW(raw.Price)
   const price_usd = krwToUsd(price_krw)
   const fuel_type = tr(FUEL_MAP, raw.FuelType || '')
-  const gear_type = tr(GEAR_MAP, raw.GearType || '')
+  const gear_type = tr(GEAR_MAP, raw.Transmission || raw.GearType || '')
   const body_color = tr(COLOR_MAP, raw.Color || '')
   const interior_raw = raw.InteriorColor || raw.InnerColor || raw.TrimColor || raw.Color || ''
   const interior_color = tr(COLOR_MAP, interior_raw)
@@ -29,8 +29,12 @@ function mapCar(raw) {
   const manufacturer = hasHangul(translatedManufacturer)
     ? translateVehicleText(translatedManufacturer)
     : translatedManufacturer
+  const normalizedManufacturer = String(manufacturer || '')
+    .replace(/renault[-\s]*korea\s*\(\s*samseong\s*\)/gi, 'Renault Korea')
+    .replace(/renault[-\s]*korea\s*samsung/gi, 'Renault Korea')
+    .replace(/renault samsung/gi, 'Renault Korea')
 
-  const name = [manufacturer, model, badge].filter(Boolean).join(' ')
+  const name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ')
 
   const tags = []
   if (gear_type) tags.push(gear_type)
@@ -44,6 +48,7 @@ function mapCar(raw) {
     price_krw,
     price_usd,
     fuel_type,
+    transmission: gear_type,
     body_color,
     interior_color,
     location: 'Корея',
@@ -84,14 +89,14 @@ async function insertCar(car, photoUrls) {
 
   const res = await pool.query(
     `INSERT INTO cars
-       (name, model, year, mileage, price_krw, price_usd, fuel_type,
+       (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission,
         body_color, interior_color, location, encar_url, encar_id, tags, can_negotiate,
         commission, delivery, loading, unloading, storage, vat_refund, total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
      RETURNING id`,
     [
       car.name, car.model, car.year, car.mileage,
-      car.price_krw, car.price_usd, car.fuel_type,
+      car.price_krw, car.price_usd, car.fuel_type, car.transmission,
       car.body_color, car.interior_color, car.location, car.encar_url,
       car.encar_id, car.tags, car.can_negotiate,
       car.commission, car.delivery, car.loading, car.unloading, car.storage, car.vat_refund, total,
