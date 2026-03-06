@@ -1,29 +1,33 @@
 const ShieldIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+    />
   </svg>
 )
 
 const ClockIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" strokeWidth={1.8}/>
-    <polyline points="12 6 12 12 16 14" strokeWidth={1.8} strokeLinecap="round"/>
+    <circle cx="12" cy="12" r="10" strokeWidth={1.8} />
+    <polyline points="12 6 12 12 16 14" strokeWidth={1.8} strokeLinecap="round" />
   </svg>
 )
 
 const PercentIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
-    <line x1="19" y1="5" x2="5" y2="19" strokeWidth={1.8} strokeLinecap="round"/>
-    <circle cx="6.5" cy="6.5" r="2.5" strokeWidth={1.8}/>
-    <circle cx="17.5" cy="17.5" r="2.5" strokeWidth={1.8}/>
+    <line x1="19" y1="5" x2="5" y2="19" strokeWidth={1.8} strokeLinecap="round" />
+    <circle cx="6.5" cy="6.5" r="2.5" strokeWidth={1.8} />
+    <circle cx="17.5" cy="17.5" r="2.5" strokeWidth={1.8} />
   </svg>
 )
 
 const MoneyIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
-    <rect x="2" y="5" width="20" height="14" rx="2" strokeWidth={1.8} strokeLinecap="round"/>
-    <line x1="2" y1="10" x2="22" y2="10" strokeWidth={1.8}/>
+    <rect x="2" y="5" width="20" height="14" rx="2" strokeWidth={1.8} strokeLinecap="round" />
+    <line x1="2" y1="10" x2="22" y2="10" strokeWidth={1.8} />
   </svg>
 )
 
@@ -39,7 +43,12 @@ const CraneIcon = () => (
 
 const CrashIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
-    <path d="M3 14h6l2-3h7l3 3v4H3v-4z" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M3 14h6l2-3h7l3 3v4H3v-4z"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
     <circle cx="7" cy="18" r="1.8" strokeWidth={1.8} />
     <circle cx="17" cy="18" r="1.8" strokeWidth={1.8} />
     <path d="M10 6l1.5-1.5M12.5 8.5L14 7M8.5 8.5L7 7" strokeWidth={1.8} strokeLinecap="round" />
@@ -50,32 +59,59 @@ const advantages = [
   {
     icon: <ShieldIcon />,
     title: 'Гарантия качества',
-    desc: 'Все автомобили проходят детальную диагностику на площадке Encar. Мы проверяем историю автомобиля, пробег и техническое состояние, чтобы вы получали только надёжные автомобили.',
+    desc: (
+      <>
+        Все автомобили проходят детальную диагностику на площадке Encar. Мы проверяем историю автомобиля, пробег и
+        техническое состояние, чтобы вы получали только надежные автомобили.
+      </>
+    ),
   },
   {
     icon: <ClockIcon />,
     title: 'Быстрая доставка',
-    desc: 'Доставка автомобилей из Кореи занимает в среднем 12–23 дня. Мы контролируем весь процесс — от покупки до отправки.',
+    desc: (
+      <>
+        Доставка автомобилей из Кореи занимает в среднем 12-23 дня. Мы контролируем весь процесс от покупки до
+        отправки.
+      </>
+    ),
   },
   {
     icon: <PercentIcon />,
     title: 'Возврат 7% НДС',
-    desc: 'При экспорте автомобиля из Кореи вы получаете возврат 7% НДС от стоимости автомобиля.',
+    desc: <>При экспорте автомобиля из Кореи вы получаете возврат 7% НДС от стоимости автомобиля.</>,
   },
   {
     icon: <MoneyIcon />,
     title: 'Фиксированная комиссия $200',
-    desc: 'Наша комиссия составляет всего $200. Если вы самостоятельно делаете техосмотр и привозите автомобиль на нашу стоянку — комиссия 0%.',
+    desc: (
+      <>
+        Комиссия $200. Если сами посмотрите и привезете автомобиль на нашу стоянку, комиссия{' '}
+        <span className="adv-highlight-danger">0%</span>.
+      </>
+    ),
   },
   {
     icon: <CraneIcon />,
     title: 'Собственная погрузочная площадка (Shoring)',
-    desc: 'У нас есть собственная погрузочная площадка, что позволяет быстро и удобно загружать автомобили. Мы можем загрузить любой автомобиль, даже если он был приобретён через других экспортёров.',
+    desc: (
+      <>
+        У нас есть собственная погрузочная площадка, что позволяет быстро и удобно загружать автомобили. Мы можем
+        загрузить любой автомобиль, даже если он был приобретен через других экспортеров.
+      </>
+    ),
   },
   {
     icon: <CrashIcon />,
     title: 'Автомобили после ДТП',
-    desc: 'Поможем подобрать выгодные автомобили после ДТП для восстановления или разбора на запчасти. По вашему запросу отправим автомобиль в полном комплекте, восстановим на месте и отправим в собранном виде, либо разберём на автозапчасти.',
+    desc: (
+      <>
+        Подберём выгодные автомобили после ДТП напрямую с аукционов и страховых компаний Кореи — от лёгких
+        повреждений до более серьёзных вариантов для ремонта, перепродажи или разбора на запчасти. По вашему запросу
+        отправим автомобиль в полном комплекте или восстановим на месте и отправим в собранном виде, либо разберём на
+        автозапчасти.
+      </>
+    ),
   },
 ]
 

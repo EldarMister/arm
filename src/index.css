@@ -1219,6 +1219,11 @@ body {
   margin: 0;
 }
 
+.adv-highlight-danger {
+  color: #dc2626;
+  font-weight: 800;
+}
+
 /* в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
    REVIEWS
 в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
@@ -4040,6 +4045,10 @@ body {
 
 [data-theme="dark"] .adv-card-desc {
   color: #7a96b0;
+}
+
+[data-theme="dark"] .adv-highlight-danger {
+  color: #f87171;
 }
 
 [data-theme="dark"] .adv-icon-wrap {
