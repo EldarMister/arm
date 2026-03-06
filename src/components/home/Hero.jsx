@@ -77,12 +77,6 @@ const stats = [
     value: '$200',
     label: 'комиссия',
     valueClass: 'stat-val-navy',
-    extra: (
-      <div className="stat-note">
-        <span className="stat-note-green">если привезете сами</span>
-        <span className="stat-note-red">0$</span>
-      </div>
-    ),
   },
   {
     value: '🔥',
@@ -199,3 +193,4 @@ export default function Hero() {
     </section>
   )
 }
+
