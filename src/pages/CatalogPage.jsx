@@ -386,7 +386,7 @@ export default function CatalogPage() {
             <a href="https://www.encar.com" target="_blank" rel="noreferrer" className="btn-encar">
               <EncarIcon /> Encar
             </a>
-            <a href="#" className="btn-wa-group">
+            <a href="https://chat.whatsapp.com/KYOi5t749ZT16iyqAzbkSd" target="_blank" rel="noreferrer" className="btn-wa-group">
               <WaGroupIcon /> WhatsApp группы
             </a>
           </div>
@@ -446,3 +446,4 @@ export default function CatalogPage() {
     </div>
   )
 }
+

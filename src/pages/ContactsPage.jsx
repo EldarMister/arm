@@ -165,7 +165,8 @@ export default function ContactsPage() {
             <div className="cnt-quick-btns">
               <a
                 href="https://wa.me/996705188088"
-                target="_blank" rel="noreferrer"
+                target="_blank"
+                rel="noreferrer"
                 className="cnt-btn-primary"
               >
                 <ChatIcon /> Написать в WhatsApp
@@ -243,8 +244,9 @@ export default function ContactsPage() {
           <p className="cnt-section-sub">Присоединяйтесь к группе и каналу AVT Auto V Korea</p>
           <div className="cnt-wa-btns">
             <a
-              href="https://wa.me/996705188088"
-              target="_blank" rel="noreferrer"
+              href="https://chat.whatsapp.com/KYOi5t749ZT16iyqAzbkSd"
+              target="_blank"
+              rel="noreferrer"
               className="cnt-btn-primary"
             >
               <WhatsAppIcon size={17} /> Присоединиться к группе
@@ -287,3 +289,5 @@ export default function ContactsPage() {
     </div>
   )
 }
+
+

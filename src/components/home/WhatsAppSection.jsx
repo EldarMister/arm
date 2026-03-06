@@ -25,7 +25,7 @@ export default function WhatsAppSection() {
         </p>
 
         <div className="whatsapp-btns">
-          <a href="#" className="btn-wa-primary">
+          <a href="https://chat.whatsapp.com/KYOi5t749ZT16iyqAzbkSd" target="_blank" rel="noreferrer" className="btn-wa-primary">
             <GroupIcon />
             Присоединиться к группе
           </a>
@@ -38,3 +38,4 @@ export default function WhatsAppSection() {
     </section>
   )
 }
+
