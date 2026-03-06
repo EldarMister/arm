@@ -69,6 +69,17 @@ function normalizeTransmission(value) {
   return normalizeText(text)
 }
 
+function normalizeDrive(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const low = text.toLowerCase()
+  if (/\bawd\b/.test(low)) return 'Полный (AWD)'
+  if (/\b4wd\b/.test(low) || text.includes('사륜')) return 'Полный (4WD)'
+  if (/\brwd\b/.test(low) || text.includes('후륜')) return 'Задний (RWD)'
+  if (/\b(?:2wd|fwd)\b/.test(low) || text.includes('전륜')) return 'Передний (FWD)'
+  return ''
+}
+
 function normalizeColor(value) {
   const text = String(value || '').trim()
   if (!text) return ''
@@ -158,6 +169,12 @@ router.get('/:encarId', async (req, res) => {
     const manufacturerRaw = category.manufacturerEnglishName || category.manufacturerName || ''
     const modelGroupRaw = category.modelGroupEnglishName || category.modelGroupName || category.modelName || ''
     const gradeNameRaw = category.gradeDetailEnglishName || category.gradeDetailName || category.gradeName || ''
+    const driveRaw = [
+      category.gradeDetailEnglishName,
+      category.gradeDetailName,
+      category.gradeEnglishName,
+      category.gradeName,
+    ].filter(Boolean).join(' ')
 
     const manufacturer = normalizeManufacturer(manufacturerRaw)
     const modelGroup = normalizeText(modelGroupRaw)
@@ -213,6 +230,7 @@ router.get('/:encarId', async (req, res) => {
       price_usd: priceUSD,
       fuel_type: normalizeFuel(spec.fuelName),
       transmission: normalizeTransmission(spec.transmissionName),
+      drive_type: normalizeDrive(driveRaw),
       body_type: normalizeBodyType(spec.bodyName),
       seat_count: Number(spec.seatCount) || null,
       displacement: Number(spec.displacement) || 0,

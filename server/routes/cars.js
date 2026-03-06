@@ -93,7 +93,7 @@ function drivePatterns(value) {
   const low = String(value || '').toLowerCase().trim()
   if (!low) return []
 
-  if (low.includes('fwd') || low.includes('перед')) return ['%fwd%', '%перед%', `%${KO.fwd}%`]
+  if (low.includes('2wd') || low.includes('fwd') || low.includes('перед')) return ['%2wd%', '%fwd%', '%перед%', `%${KO.fwd}%`]
   if (low.includes('awd')) return ['%awd%', '%полный (awd)%']
   if (low.includes('4wd') || low.includes('полный')) return ['%4wd%', '%полный (4wd)%', `%${KO.awd4wd}%`]
   if (low.includes('rwd') || low.includes('задн')) return ['%rwd%', '%задн%', `%${KO.rwd}%`]
@@ -249,6 +249,7 @@ router.get('/', async (req, res) => {
         OR COALESCE(c.vin::text, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.encar_id::text, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.body_type, '') ILIKE ANY($${p}::text[])
+        OR COALESCE(c.drive_type, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.fuel_type, '') ILIKE ANY($${p}::text[])
         OR EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE ANY($${p}::text[]))
       )`)
@@ -262,6 +263,7 @@ router.get('/', async (req, res) => {
           OR COALESCE(c.vin::text, '') ILIKE $${p}
           OR COALESCE(c.encar_id::text, '') ILIKE $${p}
           OR COALESCE(c.body_type, '') ILIKE $${p}
+          OR COALESCE(c.drive_type, '') ILIKE $${p}
           OR COALESCE(c.fuel_type, '') ILIKE $${p}
           OR EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE $${p})
         )`)
@@ -295,7 +297,10 @@ router.get('/', async (req, res) => {
 
     if (drive) {
       const patterns = uniqPatterns(drivePatterns(drive))
-      conditions.push(`EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE ANY($${p}::text[]))`)
+      conditions.push(`(
+        COALESCE(c.drive_type, '') ILIKE ANY($${p}::text[])
+        OR EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE ANY($${p}::text[]))
+      )`)
       params.push(patterns)
       p++
     }
@@ -415,7 +420,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       name, model, year, mileage,
-      fuel_type, transmission, body_type, displacement,
+      fuel_type, transmission, drive_type, body_type, displacement,
       body_color, body_color_dots,
       interior_color, interior_color_dots,
       location, vin,
@@ -427,16 +432,16 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO cars
         (name, model, year, mileage,
-         fuel_type, transmission, body_type, displacement,
+         fuel_type, transmission, drive_type, body_type, displacement,
          body_color, body_color_dots, interior_color, interior_color_dots,
          location, vin, price_krw, price_usd,
          commission, delivery, loading, unloading, storage, vat_refund, total,
          encar_url, encar_id, can_negotiate, tags)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
        RETURNING *`,
       [
         name, model, year, mileage || 0,
-        fuel_type, transmission, body_type, displacement || 0,
+        fuel_type, transmission, drive_type, body_type, displacement || 0,
         body_color, body_color_dots || [], interior_color, interior_color_dots || [],
         location, vin, price_krw || 0, price_usd || 0,
         commission || 200, delivery || 0, loading || 0, unloading || 0,
@@ -455,7 +460,7 @@ router.put('/:id', async (req, res) => {
   try {
     const fields = [
       'name', 'model', 'year', 'mileage',
-      'fuel_type', 'transmission', 'body_type', 'displacement',
+      'fuel_type', 'transmission', 'drive_type', 'body_type', 'displacement',
       'body_color', 'body_color_dots', 'interior_color', 'interior_color_dots',
       'location', 'vin', 'price_krw', 'price_usd',
       'commission', 'delivery', 'loading', 'unloading', 'storage', 'vat_refund', 'total',

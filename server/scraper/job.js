@@ -9,6 +9,17 @@ import { state } from './state.js'
 
 const PAGE_SIZE = 20
 
+function normalizeDriveType(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const low = text.toLowerCase()
+  if (/\bawd\b/.test(low)) return 'Полный (AWD)'
+  if (/\b4wd\b/.test(low) || text.includes('사륜')) return 'Полный (4WD)'
+  if (/\brwd\b/.test(low) || text.includes('후륜')) return 'Задний (RWD)'
+  if (/\b(?:2wd|fwd)\b/.test(low) || text.includes('전륜')) return 'Передний (FWD)'
+  return ''
+}
+
 // ─── Map raw Encar car to our DB shape ───────────────────────────────────────
 function mapCar(raw) {
   const rawManufacturer = String(raw.Manufacturer || '').trim()
@@ -20,6 +31,7 @@ function mapCar(raw) {
   const price_usd = krwToUsd(price_krw)
   const fuel_type = tr(FUEL_MAP, raw.FuelType || '')
   const gear_type = tr(GEAR_MAP, raw.Transmission || raw.GearType || '')
+  const drive_type = normalizeDriveType([raw.Badge, raw.BadgeDetail, raw.Model].filter(Boolean).join(' '))
   const body_color = tr(COLOR_MAP, raw.Color || '')
   const interior_raw = raw.InteriorColor || raw.InnerColor || raw.TrimColor || raw.Color || ''
   const interior_color = tr(COLOR_MAP, interior_raw)
@@ -37,6 +49,7 @@ function mapCar(raw) {
   const name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ')
 
   const tags = []
+  if (drive_type) tags.push(drive_type)
   if (gear_type) tags.push(gear_type)
   if (fuel_type) tags.push(fuel_type)
 
@@ -49,6 +62,7 @@ function mapCar(raw) {
     price_usd,
     fuel_type,
     transmission: gear_type,
+    drive_type,
     body_color,
     interior_color,
     location: 'Корея',
@@ -89,14 +103,14 @@ async function insertCar(car, photoUrls) {
 
   const res = await pool.query(
     `INSERT INTO cars
-       (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission,
+       (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission, drive_type,
         body_color, interior_color, location, encar_url, encar_id, tags, can_negotiate,
         commission, delivery, loading, unloading, storage, vat_refund, total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING id`,
     [
       car.name, car.model, car.year, car.mileage,
-      car.price_krw, car.price_usd, car.fuel_type, car.transmission,
+      car.price_krw, car.price_usd, car.fuel_type, car.transmission, car.drive_type,
       car.body_color, car.interior_color, car.location, car.encar_url,
       car.encar_id, car.tags, car.can_negotiate,
       car.commission, car.delivery, car.loading, car.unloading, car.storage, car.vat_refund, total,

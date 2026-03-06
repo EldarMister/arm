@@ -139,7 +139,7 @@ function normalizeDrive(value) {
   if (!src) return ''
   const low = src.toLowerCase()
 
-  if (low.includes('fwd') || low.includes('передн') || src.includes(KO.fwd)) return 'Передний (FWD)'
+  if (low.includes('2wd') || low.includes('fwd') || low.includes('передн') || src.includes(KO.fwd)) return 'Передний (FWD)'
   if (low.includes('awd') || (low.includes('полный') && low.includes('awd'))) return 'Полный (AWD)'
   if (low.includes('4wd') || (low.includes('полный') && low.includes('4wd')) || src.includes(KO.awd4wd)) return 'Полный (4WD)'
   if (low.includes('rwd') || low.includes('задн') || src.includes(KO.rwd)) return 'Задний (RWD)'
@@ -273,7 +273,7 @@ router.post('/login', (req, res) => {
 
 router.get('/filter-options', async (_req, res) => {
   try {
-    const [nameCounts, fuelCounts, tagCounts, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
+    const [nameCounts, fuelCounts, tagCounts, driveCounts, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
       pool.query(`
         SELECT name, COUNT(*)::int AS count
         FROM cars
@@ -291,6 +291,12 @@ router.get('/filter-options', async (_req, res) => {
         FROM cars c
         CROSS JOIN LATERAL UNNEST(COALESCE(c.tags, '{}'::text[])) AS tag
         GROUP BY tag
+      `),
+      pool.query(`
+        SELECT drive_type AS name, COUNT(*)::int AS count
+        FROM cars
+        WHERE drive_type IS NOT NULL AND drive_type != ''
+        GROUP BY drive_type
       `),
       pool.query(`
         SELECT source.name, SUM(source.count)::int AS count
@@ -336,7 +342,7 @@ router.get('/filter-options', async (_req, res) => {
 
     const brands = aggregateBrands(nameCounts.rows)
     const fuelTypes = aggregate([...fuelCounts.rows, ...tagCounts.rows], normalizeFuel)
-    const driveTypes = aggregate(tagCounts.rows, normalizeDrive)
+    const driveTypes = aggregate([...tagCounts.rows, ...driveCounts.rows], normalizeDrive)
     const bodyTypes = aggregate(bodySourceRows.rows, normalizeBody)
     const bodyColors = aggregateColors(bodyColorRows.rows)
     const interiorColors = aggregateColors(interiorColorRows.rows)

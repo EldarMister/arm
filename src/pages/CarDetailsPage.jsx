@@ -46,6 +46,12 @@ function inferEngineLiters(model) {
   return candidate || 2.0
 }
 
+function resolveEngineLiters({ displacement, name, model }) {
+  const cc = Number(displacement) || 0
+  if (cc >= 600) return Number((cc / 1000).toFixed(1))
+  return inferEngineLiters(name || model)
+}
+
 function detectFuel(car) {
   const explicit = String(car.fuel_type || '').toLowerCase()
   const tags = Array.isArray(car.tags) ? car.tags.join(' ').toLowerCase() : ''
@@ -228,6 +234,7 @@ const SUSPICIOUS_NAME_PATTERNS = [
 ]
 
 const TITLE_MARKETING_PREFIXES = ['The New', 'All New', 'New Rise', 'The Bold']
+const SPEC_ONLY_TITLE_TOKEN_RE = /^(?:l?\d+(?:\.\d+)?|[24]wd|awd|fwd|rwd|diesel|gasoline|lpg|hybrid|turbo|auto|automatic|manual|cvt|dct|at|mt)$/i
 
 function stripVehicleTitleNoise(value) {
   let text = String(value || '').trim()
@@ -255,9 +262,20 @@ function normalizeVehicleTitle(value) {
   return stripVehicleTitleNoise(text)
 }
 
+function isSpecOnlyTitle(value) {
+  const tokens = String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (!tokens.length || tokens.length > 6) return false
+  return tokens.every((token) => SPEC_ONLY_TITLE_TOKEN_RE.test(token))
+}
+
 function shouldUpgradeVehicleTitle(value) {
   const text = String(value || '').trim()
   if (shouldReplaceText(text)) return true
+  if (isSpecOnlyTitle(text)) return true
   return SUSPICIOUS_NAME_PATTERNS.some((pattern) => pattern.test(text))
 }
 
@@ -292,6 +310,23 @@ function normalizeTags(tags) {
 
 function pickTransmissionFromTags(tags) {
   return tags.find((tag) => /(автомат|механика|робот|cvt)/i.test(String(tag))) || ''
+}
+
+function pickDriveFromTags(tags) {
+  return tags.find((tag) => /2wd|fwd|awd|4wd|rwd|передн|полный|задн/i.test(String(tag))) || ''
+}
+
+function normalizeDriveLabel(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const low = text.toLowerCase()
+
+  if (low.includes('awd')) return 'Полный (AWD)'
+  if (low.includes('4wd')) return 'Полный (4WD)'
+  if (low.includes('rwd') || low.includes('задн')) return 'Задний (RWD)'
+  if (low.includes('2wd') || low.includes('fwd') || low.includes('передн')) return 'Передний (FWD)'
+
+  return ''
 }
 
 function normalizeBodyTypeLabel(value) {
@@ -385,6 +420,7 @@ function mapCar(c) {
   const normalizedName = normalizeVehicleTitle(c.name || '')
   const normalizedModel = normalizeVehicleTitle(c.model || '')
   const normalizedLocation = normalizeDisplayText(c.location || 'Корея')
+  const driveSource = c.drive_type || pickDriveFromTags(tags)
 
   return {
     id: c.id,
@@ -416,6 +452,7 @@ function mapCar(c) {
     updatedAt: c.updated_at,
     bodyType: normalizeDisplayText(c.body_type || '-') || '-',
     transmission: tags.find((t) => /автомат|механика|робот|cvt/i.test(String(t))) || '-',
+    driveType: normalizeDriveLabel(driveSource) || normalizeDisplayText(driveSource) || '-',
     seatCount: null,
     displacement: 0,
     vehicleNo: '-',
@@ -429,11 +466,13 @@ function mapCar(c) {
 function mapCarWithNormalizedSpecs(c) {
   const base = mapCar(c)
   const tags = normalizeTags(Array.isArray(c?.tags) ? c.tags : [])
+  const driveSource = c?.drive_type || pickDriveFromTags(tags)
 
   return {
     ...base,
     bodyType: normalizeBodyTypeLabel(c?.body_type || base.bodyType || '-') || '-',
     transmission: normalizeTagLabel(c?.transmission || '') || pickTransmissionFromTags(tags) || base.transmission || '-',
+    driveType: normalizeDriveLabel(driveSource) || normalizeDisplayText(driveSource) || base.driveType || '-',
     displacement: Number(c?.displacement) || base.displacement || 0,
   }
 }
@@ -467,6 +506,9 @@ function mergeCarWithEncar(baseCar, detail) {
     transmission: shouldReplaceText(baseCar.transmission)
       ? (normalizeTagLabel(detail?.transmission || '') || baseCar.transmission || '-')
       : baseCar.transmission,
+    driveType: detail?.drive_type
+      ? (normalizeDisplayText(detail.drive_type) || baseCar.driveType || '-')
+      : baseCar.driveType,
     seatCount: Number(detail?.seat_count) || baseCar.seatCount || null,
     displacement: Number(detail?.displacement) || baseCar.displacement || 0,
     vehicleNo: detail?.vehicle_no || baseCar.vehicleNo || '-',
@@ -484,6 +526,7 @@ function mergeCarWithNormalizedEncar(baseCar, detail) {
     ...merged,
     bodyType: normalizeBodyTypeLabel(detail?.body_type || merged.bodyType || '-') || merged.bodyType || '-',
     transmission: normalizeTagLabel(detail?.transmission || '') || merged.transmission || '-',
+    driveType: normalizeDriveLabel(detail?.drive_type || merged.driveType || '') || merged.driveType || '-',
   }
 }
 
@@ -512,7 +555,11 @@ export default function CarDetailsPage() {
         setCar(mapped)
         setImgIdx(0)
         setError('')
-        setCalc({ year: mapped.yearNum, engine: inferEngineLiters(mapped.model), fuel })
+        setCalc({
+          year: mapped.yearNum,
+          engine: resolveEngineLiters({ displacement: mapped.displacement, name: mapped.name, model: mapped.model }),
+          fuel,
+        })
 
         if (mapped.encarId && mapped.encarId !== '-') {
           try {
@@ -526,7 +573,11 @@ export default function CarDetailsPage() {
             setCalc((prev) => ({
               ...prev,
               year: parseYear(detail?.year || mapped.year),
-              engine: detail?.displacement ? Number((Number(detail.displacement) / 1000).toFixed(1)) : prev.engine,
+              engine: resolveEngineLiters({
+                displacement: detail?.displacement || mapped.displacement,
+                name: detail?.name || mapped.name,
+                model: detail?.model || mapped.model,
+              }),
               fuel: detectFuel({ fuel_type: detail?.fuel_type || mapped.fuelType, tags: mapped.tags }),
             }))
           } catch {
@@ -674,6 +725,7 @@ export default function CarDetailsPage() {
               <div className="car-details-specs-grid">
                 <div><span>Топливо</span><strong>{car.fuelType || fuelLabel(calc.fuel)}</strong></div>
                 <div><span>Трансмиссия</span><strong>{car.transmission || '-'}</strong></div>
+                <div><span>Привод</span><strong>{car.driveType || '-'}</strong></div>
                 <div><span>Цвет кузова</span><strong>{car.bodyColor || '-'}</strong></div>
                 <div><span>Цвет салона</span><strong>{car.interiorColor || '-'}</strong></div>
                 <div><span>Пробег</span><strong>{car.mileage.toLocaleString()} км</strong></div>

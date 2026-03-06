@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS cars (
   mileage          INTEGER DEFAULT 0,
   fuel_type        VARCHAR(100),
   transmission     VARCHAR(100),
+  drive_type       VARCHAR(100),
   body_type        VARCHAR(100),
   displacement     INTEGER DEFAULT 0,
   body_color       VARCHAR(100),
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS car_images (
 -- Дополнительные колонки если не существуют
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS transmission VARCHAR(100);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS body_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS displacement INTEGER DEFAULT 0;
 

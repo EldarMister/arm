@@ -129,14 +129,14 @@ function colorToSwatch(label) {
 function shouldHideTopTag(tag, car) {
   const value = String(tag || '').trim()
   const low = value.toLowerCase()
-  const normalizedSpecs = [car?.fuelType, car?.transmission, car?.bodyType]
+  const normalizedSpecs = [car?.fuelType, car?.transmission, car?.driveType, car?.bodyType]
     .map((item) => String(item || '').trim())
     .filter(Boolean)
 
   if (normalizedSpecs.includes(value)) return true
 
   return (
-    /gasoline|diesel|hybrid|electric|lpg|auto|automatic|manual|cvt|dct|robot/i.test(low) ||
+    /gasoline|diesel|hybrid|electric|lpg|auto|automatic|manual|cvt|dct|robot|2wd|4wd|awd|fwd|rwd/i.test(low) ||
     /бенз|дизел|гибрид|электро|газ|автомат|механик|робот/i.test(value) ||
     HANGUL_RE.test(value)
   )
@@ -340,6 +340,10 @@ export default function CarCard({ car }) {
               <span className="car-detail-label">Салон:</span>
               <span className="car-color-dot" style={{ backgroundColor: colorToSwatch(car.interiorColor) }} />
               <span className="car-detail-value">{car.interiorColor || '-'}</span>
+            </div>
+            <div className="car-detail">
+              <span className="car-detail-label">Привод:</span>
+              <span className="car-detail-value">{car.driveType || '-'}</span>
             </div>
           </div>
 
