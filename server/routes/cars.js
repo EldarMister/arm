@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { DEFAULT_FEES, VAT_REFUND_RATE, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
-import { extractShortLocation, normalizeColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
+import { extractShortLocation, extractTrimLevelFromTitle, normalizeColorName, normalizeInteriorColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
 
 const router = Router()
 
@@ -263,8 +263,8 @@ function decorateCarRow(row, exchangeSnapshot) {
   return {
     ...row,
     body_color: normalizeColorName(row.body_color || ''),
-    interior_color: normalizeColorName(row.interior_color || ''),
-    trim_level: normalizeTrimLevel(row.trim_level || ''),
+    interior_color: normalizeInteriorColorName(row.interior_color || '', row.body_color || ''),
+    trim_level: normalizeTrimLevel(row.trim_level || '') || extractTrimLevelFromTitle(row.name || '', row.model || ''),
     key_info: String(row.key_info || '').trim(),
     location_short: extractShortLocation(row.location || ''),
     price_usd: pricing.price_usd,
@@ -566,6 +566,7 @@ router.put('/:id', async (req, res) => {
     const updates = []
     const params = []
     let p = 1
+    const images = req.body.images
 
     for (const field of fields) {
       if (req.body[field] !== undefined) {
@@ -574,7 +575,58 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    if (!updates.length) return res.status(400).json({ error: 'Нет данных для обновления' })
+    if (!updates.length && images === undefined) return res.status(400).json({ error: 'Нет данных для обновления' })
+
+    if (images !== undefined) {
+      let exists = false
+
+      if (updates.length) {
+        const imageUpdateFields = [...updates, 'updated_at = NOW()']
+        const imageUpdateParams = [...params, req.params.id]
+        const result = await pool.query(
+          `UPDATE cars SET ${imageUpdateFields.join(', ')} WHERE id = $${p} RETURNING id`,
+          imageUpdateParams
+        )
+        exists = Boolean(result.rows.length)
+      } else {
+        const result = await pool.query('SELECT id FROM cars WHERE id = $1', [req.params.id])
+        exists = Boolean(result.rows.length)
+      }
+
+      if (!exists) return res.status(404).json({ error: 'Не найдено' })
+
+      const normalizedImages = Array.isArray(images)
+        ? images
+          .map((item) => {
+            if (!item) return ''
+            if (typeof item === 'string') return String(item).trim()
+            return String(item.url || item.path || item.location || '').trim()
+          })
+          .filter(Boolean)
+        : []
+
+      await pool.query('DELETE FROM car_images WHERE car_id = $1', [req.params.id])
+
+      for (let index = 0; index < normalizedImages.length; index += 1) {
+        await pool.query(
+          'INSERT INTO car_images (car_id, url, position) VALUES ($1, $2, $3)',
+          [req.params.id, normalizedImages[index], index]
+        )
+      }
+
+      const refreshed = await pool.query(
+        `SELECT c.*, COALESCE(json_agg(json_build_object('id', ci.id, 'url', ci.url) ORDER BY ci.position)
+                 FILTER (WHERE ci.id IS NOT NULL), '[]') AS images
+         FROM cars c
+         LEFT JOIN car_images ci ON ci.car_id = c.id
+         WHERE c.id = $1
+         GROUP BY c.id`,
+        [req.params.id]
+      )
+
+      const exchangeSnapshot = await getExchangeRateSnapshot()
+      return res.json(decorateCarRow(refreshed.rows[0], exchangeSnapshot))
+    }
 
     updates.push('updated_at = NOW()')
     params.push(req.params.id)

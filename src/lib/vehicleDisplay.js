@@ -37,6 +37,8 @@ const SHORT_LOCATION_RULES = [
 ]
 
 const TRIM_REPLACEMENTS = [
+  ['the essential', 'Р­СЃСЃРµРЅС€Р»'],
+  ['essential', 'Р­СЃСЃРµРЅС€Р»'],
   ['calligraphy', 'Каллиграфия'],
   ['prestige', 'Престиж'],
   ['luxury', 'Лакшери'],
@@ -63,6 +65,24 @@ const TRIM_REPLACEMENTS = [
   ['elite', 'Элит'],
 ]
 
+const TITLE_SAFE_TRIM_SOURCES = [
+  'calligraphy',
+  'prestige',
+  'the essential',
+  'essential',
+  'luxury',
+  'premium',
+  'signature',
+  'noblesse',
+  'exclusive',
+  'inspiration',
+  'platinum',
+  'limited',
+  'executive',
+  'black edition',
+  'elite',
+]
+
 const SUSPICIOUS_DUPLICATE_INTERIOR_COLORS = new Set([
   'Белый',
   'Серебристый',
@@ -83,6 +103,27 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function hasKnownTrimKeyword(value) {
+  const text = cleanText(value)
+  if (!text) return false
+
+  return TRIM_REPLACEMENTS.some(([source]) => {
+    const pattern = new RegExp(`\\b${source.replace(/\s+/g, '\\s+')}\\b`, 'i')
+    return pattern.test(text)
+  })
+}
+
+function isTrimNoise(value) {
+  const text = cleanText(value)
+  if (!text) return false
+  if (hasKnownTrimKeyword(text)) return false
+
+  const signal = text.replace(/[\s()[\]{}\\/|+_.:-]+/g, '')
+  if (!signal || !/[A-Za-zА-Яа-я0-9]/u.test(signal)) return true
+  if (/[\\/()]/.test(text)) return true
+  return false
+}
+
 export function hasHangulText(value) {
   return HANGUL_RE.test(String(value || ''))
 }
@@ -96,7 +137,33 @@ export function normalizeTrimLabel(value) {
     text = text.replace(pattern, target)
   }
 
-  return text.replace(/\s+/g, ' ').trim()
+  text = text.replace(/\s+/g, ' ').trim()
+  return isTrimNoise(text) ? '' : text
+}
+
+export function extractTrimLabelFromTitle(...values) {
+  const candidates = []
+
+  for (const value of values) {
+    const text = cleanText(value)
+    if (!text) continue
+
+    for (const source of TITLE_SAFE_TRIM_SOURCES) {
+      const pattern = new RegExp(`\\b${source.replace(/\s+/g, '\\s+')}\\b`, 'i')
+      const match = text.match(pattern)
+      if (!match) continue
+
+      const index = match.index ?? -1
+      const tail = index >= 0 ? text.slice(index).trim() : match[0]
+      const trailingWordCount = tail.split(/\s+/).length - match[0].split(/\s+/).length
+      if (trailingWordCount > 2) continue
+
+      const normalized = normalizeTrimLabel(match[0])
+      if (normalized && !candidates.includes(normalized)) candidates.push(normalized)
+    }
+  }
+
+  return candidates[0] || ''
 }
 
 export function normalizeColorLabel(value) {

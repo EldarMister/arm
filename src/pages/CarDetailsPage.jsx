@@ -4,6 +4,7 @@ import {
   PARKING_ADDRESS_EN,
   PARKING_ADDRESS_KO,
   VAT_REFUND_RATE,
+  extractTrimLabelFromTitle,
   getShortLocationLabel,
   isWeakColorValue,
   normalizeColorLabel as normalizeVehicleColorLabel,
@@ -145,6 +146,11 @@ const INSPECTION_RU_MAP = {
   'Цветной': 'Цветной',
   '한국자동차진단보증협회김기웅 (인)': 'Корейская ассоциация диагностики автомобилей: Ким Ки Ун',
   '주식회사 케이아우토 (인)': 'K-Auto Co., Ltd.',
+  '고전원 전기장치': 'Высоковольтная электросистема',
+  '충전구 절연 상태': 'Состояние изоляции зарядного порта',
+  '구동축전지 격리 상태': 'Состояние изоляции тяговой батареи',
+  '고전원전기배선 상태(접속단자, 피복, 보호기구)': 'Состояние высоковольтной проводки (клеммы, изоляция, защита)',
+  '타이로드엔드 및 볼 조인트': 'Наконечники рулевых тяг и шаровые опоры',
 }
 
 function formatInspectionDate(value) {
@@ -189,6 +195,43 @@ function translateInspectionText(value) {
   }
 
   return text
+}
+
+function translateInspectorComment(value) {
+  const text = String(value || '').trim()
+  if (!text) return '-'
+
+  const direct = translateInspectionText(text)
+  if (direct && !hasHangulText(direct)) return direct
+
+  const notes = []
+
+  if (/보증\s*제외|보증제외/u.test(text)) {
+    notes.push('Часть отмеченных повреждений относится к исключениям по гарантии.')
+  }
+  if (/비금속\s*부품|FRP|탈부착 가능 부품/u.test(text)) {
+    notes.push('Неметаллические и съемные детали не входят в перечень инспекции Encar.')
+  }
+  if (/부분적인 부식|판금 도색|판금도색|중고차 특성상/u.test(text)) {
+    notes.push('Для подержанного авто допустимы локальная коррозия, кузовной ремонт и подкрасы.')
+  }
+  if (/법에\s*의거\s*확인\s*요망|법에의거확인요망/u.test(text)) {
+    notes.push('Нужна дополнительная проверка по документам и правилам.')
+  }
+  if (/점검내용과 정비이력이 상이 할 수 있음|점검내용과 정비이력이 상이할 수 있음/u.test(text)) {
+    notes.push('Результаты осмотра могут отличаться от сервисной истории.')
+  }
+  if (/교환이 없는 차량입니다|교환이 없습니다/u.test(text)) {
+    notes.push('По осмотру замены внешних кузовных панелей не выявлены.')
+  }
+
+  const phoneMatch = text.match(/(\d{4}-\d{4})/)
+  if (/DB손해보험/u.test(text)) {
+    notes.push(phoneMatch ? `Контакт DB Insurance: ${phoneMatch[1]}.` : 'Указан контакт DB Insurance.')
+  }
+
+  if (notes.length) return [...new Set(notes)].join(' ')
+  return direct
 }
 
 function groupInspectionRows(rows) {
@@ -270,7 +313,16 @@ function normalizeVehicleTitle(value) {
   for (const [pattern, replacement] of VEHICLE_NAME_FIXES) {
     text = text.replace(pattern, replacement)
   }
-  return stripVehicleTitleNoise(text)
+  text = stripVehicleTitleNoise(text)
+  const signal = text.replace(/[\s()[\]{}\\/|+_.:-]+/g, '')
+  if (!signal || !/[A-Za-zА-Яа-я0-9]/u.test(signal) || signal.length < 2) return ''
+  return text
+}
+
+function isBrokenVehicleTitle(value) {
+  const text = String(value || '').trim()
+  if (!text) return true
+  return !normalizeVehicleTitle(text)
 }
 
 function isSpecOnlyTitle(value) {
@@ -286,6 +338,7 @@ function isSpecOnlyTitle(value) {
 function shouldUpgradeVehicleTitle(value) {
   const text = String(value || '').trim()
   if (shouldReplaceText(text)) return true
+  if (isBrokenVehicleTitle(text)) return true
   if (isSpecOnlyTitle(text)) return true
   return SUSPICIOUS_NAME_PATTERNS.some((pattern) => pattern.test(text))
 }
@@ -450,7 +503,7 @@ function mapCar(c) {
     year: c.year || '-',
     yearNum: parseYear(c.year),
     mileage: Number(c.mileage || 0),
-    trimLevel: normalizeTrimLabel(c.trim_level || ''),
+    trimLevel: normalizeTrimLabel(c.trim_level || '') || extractTrimLabelFromTitle(normalizedName, normalizedModel, c.name || '', c.model || ''),
     keyInfo: normalizeKeyInfoLabel(c.key_info || ''),
     bodyColor: normalizeColorLabel(c.body_color || '-'),
     interiorColor: normalizeInteriorColorLabel(c.interior_color || '', c.body_color || ''),
@@ -529,10 +582,12 @@ function mergeCarWithEncar(baseCar, detail) {
     year,
     yearNum: parseYear(year),
     mileage: baseCar.mileage || Number(detail?.mileage || 0),
-    trimLevel: baseCar.trimLevel || normalizeTrimLabel(detail?.trim_level || ''),
+    trimLevel: baseCar.trimLevel || normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || ''),
     keyInfo: baseCar.keyInfo || normalizeKeyInfoLabel(detail?.key_info || ''),
     bodyColor: shouldReplaceColor(baseCar.bodyColor) ? normalizeColorLabel(detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
-    interiorColor: shouldReplaceColor(baseCar.interiorColor) ? normalizeColorLabel(detail?.interior_color || baseCar.interiorColor || '-') : baseCar.interiorColor,
+    interiorColor: shouldReplaceColor(baseCar.interiorColor)
+      ? (normalizeInteriorColorLabel(detail?.interior_color || '', detail?.body_color || baseCar.bodyColor || '') || baseCar.interiorColor || '')
+      : baseCar.interiorColor,
     location: getShortLocationLabel(detail?.location_short || detail?.location || baseCar.location || 'Корея'),
     vin: baseCar.vin === '-' ? (detail?.vin || detail?.vehicle_no || '-') : baseCar.vin,
     fuelType: shouldReplaceText(baseCar.fuelType) ? (normalizeTagLabel(detail?.fuel_type || '') || baseCar.fuelType || '') : baseCar.fuelType,
@@ -942,7 +997,7 @@ export default function CarDetailsPage() {
                     {car.inspection.opinion.map((item, index) => (
                       <div key={`${item.label}-${index}`} className="car-inspection-opinion-item">
                         <span>{translateInspectionText(item.label)}</span>
-                        <p>{translateInspectionText(item.text || '-')}</p>
+                        <p>{translateInspectorComment(item.text || '-')}</p>
                       </div>
                     ))}
                   </div>
@@ -955,8 +1010,8 @@ export default function CarDetailsPage() {
                   <div className="car-inspection-grid">
                     {car.inspection.signatures.signers.map((item, index) => (
                       <div key={`${item.label}-${index}`} className="car-inspection-item">
-                        <span>{translateInspectionText(item.label)}</span>
-                        <strong>{translateInspectionText(item.value)}</strong>
+                        <span>{item.label || '-'}</span>
+                        <strong>{item.value || '-'}</strong>
                       </div>
                     ))}
                     {car.inspection.signatures.date && (

@@ -20,7 +20,38 @@ const GENERIC_COLOR_LABELS = new Set([
   'Чёрный',
 ])
 
+const SUSPICIOUS_DUPLICATE_INTERIOR_COLORS = new Set([
+  'Белый',
+  'Серебристый',
+  'Красный',
+  'Синий',
+  'Зеленый',
+  'Желтый',
+  'Оранжевый',
+  'Фиолетовый',
+  'Жемчужно-белый',
+  'Снежный белый',
+  'Золотой',
+  'Мокрый асфальт',
+  'Графитовый',
+  'Р‘РµР»С‹Р№',
+  'РЎРµСЂРµР±СЂРёСЃС‚С‹Р№',
+  'РљСЂР°СЃРЅС‹Р№',
+  'РЎРёРЅРёР№',
+  'Р—РµР»РµРЅС‹Р№',
+  'Р–РµР»С‚С‹Р№',
+  'РћСЂР°РЅР¶РµРІС‹Р№',
+  'Р¤РёРѕР»РµС‚РѕРІС‹Р№',
+  'Р–РµРјС‡СѓР¶РЅРѕ-Р±РµР»С‹Р№',
+  'РЎРЅРµР¶РЅС‹Р№ Р±РµР»С‹Р№',
+  'Р—РѕР»РѕС‚РѕР№',
+  'РњРѕРєСЂС‹Р№ Р°СЃС„Р°Р»СЊС‚',
+  'Р“СЂР°С„РёС‚РѕРІС‹Р№',
+])
+
 const TRIM_REPLACEMENTS = [
+  ['the essential', 'Эссеншел'],
+  ['essential', 'Эссеншел'],
   ['calligraphy', 'Каллиграфия'],
   ['prestige', 'Престиж'],
   ['luxury', 'Лакшери'],
@@ -45,6 +76,24 @@ const TRIM_REPLACEMENTS = [
   ['black edition', 'Блэк Эдишн'],
   ['black', 'Блэк'],
   ['elite', 'Элит'],
+]
+
+const TITLE_SAFE_TRIM_SOURCES = [
+  'calligraphy',
+  'prestige',
+  'the essential',
+  'essential',
+  'luxury',
+  'premium',
+  'signature',
+  'noblesse',
+  'exclusive',
+  'inspiration',
+  'platinum',
+  'limited',
+  'executive',
+  'black edition',
+  'elite',
 ]
 
 const KNOWN_CITY_RULES = [
@@ -112,6 +161,27 @@ const COLOR_EXACT = new Map([
 
 function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function hasKnownTrimKeyword(value) {
+  const text = cleanText(value)
+  if (!text) return false
+
+  return TRIM_REPLACEMENTS.some(([source]) => {
+    const pattern = new RegExp(`\\b${source.replace(/\s+/g, '\\s+')}\\b`, 'i')
+    return pattern.test(text)
+  })
+}
+
+function isTrimNoise(value) {
+  const text = cleanText(value)
+  if (!text) return false
+  if (hasKnownTrimKeyword(text)) return false
+
+  const signal = text.replace(/[\s()[\]{}\\/|+_.:-]+/g, '')
+  if (!signal || !/[A-Za-zА-Яа-я0-9]/u.test(signal)) return true
+  if (/[\\/()]/.test(text)) return true
+  return false
 }
 
 export function normalizeText(value) {
@@ -223,12 +293,37 @@ export function normalizeTrimLevel(...values) {
     if (tokens.every((token) => SPEC_TOKENS.test(token))) continue
 
     const translated = translateTrimWords(text)
-    if (translated && !tokens.every((token) => SPEC_TOKENS.test(token))) {
+    if (translated && !tokens.every((token) => SPEC_TOKENS.test(token)) && !isTrimNoise(translated)) {
       return translated
     }
   }
 
   return ''
+}
+
+export function extractTrimLevelFromTitle(...values) {
+  const candidates = []
+
+  for (const value of values) {
+    const text = cleanText(value)
+    if (!text) continue
+
+    for (const source of TITLE_SAFE_TRIM_SOURCES) {
+      const pattern = new RegExp(`\\b${source.replace(/\s+/g, '\\s+')}\\b`, 'i')
+      const match = text.match(pattern)
+      if (!match) continue
+
+      const index = match.index ?? -1
+      const tail = index >= 0 ? text.slice(index).trim() : match[0]
+      const trailingWordCount = tail.split(/\s+/).length - match[0].split(/\s+/).length
+      if (trailingWordCount > 2) continue
+
+      const normalized = translateTrimWords(match[0])
+      if (normalized && !candidates.includes(normalized)) candidates.push(normalized)
+    }
+  }
+
+  return candidates[0] || ''
 }
 
 export function extractShortLocation(value) {
@@ -305,6 +400,26 @@ export function normalizeColorName(value) {
   if (/gold/.test(low)) return 'Золотой'
 
   return hasHangul(raw) ? normalizeText(raw) : raw
+}
+
+export function normalizeInteriorColorName(value, bodyValue = '') {
+  const rawInterior = cleanText(value)
+  if (!rawInterior) return ''
+
+  const normalizedInterior = normalizeColorName(rawInterior)
+  const normalizedBody = normalizeColorName(bodyValue)
+
+  if (
+    rawInterior &&
+    bodyValue &&
+    rawInterior.toLowerCase() === cleanText(bodyValue).toLowerCase() &&
+    normalizedInterior === normalizedBody &&
+    SUSPICIOUS_DUPLICATE_INTERIOR_COLORS.has(normalizedInterior)
+  ) {
+    return ''
+  }
+
+  return normalizedInterior
 }
 
 export function isGenericColorLabel(value) {

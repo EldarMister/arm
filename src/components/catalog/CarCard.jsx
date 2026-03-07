@@ -338,12 +338,16 @@ export default function CarCard({ car }) {
           <div className="car-color-row">
             <div className="car-detail">
               <span className="car-detail-label">Кузов:</span>
-              <span className="car-color-dot" style={{ backgroundColor: colorToSwatch(car.bodyColor) }} />
+              {car.bodyColor && car.bodyColor !== '-' && (
+                <span className="car-color-dot" style={{ backgroundColor: colorToSwatch(car.bodyColor) }} />
+              )}
               <span className="car-detail-value">{car.bodyColor || '-'}</span>
             </div>
             <div className="car-detail">
               <span className="car-detail-label">Салон:</span>
-              <span className="car-color-dot" style={{ backgroundColor: colorToSwatch(car.interiorColor) }} />
+              {car.interiorColor && car.interiorColor !== '-' && (
+                <span className="car-color-dot" style={{ backgroundColor: colorToSwatch(car.interiorColor) }} />
+              )}
               <span className="car-detail-value">{car.interiorColor || '-'}</span>
             </div>
             <div className="car-detail">

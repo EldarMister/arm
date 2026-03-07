@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import FilterSidebar from '../components/catalog/FilterSidebar'
 import CarCard from '../components/catalog/CarCard'
 import {
+  extractTrimLabelFromTitle,
   VAT_REFUND_RATE,
   getShortLocationLabel,
   isWeakColorValue,
@@ -122,7 +123,16 @@ function normalizeVehicleTitle(value) {
   for (const [pattern, replacement] of VEHICLE_NAME_FIXES) {
     text = text.replace(pattern, replacement)
   }
-  return stripVehicleTitleNoise(text)
+  text = stripVehicleTitleNoise(text)
+  const signal = text.replace(/[\s()[\]{}\\/|+_.:-]+/g, '')
+  if (!signal || !/[A-Za-zА-Яа-я0-9]/u.test(signal) || signal.length < 2) return ''
+  return text
+}
+
+function isBrokenVehicleTitle(value) {
+  const text = String(value || '').trim()
+  if (!text) return true
+  return !normalizeVehicleTitle(text)
 }
 
 function isSpecOnlyTitle(value) {
@@ -138,6 +148,7 @@ function isSpecOnlyTitle(value) {
 function shouldUpgradeVehicleTitle(value) {
   const text = String(value || '').trim()
   if (shouldReplaceText(text)) return true
+  if (isBrokenVehicleTitle(text)) return true
   if (isSpecOnlyTitle(text)) return true
   return SUSPICIOUS_NAME_PATTERNS.some((pattern) => pattern.test(text))
 }
@@ -335,13 +346,17 @@ function buildCarUpdatePatch(prevCar, nextCar) {
   if (nextCar.trimLevel && nextCar.trimLevel !== prevCar.trimLevel) patch.trim_level = nextCar.trimLevel
   if (nextCar.keyInfo && nextCar.keyInfo !== prevCar.keyInfo) patch.key_info = nextCar.keyInfo
   if (nextCar.bodyColor && nextCar.bodyColor !== prevCar.bodyColor) patch.body_color = nextCar.bodyColor
-  if (nextCar.interiorColor && nextCar.interiorColor !== prevCar.interiorColor) patch.interior_color = nextCar.interiorColor
+  if (nextCar.interiorColor !== prevCar.interiorColor) patch.interior_color = nextCar.interiorColor || ''
   if (nextCar.location && nextCar.location !== prevCar.location) patch.location = nextCar.location
   if (nextCar.vin && nextCar.vin !== prevCar.vin) patch.vin = nextCar.vin
 
   const prevTags = Array.isArray(prevCar.tags) ? prevCar.tags : []
   const nextTags = Array.isArray(nextCar.tags) ? nextCar.tags : []
   if (JSON.stringify(nextTags) !== JSON.stringify(prevTags)) patch.tags = nextTags
+
+  const prevImages = normalizeImages(prevCar.images)
+  const nextImages = normalizeImages(nextCar.images)
+  if (JSON.stringify(nextImages) !== JSON.stringify(prevImages)) patch.images = nextImages
 
   return patch
 }
@@ -416,11 +431,11 @@ async function fetchEncarDetail(encarId) {
         transmission: normalizeTagLabel(detail?.transmission || ''),
         driveType: normalizeDriveLabel(detail?.drive_type || ''),
         bodyType: normalizeBodyTypeLabel(detail?.body_type || ''),
-        trimLevel: normalizeTrimLabel(detail?.trim_level || ''),
+        trimLevel: normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || ''),
         keyInfo: normalizeKeyInfoLabel(detail?.key_info || ''),
         displacement: Number(detail?.displacement) || 0,
         bodyColor: normalizeColorLabel(detail?.body_color || ''),
-        interiorColor: normalizeColorLabel(detail?.interior_color || ''),
+        interiorColor: normalizeInteriorColorLabel(detail?.interior_color || '', detail?.body_color || ''),
         location: getShortLocationLabel(detail?.location_short || detail?.location || ''),
         vin: String(detail?.vin || detail?.vehicle_no || '').trim(),
         flags: detail?.flags || {},
@@ -524,7 +539,7 @@ function mapCar(c) {
     transmission,
     driveType,
     bodyType,
-    trimLevel: normalizeTrimLabel(c.trim_level || ''),
+    trimLevel: normalizeTrimLabel(c.trim_level || '') || extractTrimLabelFromTitle(normalizedName, normalizedModel, c.name || '', c.model || ''),
     keyInfo: normalizeKeyInfoLabel(c.key_info || ''),
     displacement,
     engineVolume,

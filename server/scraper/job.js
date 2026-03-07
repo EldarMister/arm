@@ -2,9 +2,11 @@ import pool from '../db.js'
 import { DEFAULT_FEES, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import {
   extractShortLocation,
+  extractTrimLevelFromTitle,
   inferDrive,
   normalizeColorName,
   normalizeFuel,
+  normalizeInteriorColorName,
   normalizeManufacturer,
   normalizeTransmission,
   normalizeTrimLevel,
@@ -54,7 +56,7 @@ function mapCar(raw, exchangeSnapshot) {
     raw.SeatColor ||
     raw.SeatColorName ||
     ''
-  const interior_color = normalizeColorName(interior_raw)
+  const interior_color = normalizeInteriorColorName(interior_raw, raw.Color || '')
   const encar_id = String(raw.Id || '')
   const encar_url = `https://www.encar.com/dc/dc_cardetailview.do?carid=${raw.Id}`
   const translatedManufacturer = tr(MANUFACTURER_MAP, rawManufacturer)
@@ -62,7 +64,13 @@ function mapCar(raw, exchangeSnapshot) {
     ? translateVehicleText(translatedManufacturer)
     : translatedManufacturer
   const normalizedManufacturer = normalizeManufacturer(manufacturer || '')
-  const trim_level = normalizeTrimLevel(raw.BadgeDetail, raw.GradeDetail)
+  const trim_level = normalizeTrimLevel(raw.BadgeDetail, raw.GradeDetail) || extractTrimLevelFromTitle(
+    raw.BadgeDetail,
+    raw.GradeDetail,
+    raw.Badge,
+    raw.Model,
+    raw.Name,
+  )
   const rawLocation = String(raw.OfficeCityState || raw.OfficeName || '').trim()
 
   const name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ')

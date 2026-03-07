@@ -7,10 +7,12 @@ import {
   PARKING_ADDRESS_KO,
   extractKeyInfo,
   extractShortLocation,
+  extractTrimLevelFromTitle,
   inferDrive,
   normalizeBodyType,
   normalizeColorName,
   normalizeFuel,
+  normalizeInteriorColorName,
   normalizeManufacturer,
   normalizeText,
   normalizeTransmission,
@@ -93,6 +95,13 @@ router.get('/:encarId', async (req, res) => {
       category.gradeDetailName,
       category.gradeName,
       category.gradeEnglishName,
+    ) || extractTrimLevelFromTitle(
+      category.gradeDetailEnglishName,
+      category.gradeDetailName,
+      category.gradeName,
+      category.gradeEnglishName,
+      ad.title,
+      ad.subTitle,
     )
 
     const name = [manufacturer, modelGroup, gradeName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
@@ -140,7 +149,7 @@ router.get('/:encarId', async (req, res) => {
       year,
       mileage: Number(spec.mileage) || 0,
       body_color: normalizeColorName(spec.colorName),
-      interior_color: normalizeColorName(
+      interior_color: normalizeInteriorColorName(
         spec?.customColor?.interiorColorName ||
         spec?.customColor?.interiorColor ||
         spec?.interiorColorName ||
@@ -151,7 +160,8 @@ router.get('/:encarId', async (req, res) => {
         spec?.trimColor ||
         spec?.seatColorName ||
         spec?.seatColor ||
-        ''
+        '',
+        spec.colorName
       ),
       location: locationRaw,
       location_short: extractShortLocation(locationRaw),
