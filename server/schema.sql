@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS cars (
   transmission     VARCHAR(100),
   drive_type       VARCHAR(100),
   body_type        VARCHAR(100),
+  trim_level       VARCHAR(120),
+  key_info         VARCHAR(120),
   displacement     INTEGER DEFAULT 0,
   body_color       VARCHAR(100),
   body_color_dots  TEXT[]  DEFAULT '{}',
@@ -47,6 +49,8 @@ ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS transmission VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS body_type VARCHAR(100);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS trim_level VARCHAR(120);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS key_info VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS displacement INTEGER DEFAULT 0;
 
 -- Индексы для быстрых фильтров

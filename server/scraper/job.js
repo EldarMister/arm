@@ -1,70 +1,66 @@
 import pool from '../db.js'
+import { DEFAULT_FEES, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
+import {
+  extractShortLocation,
+  inferDrive,
+  normalizeColorName,
+  normalizeFuel,
+  normalizeManufacturer,
+  normalizeTransmission,
+  normalizeTrimLevel,
+} from '../lib/vehicleData.js'
 import { fetchCarList, extractPhotoUrls, probePhotoUrls, sleep } from './encarApi.js'
 import { downloadPhotos } from './downloader.js'
 import {
-  MANUFACTURER_MAP, FUEL_MAP, GEAR_MAP, COLOR_MAP,
-  tr, parseYear, priceToKRW, krwToUsd, translateVehicleText, hasHangul,
+  MANUFACTURER_MAP,
+  tr,
+  parseYear,
+  priceToKRW,
+  translateVehicleText,
+  hasHangul,
 } from './translator.js'
 import { state } from './state.js'
 
 const PAGE_SIZE = 20
 
-function normalizeDriveType(value) {
-  const text = String(value || '').trim()
-  if (!text) return ''
-  const low = text.toLowerCase()
-  if (/\bawd\b/.test(low)) return 'Полный (AWD)'
-  if (/\b4wd\b/.test(low) || text.includes('사륜')) return 'Полный (4WD)'
-  if (/\brwd\b/.test(low) || text.includes('후륜')) return 'Задний (RWD)'
-  if (/\b(?:2wd|fwd)\b/.test(low) || text.includes('전륜')) return 'Передний (FWD)'
-  return ''
-}
-
-function inferDriveType(...values) {
-  for (const value of values) {
-    const normalized = normalizeDriveType(value)
-    if (normalized) return normalized
-  }
-  return ''
-}
-
-// ─── Map raw Encar car to our DB shape ───────────────────────────────────────
-function mapCar(raw) {
+function mapCar(raw, exchangeSnapshot) {
   const rawManufacturer = String(raw.Manufacturer || '').trim()
   const model = translateVehicleText(raw.Model || '')
   const badge = translateVehicleText(raw.Badge || '')
   const year = parseYear(raw.Year)
   const mileage = Number(raw.Mileage) || 0
   const price_krw = priceToKRW(raw.Price)
-  const price_usd = krwToUsd(price_krw)
-  const fuel_type = tr(FUEL_MAP, raw.FuelType || '')
-  const gear_type = tr(GEAR_MAP, raw.Transmission || raw.GearType || '')
-  const drive_type = inferDriveType(
+  const pricing = computePricing({
+    priceKrw: price_krw,
+    ...DEFAULT_FEES,
+  }, exchangeSnapshot)
+  const fuel_type = normalizeFuel(raw.FuelType || '')
+  const transmission = normalizeTransmission(raw.Transmission || raw.GearType || '')
+  const drive_type = inferDrive(
     [raw.Badge, raw.BadgeDetail, raw.Model].filter(Boolean).join(' '),
     raw.Grade,
     raw.GradeDetail,
     raw.SubModel,
     raw.Name,
   )
-  const body_color = tr(COLOR_MAP, raw.Color || '')
+  const body_color = normalizeColorName(raw.Color || '')
   const interior_raw = raw.InteriorColor || raw.InnerColor || raw.TrimColor || raw.Color || ''
-  const interior_color = tr(COLOR_MAP, interior_raw)
+  const interior_color = normalizeColorName(interior_raw)
   const encar_id = String(raw.Id || '')
   const encar_url = `https://www.encar.com/dc/dc_cardetailview.do?carid=${raw.Id}`
   const translatedManufacturer = tr(MANUFACTURER_MAP, rawManufacturer)
   const manufacturer = hasHangul(translatedManufacturer)
     ? translateVehicleText(translatedManufacturer)
     : translatedManufacturer
-  const normalizedManufacturer = String(manufacturer || '')
-    .replace(/renault[-\s]*korea\s*\(\s*samseong\s*\)/gi, 'Renault Korea')
-    .replace(/renault[-\s]*korea\s*samsung/gi, 'Renault Korea')
-    .replace(/renault samsung/gi, 'Renault Korea')
+  const normalizedManufacturer = normalizeManufacturer(manufacturer || '')
+  const trim_level = normalizeTrimLevel(raw.BadgeDetail, raw.GradeDetail)
+  const rawLocation = String(raw.OfficeCityState || raw.OfficeName || '').trim()
 
   const name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ')
 
   const tags = []
   if (drive_type) tags.push(drive_type)
-  if (gear_type) tags.push(gear_type)
+  if (transmission) tags.push(transmission)
   if (fuel_type) tags.push(fuel_type)
 
   return {
@@ -73,29 +69,31 @@ function mapCar(raw) {
     year: year ? String(year) : null,
     mileage,
     price_krw,
-    price_usd,
+    price_usd: pricing.price_usd,
     fuel_type,
-    transmission: gear_type,
+    transmission,
     drive_type,
+    body_type: '',
+    trim_level,
+    key_info: '',
     body_color,
     interior_color,
-    location: 'Корея',
+    location: rawLocation || extractShortLocation(rawLocation) || 'Корея',
     encar_url,
     encar_id,
     tags,
     can_negotiate: true,
-    commission: 200,
-    delivery: 1750,
-    loading: 0,
-    unloading: 100,
-    storage: 310,
-    vat_refund: Math.round(price_usd * 0.07),
-    total: 0,
+    commission: DEFAULT_FEES.commission,
+    delivery: DEFAULT_FEES.delivery,
+    loading: DEFAULT_FEES.loading,
+    unloading: DEFAULT_FEES.unloading,
+    storage: DEFAULT_FEES.storage,
+    vat_refund: pricing.vat_refund,
+    total: pricing.total,
     thumbnail: raw.Thumbnail || raw.Photo || null,
   }
 }
 
-// ─── DB helpers ───────────────────────────────────────────────────────────────
 async function getExistingId(encarId) {
   const res = await pool.query(
     'SELECT id FROM cars WHERE encar_id = $1',
@@ -105,29 +103,20 @@ async function getExistingId(encarId) {
 }
 
 async function insertCar(car, photoUrls) {
-  const total = Math.round(
-    Number(car.price_usd || 0) +
-    Number(car.commission || 0) +
-    Number(car.delivery || 0) +
-    Number(car.loading || 0) +
-    Number(car.unloading || 0) +
-    Number(car.storage || 0) -
-    Number(car.vat_refund || 0)
-  )
-
   const res = await pool.query(
     `INSERT INTO cars
        (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission, drive_type,
-        body_color, interior_color, location, encar_url, encar_id, tags, can_negotiate,
-        commission, delivery, loading, unloading, storage, vat_refund, total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+        body_type, trim_level, key_info, body_color, interior_color, location, encar_url, encar_id,
+        tags, can_negotiate, commission, delivery, loading, unloading, storage, vat_refund, total)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
      RETURNING id`,
     [
       car.name, car.model, car.year, car.mileage,
       car.price_krw, car.price_usd, car.fuel_type, car.transmission, car.drive_type,
-      car.body_color, car.interior_color, car.location, car.encar_url,
-      car.encar_id, car.tags, car.can_negotiate,
-      car.commission, car.delivery, car.loading, car.unloading, car.storage, car.vat_refund, total,
+      car.body_type || null, car.trim_level || null, car.key_info || null,
+      car.body_color, car.interior_color, car.location, car.encar_url, car.encar_id,
+      car.tags, car.can_negotiate, car.commission, car.delivery, car.loading, car.unloading,
+      car.storage, car.vat_refund, car.total,
     ]
   )
   const carId = res.rows[0].id
@@ -151,30 +140,32 @@ async function updateScrapeStats(added) {
        WHERE id = 1`,
       [added]
     )
-  } catch { /* non-critical */ }
+  } catch {
+    // non-critical
+  }
 }
 
-// ─── Main job ─────────────────────────────────────────────────────────────────
 export async function runScrapeJob(limit = 100) {
   if (state.isRunning) throw new Error('Парсер уже запущен')
 
-  state.isRunning  = true
-  state.stopReq    = false
-  state.startedAt  = new Date().toISOString()
-  state.lastRun    = state.startedAt
-  state.progress   = { done: 0, total: limit, failed: 0, skipped: 0, photos: 0 }
+  state.isRunning = true
+  state.stopReq = false
+  state.startedAt = new Date().toISOString()
+  state.lastRun = state.startedAt
+  state.progress = { done: 0, total: limit, failed: 0, skipped: 0, photos: 0 }
 
   state.info(`🚀 Запуск парсера — лимит ${limit} машин`)
 
   const sourceMode = process.env.ENCAR_PROXY_URL ? 'Vercel proxy' : 'direct Encar API'
   state.info(`Source mode: ${sourceMode}`)
-  let offset    = 0
+  const exchangeSnapshot = await getExchangeRateSnapshot()
+
+  let offset = 0
   let processed = 0
   let addedThisRun = 0
 
   try {
     while (processed < limit && !state.stopReq) {
-      // ── Fetch page ──────────────────────────────────────────────────────────
       const pageLimit = Math.min(PAGE_SIZE, limit - processed)
       state.info(`📋 Получаю список (offset=${offset}, count=${pageLimit})...`)
 
@@ -195,16 +186,13 @@ export async function runScrapeJob(limit = 100) {
       }
       state.info(`📦 Получено ${cars.length} машин (Encar всего: ${total.toLocaleString()})`)
 
-      // ── Process each car ────────────────────────────────────────────────────
       for (const raw of cars) {
         if (state.stopReq) {
           state.warn('⏹ Остановлено пользователем')
           break
         }
 
-        const car = mapCar(raw)
-
-        // Skip if already in DB
+        const car = mapCar(raw, exchangeSnapshot)
         const existId = await getExistingId(raw.Id)
         if (existId) {
           state.info(`⏭ Пропуск ${car.name} (${car.year}) — уже в базе`)
@@ -215,14 +203,12 @@ export async function runScrapeJob(limit = 100) {
 
         state.info(`🔍 ${car.name} (${car.year}, ${car.mileage.toLocaleString()} км, $${car.price_usd.toLocaleString()})`)
 
-        // ── Probe + download photos ────────────────────────────────────────
         let photoUrls = []
         try {
           const extracted = extractPhotoUrls(raw, 8)
           const validUrls = extracted.length ? extracted : await probePhotoUrls(raw.Id, 8)
           if (validUrls.length) {
             state.info(`Processing ${validUrls.length} photos for ${car.name}...`)
-            // Keep local download as warm cache, but persist stable Encar CDN URLs in DB.
             await downloadPhotos(validUrls, raw.Id, 8)
             photoUrls = validUrls
             state.setProgress({ photos: state.progress.photos + photoUrls.length })
@@ -231,7 +217,6 @@ export async function runScrapeJob(limit = 100) {
           state.warn(`Photo error: ${photoErr.message}`)
         }
 
-        // ── Save to DB ─────────────────────────────────────────────────────
         try {
           const newId = await insertCar(car, photoUrls)
           state.success(`✅ Сохранено: ${car.name} → id=${newId}, фото=${photoUrls.length}`)
@@ -243,7 +228,6 @@ export async function runScrapeJob(limit = 100) {
         }
 
         processed++
-
       }
 
       offset += cars.length
@@ -265,7 +249,7 @@ export async function runScrapeJob(limit = 100) {
     state.error(`💥 Критическая ошибка: ${err.message}`)
   } finally {
     state.isRunning = false
-    state.stopReq   = false
+    state.stopReq = false
     state.emit('update', { type: 'done', progress: { ...state.progress } })
   }
 }

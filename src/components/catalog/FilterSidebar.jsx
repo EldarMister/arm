@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { getColorSwatch, normalizeColorLabel as normalizeVehicleColorLabel } from '../../lib/vehicleDisplay'
 
 const ChevronIcon = ({ open }) => (
   <svg
@@ -193,14 +194,17 @@ const COLOR_MAP = {
 }
 
 function getColorStyle(name) {
-  const key = (name || '').toLowerCase().trim()
-  for (const [k, v] of Object.entries(COLOR_MAP)) {
-    if (key.includes(k)) return v
-  }
-  return { color: '#9ca3af' }
+  const normalized = normalizeVehicleColorLabel(name)
+  const color = getColorSwatch(normalized)
+  const border = /бел|white|silver|серебрист|жемчуж|pearl|snow|ivory|айвори/i.test(normalized)
+    ? '#cbd5e1'
+    : color
+  return { color, border }
 }
 
 function normalizeColorName(value) {
+  return normalizeVehicleColorLabel(value)
+
   const text = String(value || '').trim()
   const low = text.toLowerCase()
   const compact = low.replace(/[\s_-]/g, '')

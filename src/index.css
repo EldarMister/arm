@@ -2163,6 +2163,20 @@ body {
   font-weight: 500;
 }
 
+.car-quick-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.car-quick-meta strong {
+  color: #e2a325;
+  font-weight: 800;
+}
+
 .car-meta {
   display: flex;
   align-items: center;
@@ -2265,10 +2279,18 @@ body {
 }
 
 .car-price-usd {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(249, 115, 22, 0.18));
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #b45309;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .car-price-breakdown {
@@ -2557,17 +2579,38 @@ body {
 }
 
 .car-details-price-usd {
-  margin-top: 2px;
-  color: #374151;
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(249, 115, 22, 0.16));
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #b45309;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
 }
 
 .car-details-price-note {
   margin: 8px 0 0;
   color: #7189a3;
   font-size: 13px;
+}
+
+.car-details-chip-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.car-details-chip-line strong {
+  color: #e2a325;
+  font-weight: 800;
 }
 
 .car-details-breakdown {
@@ -4426,6 +4469,14 @@ body {
   color: #5a7490;
 }
 
+[data-theme="dark"] .car-quick-meta {
+  color: #7a96b0;
+}
+
+[data-theme="dark"] .car-quick-meta strong {
+  color: #ffd166;
+}
+
 [data-theme="dark"] .car-meta {
   color: #7a96b0;
 }
@@ -4459,7 +4510,9 @@ body {
 }
 
 [data-theme="dark"] .car-price-usd {
-  color: #e2e8f0;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(249, 115, 22, 0.18));
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #ffd166;
 }
 
 [data-theme="dark"] .car-price-row span:first-child {
@@ -4547,7 +4600,17 @@ body {
 }
 
 [data-theme="dark"] .car-details-price-usd {
-  color: #e2e8f0;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(249, 115, 22, 0.18));
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #ffd166;
+}
+
+[data-theme="dark"] .car-details-chip-line {
+  color: #7a96b0;
+}
+
+[data-theme="dark"] .car-details-chip-line strong {
+  color: #ffd166;
 }
 
 [data-theme="dark"] .car-details-breakdown {

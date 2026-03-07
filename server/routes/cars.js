@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import { DEFAULT_FEES, VAT_REFUND_RATE, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
+import { extractShortLocation, normalizeColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
 
 const router = Router()
 
@@ -248,6 +250,33 @@ function searchPatterns(value) {
     .map((variant) => `%${variant}%`)
 }
 
+function decorateCarRow(row, exchangeSnapshot) {
+  const pricing = computePricing({
+    priceKrw: row.price_krw,
+    commission: row.commission ?? DEFAULT_FEES.commission,
+    delivery: row.delivery ?? DEFAULT_FEES.delivery,
+    loading: row.loading ?? DEFAULT_FEES.loading,
+    unloading: row.unloading ?? DEFAULT_FEES.unloading,
+    storage: row.storage ?? DEFAULT_FEES.storage,
+  }, exchangeSnapshot)
+
+  return {
+    ...row,
+    body_color: normalizeColorName(row.body_color || ''),
+    interior_color: normalizeColorName(row.interior_color || ''),
+    trim_level: normalizeTrimLevel(row.trim_level || ''),
+    key_info: String(row.key_info || '').trim(),
+    location_short: extractShortLocation(row.location || ''),
+    price_usd: pricing.price_usd,
+    vat_refund: pricing.vat_refund,
+    total: pricing.total,
+    exchange_rate_current: pricing.exchange_rate_current,
+    exchange_rate_site: pricing.exchange_rate_site,
+    exchange_rate_offset: pricing.exchange_rate_offset,
+    vat_rate: pricing.vat_rate,
+  }
+}
+
 router.get('/', async (req, res) => {
   try {
     const {
@@ -258,6 +287,16 @@ router.get('/', async (req, res) => {
       sort = 'newest',
       page = 1, limit = 20,
     } = req.query
+    const exchangeSnapshot = await getExchangeRateSnapshot()
+    const siteRateSql = Number((exchangeSnapshot.siteRate || 1).toFixed(2))
+    const priceUsdSql = `ROUND((COALESCE(c.price_krw, 0)::numeric / ${siteRateSql})::numeric, 0)`
+    const commissionSql = `COALESCE(c.commission, ${DEFAULT_FEES.commission})`
+    const deliverySql = `COALESCE(c.delivery, ${DEFAULT_FEES.delivery})`
+    const loadingSql = `COALESCE(c.loading, ${DEFAULT_FEES.loading})`
+    const unloadingSql = `COALESCE(c.unloading, ${DEFAULT_FEES.unloading})`
+    const storageSql = `COALESCE(c.storage, ${DEFAULT_FEES.storage})`
+    const vatRefundSql = `ROUND((${priceUsdSql}) * ${VAT_REFUND_RATE}, 0)`
+    const totalSql = `ROUND((${priceUsdSql}) + ${commissionSql} + ${deliverySql} + ${loadingSql} + ${unloadingSql} + ${storageSql} - (${vatRefundSql}), 0)`
 
     const conditions = []
     const params = []
@@ -288,6 +327,8 @@ router.get('/', async (req, res) => {
         OR COALESCE(c.body_color, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.interior_color, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.location, '') ILIKE ANY($${p}::text[])
+        OR COALESCE(c.trim_level, '') ILIKE ANY($${p}::text[])
+        OR COALESCE(c.key_info, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.year, '') ILIKE ANY($${p}::text[])
         OR COALESCE(c.displacement::text, '') ILIKE ANY($${p}::text[])
         OR EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE ANY($${p}::text[]))
@@ -308,6 +349,8 @@ router.get('/', async (req, res) => {
           OR COALESCE(c.body_color, '') ILIKE $${p}
           OR COALESCE(c.interior_color, '') ILIKE $${p}
           OR COALESCE(c.location, '') ILIKE $${p}
+          OR COALESCE(c.trim_level, '') ILIKE $${p}
+          OR COALESCE(c.key_info, '') ILIKE $${p}
           OR COALESCE(c.year, '') ILIKE $${p}
           OR COALESCE(c.displacement::text, '') ILIKE $${p}
           OR EXISTS (SELECT 1 FROM UNNEST(c.tags) AS t WHERE t ILIKE $${p})
@@ -319,12 +362,12 @@ router.get('/', async (req, res) => {
 
     if (brandValues.length) {
       const patterns = uniqPatterns(brandValues.flatMap(brandPatterns))
-      conditions.push(`(c.name ILIKE ANY($${p}::text[]) OR c.model ILIKE ANY($${p}::text[]))`)
+      conditions.push(`(c.name ILIKE ANY($${p}::text[]) OR c.model ILIKE ANY($${p}::text[]) OR COALESCE(c.trim_level, '') ILIKE ANY($${p}::text[]))`)
       params.push(patterns)
       p++
     }
-    if (minPrice) { conditions.push(`c.price_usd >= $${p++}`); params.push(Number(minPrice)) }
-    if (maxPrice) { conditions.push(`c.price_usd <= $${p++}`); params.push(Number(maxPrice)) }
+    if (minPrice) { conditions.push(`${priceUsdSql} >= $${p++}`); params.push(Number(minPrice)) }
+    if (maxPrice) { conditions.push(`${priceUsdSql} <= $${p++}`); params.push(Number(maxPrice)) }
     if (minYear) { conditions.push(`${yearSql} >= $${p++}`); params.push(Number(minYear)) }
     if (maxYear) { conditions.push(`${yearSql} <= $${p++}`); params.push(Number(maxYear)) }
     if (minMileage) { conditions.push(`c.mileage >= $${p++}`); params.push(Number(minMileage)) }
@@ -384,8 +427,8 @@ router.get('/', async (req, res) => {
     const sortMap = {
       newest: 'c.created_at DESC',
       oldest: 'c.created_at ASC',
-      price_asc: 'c.price_usd ASC',
-      price_desc: 'c.price_usd DESC',
+      price_asc: `${priceUsdSql} ASC`,
+      price_desc: `${priceUsdSql} DESC`,
       mileage: 'c.mileage ASC',
       year_desc: 'c.year DESC',
       year_asc: 'c.year ASC',
@@ -434,7 +477,11 @@ router.get('/', async (req, res) => {
       page: Number(page),
       limit: Number(limit),
       pages: Math.ceil(total / Number(limit)),
-      cars: carsResult.rows,
+      exchange_rate_current: exchangeSnapshot.currentRate,
+      exchange_rate_site: exchangeSnapshot.siteRate,
+      exchange_rate_offset: exchangeSnapshot.offset,
+      vat_rate: VAT_REFUND_RATE,
+      cars: carsResult.rows.map((row) => decorateCarRow(row, exchangeSnapshot)),
     })
   } catch (err) {
     console.error(err)
@@ -444,6 +491,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    const exchangeSnapshot = await getExchangeRateSnapshot()
     const result = await pool.query(
       `SELECT c.*,
         COALESCE(
@@ -457,7 +505,7 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' })
-    return res.json(result.rows[0])
+    return res.json(decorateCarRow(result.rows[0], exchangeSnapshot))
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'Ошибка сервера' })
@@ -468,7 +516,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       name, model, year, mileage,
-      fuel_type, transmission, drive_type, body_type, displacement,
+      fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement,
       body_color, body_color_dots,
       interior_color, interior_color_dots,
       location, vin,
@@ -480,16 +528,16 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO cars
         (name, model, year, mileage,
-         fuel_type, transmission, drive_type, body_type, displacement,
+         fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement,
          body_color, body_color_dots, interior_color, interior_color_dots,
          location, vin, price_krw, price_usd,
          commission, delivery, loading, unloading, storage, vat_refund, total,
          encar_url, encar_id, can_negotiate, tags)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
        RETURNING *`,
       [
         name, model, year, mileage || 0,
-        fuel_type, transmission, drive_type, body_type, displacement || 0,
+        fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement || 0,
         body_color, body_color_dots || [], interior_color, interior_color_dots || [],
         location, vin, price_krw || 0, price_usd || 0,
         commission || 200, delivery || 0, loading || 0, unloading || 0,
@@ -508,7 +556,7 @@ router.put('/:id', async (req, res) => {
   try {
     const fields = [
       'name', 'model', 'year', 'mileage',
-      'fuel_type', 'transmission', 'drive_type', 'body_type', 'displacement',
+      'fuel_type', 'transmission', 'drive_type', 'body_type', 'trim_level', 'key_info', 'displacement',
       'body_color', 'body_color_dots', 'interior_color', 'interior_color_dots',
       'location', 'vin', 'price_krw', 'price_usd',
       'commission', 'delivery', 'loading', 'unloading', 'storage', 'vat_refund', 'total',

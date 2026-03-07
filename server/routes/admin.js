@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
+import { normalizeColorName } from '../lib/vehicleData.js'
 
 const router = Router()
 
@@ -18,6 +20,22 @@ const COLOR_SWATCH = {
   Оранжевый: { color: '#f97316' },
   Желтый: { color: '#eab308' },
   Фиолетовый: { color: '#7c3aed' },
+}
+
+const EXTRA_COLOR_SWATCH = {
+  'Мокрый асфальт': { color: '#5b6470' },
+  'Графитовый': { color: '#505862' },
+  'Серебристо-серый': { color: '#b8c0ca', border: '#94a3b8' },
+  'Темно-серый': { color: '#4b5563' },
+  'Светло-серый': { color: '#dbe1e8', border: '#a8b3c2' },
+  'Жемчужный': { color: '#e7eaef', border: '#cbd5e1' },
+  'Жемчужно-белый': { color: '#f8fafc', border: '#cbd5e1' },
+  'Жемчужно-черный': { color: '#1f2937' },
+  'Снежный белый': { color: '#ffffff', border: '#d1d5db' },
+  'Айвори': { color: '#f3ead8', border: '#d6c7aa' },
+  'Винный': { color: '#7f1d1d' },
+  'Темно-синий': { color: '#1e3a8a' },
+  'Золотой': { color: '#c9971a' },
 }
 
 const KO = {
@@ -247,7 +265,7 @@ function aggregateBrands(rows) {
 function aggregateColors(rows) {
   const acc = new Map()
   for (const row of rows || []) {
-    const name = normalizeColor(row?.name)
+    const name = normalizeColorName(row?.name) || normalizeColor(row?.name)
     if (!name) continue
     const count = Number(row?.count) || 0
     acc.set(name, (acc.get(name) || 0) + count)
@@ -258,7 +276,7 @@ function aggregateColors(rows) {
     .map(([name, count]) => ({
       name,
       count,
-      ...(COLOR_SWATCH[name] || { color: '#9ca3af' }),
+      ...(COLOR_SWATCH[name] || EXTRA_COLOR_SWATCH[name] || { color: '#9ca3af' }),
     }))
 }
 
@@ -273,6 +291,9 @@ router.post('/login', (req, res) => {
 
 router.get('/filter-options', async (_req, res) => {
   try {
+    const exchangeSnapshot = await getExchangeRateSnapshot()
+    const siteRateSql = Number((exchangeSnapshot.siteRate || 1).toFixed(2))
+    const priceUsdSql = `ROUND((COALESCE(price_krw, 0)::numeric / ${siteRateSql})::numeric, 0)`
     const [nameCounts, fuelCounts, tagCounts, driveCounts, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
       pool.query(`
         SELECT name, COUNT(*)::int AS count
@@ -340,7 +361,7 @@ router.get('/filter-options', async (_req, res) => {
         FROM cars
         WHERE year ~ '^[0-9]{4}$'
       `),
-      pool.query(`SELECT MIN(price_usd) AS min_price, MAX(price_usd) AS max_price FROM cars`),
+      pool.query(`SELECT MIN(${priceUsdSql}) AS min_price, MAX(${priceUsdSql}) AS max_price FROM cars`),
       pool.query(`SELECT MIN(mileage) AS min_mileage, MAX(mileage) AS max_mileage FROM cars`),
       pool.query(`SELECT COUNT(*)::int AS count FROM cars`),
     ])
@@ -372,10 +393,13 @@ router.get('/filter-options', async (_req, res) => {
 
 router.get('/stats', async (_req, res) => {
   try {
+    const exchangeSnapshot = await getExchangeRateSnapshot()
+    const siteRateSql = Number((exchangeSnapshot.siteRate || 1).toFixed(2))
+    const priceUsdSql = `ROUND((COALESCE(price_krw, 0)::numeric / ${siteRateSql})::numeric, 0)`
     const [totalRows, recentRows, avgPriceRows, topBrandRows] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS count FROM cars'),
       pool.query("SELECT COUNT(*)::int AS count FROM cars WHERE created_at > NOW() - INTERVAL '7 days'"),
-      pool.query('SELECT ROUND(AVG(price_usd)::numeric, 0) AS avg FROM cars WHERE price_usd > 0'),
+      pool.query(`SELECT ROUND(AVG(${priceUsdSql})::numeric, 0) AS avg FROM cars WHERE price_krw > 0`),
       pool.query('SELECT name, COUNT(*)::int AS count FROM cars GROUP BY name ORDER BY count DESC LIMIT 100'),
     ])
 

@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import FilterSidebar from '../components/catalog/FilterSidebar'
 import CarCard from '../components/catalog/CarCard'
+import {
+  VAT_REFUND_RATE,
+  getShortLocationLabel,
+  isWeakColorValue,
+  normalizeColorLabel as normalizeVehicleColorLabel,
+  normalizeKeyInfoLabel,
+  normalizeTrimLabel,
+} from '../lib/vehicleDisplay'
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 const encarDetailCache = new Map()
@@ -230,37 +238,11 @@ function hasUntranslatedTags(tags) {
 }
 
 function normalizeColorLabel(value) {
-  const text = String(value || '').trim()
-  if (!text) return ''
-  const low = text.toLowerCase()
-  const compact = low.replace(/[\s_-]/g, '')
-
-  if (low.includes('black') || /^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(compact) || hasAnyToken(text, [KO.black, KO.blackAlt])) return '\u0427\u0435\u0440\u043d\u044b\u0439'
-  if (low.includes('white') || /^(baegsaek|huinsaek)$/.test(compact) || hasAnyToken(text, [KO.white, KO.whiteAlt])) return '\u0411\u0435\u043b\u044b\u0439'
-  if (low.includes('silver') || /^(eunsaek)$/.test(compact) || hasAnyToken(text, [KO.silver])) return '\u0421\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442\u044b\u0439'
-  if (low.includes('gray') || low.includes('grey') || /^(hoesaek|jwisaek)$/.test(compact) || hasAnyToken(text, [KO.gray, KO.grayAlt])) return '\u0421\u0435\u0440\u044b\u0439'
-  if (low.includes('blue') || /^(cheongsaek|parangsaek)$/.test(compact) || hasAnyToken(text, [KO.blue, KO.blueAlt])) return '\u0421\u0438\u043d\u0438\u0439'
-  if (low.includes('red') || /^(ppalgangsaek|ppalgansaek|hongsaek)$/.test(compact) || hasAnyToken(text, [KO.red, KO.redAlt])) return '\u041a\u0440\u0430\u0441\u043d\u044b\u0439'
-  if (low.includes('green') || /^(noksaek|choroksaek)$/.test(compact) || hasAnyToken(text, [KO.green, KO.greenAlt])) return '\u0417\u0435\u043b\u0435\u043d\u044b\u0439'
-  if (low.includes('brown') || /^(galsaek)$/.test(compact) || hasAnyToken(text, [KO.brown])) return '\u041a\u043e\u0440\u0438\u0447\u043d\u0435\u0432\u044b\u0439'
-  if (low.includes('beige') || /^(beijisaek)$/.test(compact) || hasAnyToken(text, [KO.beige])) return '\u0411\u0435\u0436\u0435\u0432\u044b\u0439'
-  if (low.includes('yellow') || /^(norangsaek)$/.test(compact) || hasAnyToken(text, [KO.yellow])) return '\u0416\u0435\u043b\u0442\u044b\u0439'
-  if (low.includes('orange') || /^(juhwangsaek)$/.test(compact) || hasAnyToken(text, [KO.orange])) return '\u041e\u0440\u0430\u043d\u0436\u0435\u0432\u044b\u0439'
-  if (low.includes('purple') || low.includes('violet') || /^(borasaek)$/.test(compact) || hasAnyToken(text, [KO.purple])) return '\u0424\u0438\u043e\u043b\u0435\u0442\u043e\u0432\u044b\u0439'
-
-  if (low.includes('jwiseak') || low.includes('hoesaek')) return '\u0421\u0435\u0440\u044b\u0439'
-  if (low.includes('cheongsaek') || low.includes('parangsaek')) return '\u0421\u0438\u043d\u0438\u0439'
-  if (low.includes('eunsaek')) return '\u0421\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442\u044b\u0439'
-  if (low.includes('heugsaek') || low.includes('geomjeongsaek')) return '\u0427\u0435\u0440\u043d\u044b\u0439'
-
-  if (hasHangul(text)) return ''
-  return normalizeDisplayText(text)
+  return normalizeVehicleColorLabel(value)
 }
 
 function shouldReplaceColor(value) {
-  const text = String(value || '').trim()
-  if (shouldReplaceText(text)) return true
-  return /^[a-z]+saek$/i.test(text.replace(/[\s_-]/g, ''))
+  return isWeakColorValue(value)
 }
 
 function normalizeSearchText(value) {
@@ -324,6 +306,8 @@ function carMatchesSearch(car, query) {
     car.bodyColor,
     car.interiorColor,
     car.location,
+    car.trimLevel,
+    car.keyInfo,
     car.engineVolume,
     car.displacement,
     ...(Array.isArray(car.tags) ? car.tags : []),
@@ -347,6 +331,8 @@ function buildCarUpdatePatch(prevCar, nextCar) {
   if (nextCar.driveType && nextCar.driveType !== prevCar.driveType) patch.drive_type = nextCar.driveType
   if (nextCar.bodyType && nextCar.bodyType !== prevCar.bodyType) patch.body_type = nextCar.bodyType
   if (nextCar.displacement && nextCar.displacement !== prevCar.displacement) patch.displacement = nextCar.displacement
+  if (nextCar.trimLevel && nextCar.trimLevel !== prevCar.trimLevel) patch.trim_level = nextCar.trimLevel
+  if (nextCar.keyInfo && nextCar.keyInfo !== prevCar.keyInfo) patch.key_info = nextCar.keyInfo
   if (nextCar.bodyColor && nextCar.bodyColor !== prevCar.bodyColor) patch.body_color = nextCar.bodyColor
   if (nextCar.interiorColor && nextCar.interiorColor !== prevCar.interiorColor) patch.interior_color = nextCar.interiorColor
   if (nextCar.location && nextCar.location !== prevCar.location) patch.location = nextCar.location
@@ -396,6 +382,8 @@ function needsEncarEnrichment(car) {
     !car.transmission || car.transmission === '-' ||
     !car.driveType || car.driveType === '-' ||
     !car.bodyType || car.bodyType === '-' ||
+    !car.trimLevel ||
+    !car.keyInfo ||
     (!car.engineVolume && !String(car.fuelType || '').toLowerCase().includes('электро')) ||
     hasWeakImages(car) ||
     shouldUpgradeVehicleTitle(car.name) ||
@@ -427,10 +415,12 @@ async function fetchEncarDetail(encarId) {
         transmission: normalizeTagLabel(detail?.transmission || ''),
         driveType: normalizeDriveLabel(detail?.drive_type || ''),
         bodyType: normalizeBodyTypeLabel(detail?.body_type || ''),
+        trimLevel: normalizeTrimLabel(detail?.trim_level || ''),
+        keyInfo: normalizeKeyInfoLabel(detail?.key_info || ''),
         displacement: Number(detail?.displacement) || 0,
         bodyColor: normalizeColorLabel(detail?.body_color || ''),
         interiorColor: normalizeColorLabel(detail?.interior_color || ''),
-        location: normalizeDisplayText(detail?.location || ''),
+        location: getShortLocationLabel(detail?.location_short || detail?.location || ''),
         vin: String(detail?.vin || detail?.vehicle_no || '').trim(),
         flags: detail?.flags || {},
         inspectionFormats: detail?.condition?.inspectionFormats || [],
@@ -494,13 +484,13 @@ function mapCar(c) {
   const loading = Number(c.loading) || 0
   const unloading = Number(c.unloading ?? 100) || 100
   const storage = Number(c.storage ?? 310) || 310
-  const vatRefund = Number(c.vat_refund) || Math.round(priceUSD * 0.07)
+  const vatRefund = Number(c.vat_refund) || Math.round(priceUSD * VAT_REFUND_RATE)
   const total = Number(c.total) || Math.round(priceUSD + commission + delivery + loading + unloading + storage - vatRefund)
   const images = normalizeImages(c.images)
 
   const normalizedName = normalizeVehicleTitle(c.name || '')
   const normalizedModel = normalizeVehicleTitle(c.model || '')
-  const normalizedLocation = normalizeDisplayText(c.location || '\u041a\u043e\u0440\u0435\u044f')
+  const normalizedLocation = getShortLocationLabel(c.location_short || c.location || '\u041a\u043e\u0440\u0435\u044f')
   const tags = normalizeTags(c.tags || [])
   const fuelType = normalizeTagLabel(c.fuel_type || '') || pickFuelFromTags(tags) || '-'
   const transmission = normalizeTagLabel(c.transmission || '') || pickTransmissionFromTags(tags) || '-'
@@ -533,6 +523,8 @@ function mapCar(c) {
     transmission,
     driveType,
     bodyType,
+    trimLevel: normalizeTrimLabel(c.trim_level || ''),
+    keyInfo: normalizeKeyInfoLabel(c.key_info || ''),
     displacement,
     engineVolume,
     bodyColor: normalizeColorLabel(c.body_color || '-'),
@@ -638,6 +630,8 @@ export default function CatalogPage() {
               if (inferredDrive) next.driveType = inferredDrive
             }
             if ((!car.bodyType || car.bodyType === '-') && detail.bodyType) next.bodyType = detail.bodyType
+            if (!car.trimLevel && detail.trimLevel) next.trimLevel = detail.trimLevel
+            if (!car.keyInfo && detail.keyInfo) next.keyInfo = detail.keyInfo
             if ((!car.displacement || !car.engineVolume) && detail.displacement) {
               next.displacement = detail.displacement
               next.engineVolume = detail.engineVolume || resolveEngineVolume({
@@ -650,7 +644,7 @@ export default function CatalogPage() {
             if (hasWeakImages(car) && detail.images.length) next.images = detail.images
             if (shouldReplaceColor(car.bodyColor) && detail.bodyColor) next.bodyColor = detail.bodyColor
             if (shouldReplaceColor(car.interiorColor) && detail.interiorColor) next.interiorColor = detail.interiorColor
-            if (shouldReplaceText(car.location) && detail.location) next.location = detail.location
+            if (detail.location) next.location = detail.location
             if (shouldReplaceText(car.vin) && detail.vin) next.vin = detail.vin
             if (!next.engineVolume) {
               next.engineVolume = resolveEngineVolume({

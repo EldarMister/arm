@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  PARKING_ADDRESS_EN,
+  PARKING_ADDRESS_KO,
+  VAT_REFUND_RATE,
+  getShortLocationLabel,
+  isWeakColorValue,
+  normalizeColorLabel as normalizeVehicleColorLabel,
+  normalizeKeyInfoLabel,
+  normalizeTrimLabel,
+} from '../lib/vehicleDisplay'
 
 const HomeIcon = () => (
   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,6 +370,7 @@ function normalizeBodyTypeLabel(value) {
 }
 
 function normalizeColorLabel(value) {
+  return normalizeVehicleColorLabel(value)
   const text = String(value || '').trim()
   if (!text) return ''
   const low = text.toLowerCase()
@@ -382,6 +393,7 @@ function normalizeColorLabel(value) {
 }
 
 function shouldReplaceColor(value) {
+  return isWeakColorValue(value)
   const text = String(value || '').trim()
   if (shouldReplaceText(text)) return true
   return /^[a-z]+saek$/i.test(text.replace(/[\s_-]/g, ''))
@@ -421,13 +433,13 @@ function mapCar(c) {
   const loading = Number(c.loading) || 0
   const unloading = Number(c.unloading ?? 100) || 100
   const storage = Number(c.storage ?? 310) || 310
-  const vatRefund = Number(c.vat_refund) || Math.round(priceUSD * 0.07)
+  const vatRefund = Number(c.vat_refund) || Math.round(priceUSD * VAT_REFUND_RATE)
   const total = Number(c.total) || Math.round(priceUSD + commission + delivery + loading + unloading + storage - vatRefund)
   const images = normalizeImages(c.images)
   const tags = normalizeTags(Array.isArray(c.tags) ? c.tags : [])
   const normalizedName = normalizeVehicleTitle(c.name || '')
   const normalizedModel = normalizeVehicleTitle(c.model || '')
-  const normalizedLocation = normalizeDisplayText(c.location || 'Корея')
+  const normalizedLocation = getShortLocationLabel(c.location_short || c.location || 'Корея')
   const driveSource = c.drive_type || pickDriveFromTags(tags)
 
   return {
@@ -437,6 +449,8 @@ function mapCar(c) {
     year: c.year || '-',
     yearNum: parseYear(c.year),
     mileage: Number(c.mileage || 0),
+    trimLevel: normalizeTrimLabel(c.trim_level || ''),
+    keyInfo: normalizeKeyInfoLabel(c.key_info || ''),
     bodyColor: normalizeColorLabel(c.body_color || '-'),
     interiorColor: normalizeColorLabel(c.interior_color || c.body_color || '-'),
     location: normalizedLocation || 'Корея',
@@ -452,6 +466,8 @@ function mapCar(c) {
     storage,
     vatRefund,
     total,
+    exchangeRateCurrent: Number(c.exchange_rate_current) || 0,
+    exchangeRateSite: Number(c.exchange_rate_site) || 0,
     encarUrl: c.encar_url || '',
     canNegotiate: Boolean(c.can_negotiate),
     images,
@@ -512,11 +528,11 @@ function mergeCarWithEncar(baseCar, detail) {
     year,
     yearNum: parseYear(year),
     mileage: baseCar.mileage || Number(detail?.mileage || 0),
+    trimLevel: baseCar.trimLevel || normalizeTrimLabel(detail?.trim_level || ''),
+    keyInfo: baseCar.keyInfo || normalizeKeyInfoLabel(detail?.key_info || ''),
     bodyColor: shouldReplaceColor(baseCar.bodyColor) ? normalizeColorLabel(detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
     interiorColor: shouldReplaceColor(baseCar.interiorColor) ? normalizeColorLabel(detail?.interior_color || baseCar.interiorColor || '-') : baseCar.interiorColor,
-    location: (baseCar.location === 'Корея' || shouldReplaceText(baseCar.location))
-      ? (normalizeDisplayText(detail?.location || '') || baseCar.location)
-      : baseCar.location,
+    location: getShortLocationLabel(detail?.location_short || detail?.location || baseCar.location || 'Корея'),
     vin: baseCar.vin === '-' ? (detail?.vin || detail?.vehicle_no || '-') : baseCar.vin,
     fuelType: shouldReplaceText(baseCar.fuelType) ? (normalizeTagLabel(detail?.fuel_type || '') || baseCar.fuelType || '') : baseCar.fuelType,
     images,
@@ -718,6 +734,8 @@ export default function CarDetailsPage() {
             <div className="car-details-title-card">
               <h1 className="car-details-title">{car.name}</h1>
               <p className="car-details-sub">{car.model || '-'}</p>
+              {!!car.trimLevel && <div className="car-details-chip-line"><span>Комплектация:</span><strong>{car.trimLevel}</strong></div>}
+              {!!car.keyInfo && <div className="car-details-chip-line"><span>Ключи:</span><strong>{car.keyInfo}</strong></div>}
 
               <div className="car-details-meta-grid">
                 <div><span className="car-details-meta-label">Год</span><strong>{car.year || '-'}</strong></div>
@@ -738,12 +756,15 @@ export default function CarDetailsPage() {
               <div className="car-details-price-heading">Цена</div>
               <div className="car-details-price-krw">{car.priceKRW.toLocaleString()} ₩</div>
               <div className="car-details-price-usd">${car.priceUSD.toLocaleString()}</div>
-              <p className="car-details-price-note">Цена в корейских вонах (KRW) и в долларах США (USD)</p>
+              <p className="car-details-price-note">
+                Цена в KRW и USD. Курс сайта зафиксирован по формуле: текущий курс USD/KRW - 15.0
+                {car.exchangeRateSite ? ` (курс сайта: ${car.exchangeRateSite.toFixed(2)})` : ''}
+              </p>
 
               <div className="car-details-breakdown">
                 <div className="car-price-row"><span>Цена машины (KRW)</span><span>{car.priceKRW.toLocaleString()} ₩</span></div>
                 <div className="car-price-row"><span>Финальная цена (USD)</span><span>${car.priceUSD.toLocaleString()}</span></div>
-                <div className="car-price-row car-price-vat"><span>Возврат НДС</span><span>-${car.vatRefund.toLocaleString()}</span></div>
+                <div className="car-price-row car-price-vat"><span>Возврат НДС (6.3%)</span><span>-${car.vatRefund.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Комиссия компании</span><span>${car.commission.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Доставка</span><span>${car.delivery.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Погрузка</span><span>${car.loading.toLocaleString()}</span></div>
@@ -760,16 +781,20 @@ export default function CarDetailsPage() {
                 <div><span>Топливо</span><strong>{car.fuelType || fuelLabel(calc.fuel)}</strong></div>
                 <div><span>Трансмиссия</span><strong>{car.transmission || '-'}</strong></div>
                 <div><span>Привод</span><strong>{car.driveType || '-'}</strong></div>
+                <div><span>Комплектация</span><strong>{car.trimLevel || '-'}</strong></div>
                 <div><span>Цвет кузова</span><strong>{car.bodyColor || '-'}</strong></div>
                 <div><span>Цвет салона</span><strong>{car.interiorColor || '-'}</strong></div>
                 <div><span>Пробег</span><strong>{car.mileage.toLocaleString()} км</strong></div>
                 <div><span>Местоположение</span><strong>{car.location || '-'}</strong></div>
                 <div><span>Тип кузова</span><strong>{car.bodyType || '-'}</strong></div>
+                <div><span>Ключи</span><strong>{car.keyInfo || '-'}</strong></div>
                 <div><span>Мест</span><strong>{car.seatCount || '-'}</strong></div>
                 <div><span>Объем двигателя</span><strong>{car.displacement ? `${car.displacement} cc` : '-'}</strong></div>
                 <div><span>Encar ID</span><strong>{car.encarId || '-'}</strong></div>
                 <div><span>Дата добавления</span><strong>{formatDate(car.createdAt)}</strong></div>
                 <div><span>Последнее изменение</span><strong>{formatDate(car.updatedAt)}</strong></div>
+                <div><span>Стоянка (KR)</span><strong>{PARKING_ADDRESS_KO}</strong></div>
+                <div><span>Стоянка (EN)</span><strong>{PARKING_ADDRESS_EN}</strong></div>
               </div>
             </div>
 

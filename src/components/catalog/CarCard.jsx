@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { getColorSwatch, normalizeKeyInfoLabel, normalizeTrimLabel } from '../../lib/vehicleDisplay'
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 
@@ -123,7 +124,7 @@ function formatMileage(value) {
 }
 
 function colorToSwatch(label) {
-  return COLOR_SWATCHES[String(label || '').trim()] || '#cbd5e1'
+  return getColorSwatch(label)
 }
 
 function shouldHideTopTag(tag, car) {
@@ -194,6 +195,8 @@ export default function CarCard({ car }) {
     () => (Array.isArray(car.tags) ? car.tags.filter((tag) => !shouldHideTopTag(tag, car)) : []),
     [car]
   )
+  const trimLabel = normalizeTrimLabel(car.trimLevel || '')
+  const keyLabel = normalizeKeyInfoLabel(car.keyInfo || '')
 
   useEffect(() => {
     setImgIdx(0)
@@ -277,6 +280,8 @@ export default function CarCard({ car }) {
         <div className="car-info">
           <h3 className="car-name">{car.name}</h3>
           <span className="car-model">{car.model}</span>
+          {!!trimLabel && <div className="car-quick-meta"><span>Комплектация:</span><strong>{trimLabel}</strong></div>}
+          {!!keyLabel && <div className="car-quick-meta"><span>Ключи:</span><strong>{keyLabel}</strong></div>}
 
           <div className="car-meta">
             <span>{car.year}</span>
@@ -379,7 +384,7 @@ export default function CarCard({ car }) {
               <span>${Number(car.storage || 0).toLocaleString()}</span>
             </div>
             <div className="car-price-row car-price-vat">
-              <span>Возврат НДС (7%):</span>
+              <span>Возврат НДС (6.3%):</span>
               <span>-${Number(car.vatRefund || 0).toLocaleString()}</span>
             </div>
           </div>
