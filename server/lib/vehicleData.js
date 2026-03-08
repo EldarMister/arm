@@ -2,6 +2,33 @@ import { hasHangul, translateVehicleText } from '../scraper/translator.js'
 
 export const PARKING_ADDRESS_KO = '인천 서구 오류동 1550'
 export const PARKING_ADDRESS_EN = '1550 Oryu-dong, Seo-gu, Incheon'
+export const VEHICLE_ORIGIN_LABELS = Object.freeze({
+  korean: 'Корейские авто',
+  imported: 'Импортные авто',
+})
+export const KOREAN_VEHICLE_SQL_PATTERNS = Object.freeze([
+  '%kia%',
+  '%\uAE30\uC544%',
+  '%hyundai%',
+  '%\uD604\uB300%',
+  '%genesis%',
+  '%\uC81C\uB124\uC2DC\uC2A4%',
+  '%chevrolet%',
+  '%\uC250\uBCF4\uB808%',
+  '%daewoo%',
+  '%\uB300\uC6B0%',
+  '%renault%',
+  '%reunokoria%',
+  '%\uB974\uB178%',
+  '%samsung%',
+  '%samseong%',
+  '%\uC0BC\uC131%',
+  '%ssangyong%',
+  '%\uC30D\uC6A9%',
+  '%kg mobility%',
+  '%kgmobilriti%',
+  '%\uBAA8\uBE4C\uB9AC\uD2F0%',
+])
 
 const SPEC_TOKENS = /^(?:gasoline|diesel|hybrid|electric|lpg|turbo|2wd|4wd|awd|fwd|rwd|at|mt|cvt|dct|\d(?:\.\d)?t?)$/i
 const GENERIC_COLOR_LABELS = new Set([
@@ -273,6 +300,8 @@ export function normalizeManufacturer(value) {
 }
 
 const LEGACY_RENAULT_SAMSUNG_MODEL_RE = /\b(sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3)\b/i
+const KOREAN_VEHICLE_ORIGIN_RE = /\b(kia|hyundai|genesis|chevrolet|daewoo|renault(?:\s+korea|\s+samsung)?|reunokoria|samsung|samseong|ssangyong|kg\s*mobility|kgmobilriti)\b/i
+const KOREAN_VEHICLE_ORIGIN_HANGUL_RE = /\uAE30\uC544|\uD604\uB300|\uC81C\uB124\uC2DC\uC2A4|\uC250\uBCF4\uB808|\uB300\uC6B0|\uB974\uB178|\uC0BC\uC131|\uC30D\uC6A9|\uBAA8\uBE4C\uB9AC\uD2F0/u
 
 export function resolveManufacturerDisplayName(manufacturer, ...contextValues) {
   const normalized = normalizeManufacturer(manufacturer)
@@ -293,6 +322,20 @@ export function resolveManufacturerDisplayName(manufacturer, ...contextValues) {
   }
 
   return normalized
+}
+
+export function classifyVehicleOrigin(...values) {
+  const text = values
+    .map((value) => cleanText(value))
+    .filter(Boolean)
+    .join(' ')
+
+  if (!text) return ''
+  if (KOREAN_VEHICLE_ORIGIN_RE.test(text) || KOREAN_VEHICLE_ORIGIN_HANGUL_RE.test(text)) {
+    return VEHICLE_ORIGIN_LABELS.korean
+  }
+
+  return VEHICLE_ORIGIN_LABELS.imported
 }
 
 export function normalizeFuel(value) {

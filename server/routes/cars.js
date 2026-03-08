@@ -2,7 +2,14 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { DEFAULT_FEES, VAT_REFUND_RATE, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { getPricingSettings, resolveVehicleFees } from '../lib/pricingSettings.js'
-import { extractShortLocation, extractTrimLevelFromTitle, normalizeColorName, normalizeInteriorColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
+import {
+  extractShortLocation,
+  extractTrimLevelFromTitle,
+  KOREAN_VEHICLE_SQL_PATTERNS,
+  normalizeColorName,
+  normalizeInteriorColorName,
+  normalizeTrimLevel,
+} from '../lib/vehicleData.js'
 
 const router = Router()
 
@@ -183,6 +190,14 @@ function colorPatterns(value) {
   return rawPattern(value)
 }
 
+function normalizeOriginFilterValue(value) {
+  const low = String(value || '').toLowerCase().trim()
+  if (!low) return ''
+  if (low.includes('корей') || low === 'korean' || low === 'domestic') return 'korean'
+  if (low.includes('импорт') || low === 'imported' || low === 'foreign') return 'imported'
+  return ''
+}
+
 const SEARCH_ALIASES = [
   ['kia', ['kia', 'киа', KO.kia]],
   ['hyundai', ['hyundai', 'хендэ', 'хундай', KO.hyundai]],
@@ -297,7 +312,7 @@ router.get('/', async (req, res) => {
       brand, q, minPrice, maxPrice,
       minYear, maxYear,
       minMileage, maxMileage,
-      fuel, drive, body, color, interiorColor,
+      fuel, drive, body, color, interiorColor, origin,
       sort = 'newest',
       page = 1, limit = 20,
     } = req.query
@@ -317,6 +332,7 @@ router.get('/', async (req, res) => {
     const bodyValues = parseListFilter(body)
     const colorValues = parseListFilter(color)
     const interiorColorValues = parseListFilter(interiorColor)
+    const originValues = parseListFilter(origin)
     const yearSql = `COALESCE(NULLIF(SUBSTRING(c.year FROM 1 FOR 4), ''), '0')::int`
 
     if (qText) {
@@ -377,6 +393,21 @@ router.get('/', async (req, res) => {
       conditions.push(`(c.name ILIKE ANY($${p}::text[]) OR c.model ILIKE ANY($${p}::text[]) OR COALESCE(c.trim_level, '') ILIKE ANY($${p}::text[]))`)
       params.push(patterns)
       p++
+    }
+    if (originValues.length) {
+      const normalizedOrigins = new Set(originValues.map(normalizeOriginFilterValue).filter(Boolean))
+      const wantsKorean = normalizedOrigins.has('korean')
+      const wantsImported = normalizedOrigins.has('imported')
+
+      if (wantsKorean !== wantsImported) {
+        if (wantsKorean) {
+          conditions.push(`(COALESCE(c.name, '') ILIKE ANY($${p}::text[]) OR COALESCE(c.model, '') ILIKE ANY($${p}::text[]))`)
+        } else {
+          conditions.push(`NOT (COALESCE(c.name, '') ILIKE ANY($${p}::text[]) OR COALESCE(c.model, '') ILIKE ANY($${p}::text[]))`)
+        }
+        params.push(KOREAN_VEHICLE_SQL_PATTERNS)
+        p++
+      }
     }
     if (minPrice) { conditions.push(`${priceUsdSql} >= $${p++}`); params.push(Number(minPrice)) }
     if (maxPrice) { conditions.push(`${priceUsdSql} <= $${p++}`); params.push(Number(maxPrice)) }

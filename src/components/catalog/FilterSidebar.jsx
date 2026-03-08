@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { getColorSwatch, normalizeColorLabel as normalizeVehicleColorLabel } from '../../lib/vehicleDisplay'
+import {
+  classifyVehicleOrigin,
+  getColorSwatch,
+  normalizeColorLabel as normalizeVehicleColorLabel,
+  VEHICLE_ORIGIN_LABELS,
+} from '../../lib/vehicleDisplay'
 
 const ChevronIcon = ({ open }) => (
   <svg
@@ -38,6 +43,10 @@ const CloseIcon = () => (
 
 /* Fallback статичные данные (если бэкенд недоступен / база пустая) */
 const FALLBACK = {
+  originTypes: [
+    { name: VEHICLE_ORIGIN_LABELS.korean, count: 0 },
+    { name: VEHICLE_ORIGIN_LABELS.imported, count: 0 },
+  ],
   brands: [
     { name: 'Kia', count: 0 },
     { name: 'Hyundai', count: 0 },
@@ -95,7 +104,7 @@ const EMPTY_LOCAL_FILTERS = {
   minPrice: '', maxPrice: '',
   minYear: '', maxYear: '',
   minMileage: '', maxMileage: '',
-  brands: [], drive: [], fuel: [], body: [], bodyColor: [], interiorColor: [],
+  origin: [], brands: [], drive: [], fuel: [], body: [], bodyColor: [], interiorColor: [],
 }
 
 const BODY_ORDER = [
@@ -117,6 +126,7 @@ const BODY_ORDER = [
 
 const DRIVE_ORDER = ['Передний (FWD)', 'Полный (AWD)', 'Полный (4WD)', 'Задний (RWD)']
 const FUEL_ORDER = ['Бензин', 'Дизель', 'Бензин (гибрид)', 'Электро', 'Газ (LPG)', 'Водород']
+const ORIGIN_ORDER = [VEHICLE_ORIGIN_LABELS.korean, VEHICLE_ORIGIN_LABELS.imported]
 const BRAND_RULES = [
   [/^renault korea\b/i, 'Renault Korea'],
   [/^renault\b/i, 'Renault Korea'],
@@ -163,6 +173,7 @@ function buildLocalFilters(filters) {
     maxYear: String(src.maxYear ?? ''),
     minMileage: String(src.minMileage ?? ''),
     maxMileage: String(src.maxMileage ?? ''),
+    origin: normalizeArrayFilterValue(src.origin),
     brands: normalizeArrayFilterValue(src.brands ?? src.brand),
     drive: normalizeArrayFilterValue(src.drive),
     fuel: normalizeArrayFilterValue(src.fuel),
@@ -189,6 +200,22 @@ function sortOptionItems(items, order = []) {
     if (b.count !== a.count) return b.count - a.count
     return String(a.name).localeCompare(String(b.name), 'ru')
   })
+}
+
+function mergeOptionItems(primary, fallback = [], order = []) {
+  const byName = new Map()
+
+  for (const item of fallback || []) {
+    if (!item?.name) continue
+    byName.set(item.name, { ...item })
+  }
+
+  for (const item of primary || []) {
+    if (!item?.name) continue
+    byName.set(item.name, { ...item })
+  }
+
+  return sortOptionItems([...byName.values()], order)
 }
 
 function normalizeBrandName(value) {
@@ -431,7 +458,7 @@ function buildLiveColorOptions(cars, field) {
 /* ── Main component ── */
 export default function FilterSidebar({ filters, onFiltersChange, onClose, catalogCars = [] }) {
   const [open, setOpen] = useState({
-    price: true, year: true, mileage: true, brands: true,
+    price: true, year: true, mileage: true, origin: true, brands: true,
     drive: true, characteristics: true, body: true,
     bodyColor: true, interiorColor: true,
   })
@@ -444,6 +471,10 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
 
   const liveBrands = useMemo(
     () => buildLiveOptionCounts(catalogCars, (car) => normalizeBrandName(car?.name || car?.model || '')),
+    [catalogCars]
+  )
+  const liveOrigins = useMemo(
+    () => buildLiveOptionCounts(catalogCars, (car) => classifyVehicleOrigin(car?.name || '', car?.model || ''), ORIGIN_ORDER),
     [catalogCars]
   )
   const liveDriveTypes = useMemo(
@@ -466,6 +497,10 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
   const brandOptions = useMemo(
     () => (liveBrands.length ? liveBrands : options.brands),
     [liveBrands, options.brands]
+  )
+  const originOptions = useMemo(
+    () => mergeOptionItems(liveOrigins, options.originTypes, ORIGIN_ORDER),
+    [liveOrigins, options.originTypes]
   )
   const driveOptions = useMemo(
     () => (liveDriveTypes.length ? liveDriveTypes : options.driveTypes),
@@ -504,6 +539,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
       .then(r => r.json())
       .then(data => {
         setOptions(prev => ({
+          originTypes: data.originTypes?.length ? data.originTypes : prev.originTypes,
           brands: data.brands?.length ? data.brands : prev.brands,
           driveTypes: data.driveTypes?.length ? data.driveTypes : prev.driveTypes,
           fuelTypes: data.fuelTypes?.length ? data.fuelTypes : prev.fuelTypes,
@@ -544,6 +580,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
     if (maxYear) out.maxYear = maxYear
     if (minMileage) out.minMileage = minMileage
     if (maxMileage) out.maxMileage = maxMileage
+    if (local.origin.length) out.origin = local.origin.join(',')
     if (local.brands.length) out.brand = local.brands.join(',')
     if (local.fuel.length) out.fuel = local.fuel.join(',')
     if (local.drive.length) out.drive = local.drive.join(',')
@@ -672,6 +709,22 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
       </div>
 
       {/* Марки */}
+      <div className="filter-section">
+        <button type="button" className="filter-section-hd" onClick={() => toggle('origin')}>
+          <span>Происхождение</span>
+          <ChevronIcon open={open.origin} />
+        </button>
+        {open.origin && (
+          <div className="filter-section-body">
+            <CheckboxList
+              items={originOptions}
+              selected={local.origin}
+              onToggle={name => toggleItem('origin', name)}
+            />
+          </div>
+        )}
+      </div>
+
       <div className="filter-section">
         <button type="button" className="filter-section-hd" onClick={() => toggle('brands')}>
           <span>Марки</span>

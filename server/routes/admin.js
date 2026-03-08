@@ -3,7 +3,13 @@ import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { fetchEncarVehicleDetail } from '../lib/encarVehicle.js'
 import { getPricingSettings, savePricingSettings } from '../lib/pricingSettings.js'
-import { normalizeColorName, normalizeInteriorColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
+import {
+  classifyVehicleOrigin,
+  normalizeColorName,
+  normalizeInteriorColorName,
+  normalizeTrimLevel,
+  VEHICLE_ORIGIN_LABELS,
+} from '../lib/vehicleData.js'
 
 const router = Router()
 const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
@@ -459,6 +465,30 @@ function aggregateColors(rows) {
     }))
 }
 
+function aggregateOrigins(rows) {
+  const acc = new Map()
+  for (const row of rows || []) {
+    const name = classifyVehicleOrigin(row?.name || '', row?.model || '')
+    if (!name) continue
+    const count = Number(row?.count) || 0
+    acc.set(name, (acc.get(name) || 0) + count)
+  }
+
+  const order = new Map([
+    [VEHICLE_ORIGIN_LABELS.korean, 0],
+    [VEHICLE_ORIGIN_LABELS.imported, 1],
+  ])
+
+  return [...acc.entries()]
+    .sort((a, b) => {
+      const aOrder = order.has(a[0]) ? order.get(a[0]) : Number.MAX_SAFE_INTEGER
+      const bOrder = order.has(b[0]) ? order.get(b[0]) : Number.MAX_SAFE_INTEGER
+      if (aOrder !== bOrder) return aOrder - bOrder
+      return b[1] - a[1]
+    })
+    .map(([name, count]) => ({ name, count }))
+}
+
 router.post('/login', (req, res) => {
   const { password } = req.body || {}
   const correctPass = process.env.ADMIN_PASSWORD || 'admin123'
@@ -509,12 +539,20 @@ router.get('/filter-options', async (_req, res) => {
     const exchangeSnapshot = await getExchangeRateSnapshot()
     const siteRateSql = Number((exchangeSnapshot.siteRate || 1).toFixed(2))
     const priceUsdSql = `ROUND((COALESCE(price_krw, 0)::numeric / ${siteRateSql})::numeric, 0)`
-    const [nameCounts, fuelCounts, tagCounts, driveCounts, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
+    const [nameCounts, originSourceRows, fuelCounts, tagCounts, driveCounts, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
       pool.query(`
         SELECT name, COUNT(*)::int AS count
         FROM cars
         WHERE name IS NOT NULL AND name != ''
         GROUP BY name
+      `),
+      pool.query(`
+        SELECT
+          COALESCE(NULLIF(name, ''), model) AS name,
+          COALESCE(model, '') AS model,
+          COUNT(*)::int AS count
+        FROM cars
+        GROUP BY COALESCE(NULLIF(name, ''), model), COALESCE(model, '')
       `),
       pool.query(`
         SELECT fuel_type AS name, COUNT(*)::int AS count
@@ -582,6 +620,7 @@ router.get('/filter-options', async (_req, res) => {
     ])
 
     const brands = aggregateBrands(nameCounts.rows)
+    const originTypes = aggregateOrigins(originSourceRows.rows)
     const fuelTypes = aggregate([...fuelCounts.rows, ...tagCounts.rows], normalizeFuel)
     const driveTypes = aggregate([...tagCounts.rows, ...driveCounts.rows], normalizeDrive)
     const bodyTypes = aggregate(bodySourceRows.rows, normalizeBody)
@@ -590,6 +629,7 @@ router.get('/filter-options', async (_req, res) => {
 
     return res.json({
       brands,
+      originTypes,
       fuelTypes,
       driveTypes,
       bodyTypes,
