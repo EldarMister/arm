@@ -25,10 +25,24 @@ import { state } from './state.js'
 
 const PAGE_SIZE = 20
 
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function stripTrailingTrim(text, trimLevel) {
+  const value = String(text || '').replace(/\s+/g, ' ').trim()
+  const trim = String(trimLevel || '').replace(/\s+/g, ' ').trim()
+  if (!value || !trim) return value
+
+  const pattern = new RegExp(`(?:\\s+|[(/-])${escapeRegex(trim)}\\)?$`, 'i')
+  return value.replace(pattern, '').replace(/\s+/g, ' ').trim()
+}
+
 function mapCar(raw, exchangeSnapshot) {
   const rawManufacturer = String(raw.Manufacturer || '').trim()
   const model = translateVehicleText(raw.Model || '')
   const badge = translateVehicleText(raw.Badge || '')
+  const rawName = translateVehicleText(raw.Name || '')
   const year = parseYear(raw.Year)
   const mileage = Number(raw.Mileage) || 0
   const price_krw = priceToKRW(raw.Price)
@@ -73,7 +87,21 @@ function mapCar(raw, exchangeSnapshot) {
   )
   const rawLocation = String(raw.OfficeCityState || raw.OfficeName || '').trim()
 
-  const name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ')
+  let name = [normalizedManufacturer, model, badge].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+  let modelName = [model, badge].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+
+  if (/^\((?:gm|sm|daewoo)\)\b/i.test(name) || /^\((?:gm|sm|daewoo)\)\b/i.test(modelName)) {
+    const fallbackName = String(rawName || '').replace(/\s+/g, ' ').trim()
+    if (fallbackName) {
+      name = fallbackName
+      modelName = normalizedManufacturer && fallbackName.toLowerCase().startsWith(normalizedManufacturer.toLowerCase())
+        ? fallbackName.slice(normalizedManufacturer.length).trim()
+        : fallbackName
+    }
+  }
+
+  name = stripTrailingTrim(name, trim_level)
+  modelName = stripTrailingTrim(modelName, trim_level)
 
   const tags = []
   if (drive_type) tags.push(drive_type)
@@ -82,7 +110,7 @@ function mapCar(raw, exchangeSnapshot) {
 
   return {
     name,
-    model: [model, badge].filter(Boolean).join(' '),
+    model: modelName,
     year: year ? String(year) : null,
     mileage,
     price_krw,

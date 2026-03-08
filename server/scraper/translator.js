@@ -92,6 +92,9 @@ export function tr(map, key) {
 }
 
 const VEHICLE_TEXT_REPLACE = [
+  ['쉐보레(GM대우)', 'Chevrolet'],
+  ['쉐보레', 'Chevrolet'],
+  ['올란도', 'Orlando'],
   ['뉴 라이즈', 'New Rise'],
   ['더 뉴', 'The New'],
   ['올 뉴', 'All New'],

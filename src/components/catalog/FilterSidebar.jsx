@@ -179,6 +179,7 @@ const COLOR_MAP = {
   jwiseak: { color: '#6b7280' },
   hoesaek: { color: '#6b7280' },
   eunsaek: { color: '#d1d5db', border: '#9ca3af' },
+  eunhasaek: { color: '#d1d5db', border: '#9ca3af' },
   cheongsaek: { color: '#1d4ed8' },
   parangsaek: { color: '#1d4ed8' },
   ppalgangsaek: { color: '#dc2626' },
@@ -213,12 +214,12 @@ function normalizeColorName(value) {
 
   if (low.includes('black') || /^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(compact) || /검정|흑색/.test(text)) return 'Черный'
   if (low.includes('white') || /^(baegsaek|huinsaek)$/.test(compact) || /흰색|백색/.test(text)) return 'Белый'
-  if (low.includes('silver') || compact === 'eunsaek' || /은색/.test(text)) return 'Серебристый'
+  if (low.includes('silver') || compact === 'eunsaek' || compact === 'eunhasaek' || /은색/.test(text)) return 'Серебристый'
   if (low.includes('gray') || low.includes('grey') || /^(hoesaek|jwiseak|jwisaek)$/.test(compact) || /회색|쥐색/.test(text)) return 'Серый'
   if (low.includes('blue') || /^(cheongsaek|parangsaek)$/.test(compact) || /청색|파랑/.test(text)) return 'Синий'
   if (low.includes('red') || /^(ppalgangsaek|ppalgansaek|hongsaek)$/.test(compact) || /빨강|홍색/.test(text)) return 'Красный'
   if (low.includes('green') || /^(noksaek|choroksaek)$/.test(compact) || /녹색|초록/.test(text)) return 'Зеленый'
-  if (low.includes('brown') || compact === 'galsaek' || /갈색/.test(text)) return 'Коричневый'
+  if (low.includes('brown') || compact === 'galsaek' || compact === 'galdaesaek' || /갈색/.test(text)) return 'Коричневый'
   if (low.includes('beige') || compact === 'beijisaek' || /베이지/.test(text)) return 'Бежевый'
   if (low.includes('orange') || compact === 'juhwangsaek' || /주황/.test(text)) return 'Оранжевый'
   if (low.includes('yellow') || compact === 'norangsaek' || /노랑/.test(text)) return 'Желтый'

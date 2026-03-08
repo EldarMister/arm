@@ -11,6 +11,7 @@ import {
   normalizeInteriorColorLabel,
   normalizeKeyInfoLabel,
   normalizeTrimLabel,
+  stripTrailingTrimLabel,
 } from '../lib/vehicleDisplay'
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
@@ -89,6 +90,7 @@ const VEHICLE_NAME_FIXES = [
 ]
 
 const SUSPICIOUS_NAME_PATTERNS = [
+  /^\((?:gm|sm|daewoo)\)\s*\d/i,
   /kgmobilriti/i,
   /rekseuteon/i,
   /seupocheu/i,
@@ -429,15 +431,16 @@ async function fetchEncarDetail(encarId) {
       const res = await fetch(`/api/encar/${encodeURIComponent(key)}`)
       if (!res.ok) return null
       const detail = await res.json()
+      const detailTrim = normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || '')
       const normalized = {
         images: normalizeImages(detail?.photos?.length ? detail.photos : detail?.images),
-        name: normalizeVehicleTitle(detail?.name || ''),
-        model: normalizeVehicleTitle(detail?.model || ''),
+        name: stripTrailingTrimLabel(normalizeVehicleTitle(detail?.name || ''), detailTrim),
+        model: stripTrailingTrimLabel(normalizeVehicleTitle(detail?.model || ''), detailTrim),
         fuelType: normalizeTagLabel(detail?.fuel_type || ''),
         transmission: normalizeTagLabel(detail?.transmission || ''),
         driveType: normalizeDriveLabel(detail?.drive_type || ''),
         bodyType: normalizeBodyTypeLabel(detail?.body_type || ''),
-        trimLevel: normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || ''),
+        trimLevel: detailTrim,
         keyInfo: normalizeKeyInfoLabel(detail?.key_info || ''),
         displacement: Number(detail?.displacement) || 0,
         bodyColor: normalizeColorLabel(detail?.body_color || ''),

@@ -37,6 +37,12 @@ const SUSPICIOUS_DUPLICATE_INTERIOR_COLORS = new Set([
 ])
 
 const TRIM_REPLACEMENTS = [
+  ['choegogeuphyeong', 'Максимальная'],
+  ['gibonhyeong', 'Базовая'],
+  ['kaelrigeuraepi', 'Каллиграфия'],
+  ['geuraebiti', 'Гравити'],
+  ['bijeon', 'Вижен'],
+  ['seupesyeol', 'Спешл'],
   ['peurimieo', 'Премьер'],
   ['peurimio', 'Премьер'],
   ['premier', 'Премьер'],
@@ -69,6 +75,12 @@ const TRIM_REPLACEMENTS = [
 ]
 
 const TITLE_SAFE_TRIM_SOURCES = [
+  'choegogeuphyeong',
+  'gibonhyeong',
+  'kaelrigeuraepi',
+  'geuraebiti',
+  'bijeon',
+  'seupesyeol',
   'peurimieo',
   'peurimio',
   'premier',

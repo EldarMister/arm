@@ -11,6 +11,7 @@ import {
   normalizeInteriorColorLabel,
   normalizeKeyInfoLabel,
   normalizeTrimLabel,
+  stripTrailingTrimLabel,
 } from '../lib/vehicleDisplay'
 
 const HomeIcon = () => (
@@ -303,6 +304,7 @@ const VEHICLE_NAME_FIXES = [
 ]
 
 const SUSPICIOUS_NAME_PATTERNS = [
+  /^\((?:gm|sm|daewoo)\)\s*\d/i,
   /kgmobilriti/i,
   /rekseuteon/i,
   /seupocheu/i,
@@ -599,15 +601,18 @@ function mergeCarWithEncar(baseCar, detail) {
   const baseImages = normalizeImages(baseCar.images)
   const images = detailImages.length ? detailImages : baseImages
   const year = baseCar.year === '-' && detail?.year ? detail.year : baseCar.year
+  const detailTrim = baseCar.trimLevel || normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || '')
+  const detailName = stripTrailingTrimLabel(normalizeVehicleTitle(detail?.name || ''), detailTrim)
+  const detailModel = stripTrailingTrimLabel(normalizeVehicleTitle(detail?.model || ''), detailTrim)
 
   return {
     ...baseCar,
-    name: shouldUpgradeVehicleTitle(baseCar.name) ? (normalizeVehicleTitle(detail?.name || '') || baseCar.name) : baseCar.name,
-    model: shouldUpgradeVehicleTitle(baseCar.model) ? (normalizeVehicleTitle(detail?.model || '') || baseCar.model) : baseCar.model,
+    name: shouldUpgradeVehicleTitle(baseCar.name) ? (detailName || baseCar.name) : baseCar.name,
+    model: shouldUpgradeVehicleTitle(baseCar.model) ? (detailModel || baseCar.model) : baseCar.model,
     year,
     yearNum: parseYear(year),
     mileage: baseCar.mileage || Number(detail?.mileage || 0),
-    trimLevel: baseCar.trimLevel || normalizeTrimLabel(detail?.trim_level || '') || extractTrimLabelFromTitle(detail?.name || '', detail?.model || ''),
+    trimLevel: detailTrim,
     keyInfo: baseCar.keyInfo || normalizeKeyInfoLabel(detail?.key_info || ''),
     bodyColor: shouldReplaceColor(baseCar.bodyColor) ? normalizeColorLabel(detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
     interiorColor: shouldReplaceColor(baseCar.interiorColor)

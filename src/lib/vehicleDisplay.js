@@ -37,6 +37,12 @@ const SHORT_LOCATION_RULES = [
 ]
 
 const TRIM_REPLACEMENTS = [
+  ['choegogeuphyeong', 'Максимальная'],
+  ['gibonhyeong', 'Базовая'],
+  ['kaelrigeuraepi', 'Каллиграфия'],
+  ['geuraebiti', 'Гравити'],
+  ['bijeon', 'Вижен'],
+  ['seupesyeol', 'Спешл'],
   ['peurimieo', 'Премьер'],
   ['peurimio', 'Премьер'],
   ['premier', 'Премьер'],
@@ -69,6 +75,12 @@ const TRIM_REPLACEMENTS = [
 ]
 
 const TITLE_SAFE_TRIM_SOURCES = [
+  'choegogeuphyeong',
+  'gibonhyeong',
+  'kaelrigeuraepi',
+  'geuraebiti',
+  'bijeon',
+  'seupesyeol',
   'peurimieo',
   'peurimio',
   'premier',
@@ -172,6 +184,19 @@ export function extractTrimLabelFromTitle(...values) {
   return candidates[0] || ''
 }
 
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export function stripTrailingTrimLabel(value, trimLabel) {
+  const text = cleanText(value)
+  const trim = normalizeTrimLabel(trimLabel)
+  if (!text || !trim) return text
+
+  const pattern = new RegExp(`(?:\\s+|[(/-])${escapeRegex(trim)}\\)?$`, 'i')
+  return text.replace(pattern, '').replace(/\s+/g, ' ').trim()
+}
+
 export function normalizeColorLabel(value) {
   const raw = cleanText(value)
   if (!raw) return ''
@@ -181,12 +206,12 @@ export function normalizeColorLabel(value) {
 
   if (/^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(low)) return 'Черный'
   if (/^(baegsaek|huinsaek)$/.test(low)) return 'Белый'
-  if (/^eunsaek$/.test(low)) return 'Серебристый'
+  if (/^(eunsaek|eunhasaek)$/.test(low)) return 'Серебристый'
   if (/^(hoesaek|jwisaek|jwiseak)$/.test(low)) return /^(jwisaek|jwiseak)$/.test(low) ? 'Мокрый асфальт' : 'Серый'
   if (/^(cheongsaek|parangsaek)$/.test(low)) return 'Синий'
   if (/^(ppalgangsaek|ppalgansaek|hongsaek)$/.test(low)) return 'Красный'
   if (/^(noksaek|choroksaek)$/.test(low)) return 'Зеленый'
-  if (/^galsaek$/.test(low)) return 'Коричневый'
+  if (/^(galsaek|galdaesaek)$/.test(low)) return 'Коричневый'
   if (/^beijisaek$/.test(low)) return 'Бежевый'
   if (/^juhwangsaek$/.test(low)) return 'Оранжевый'
   if (/^norangsaek$/.test(low)) return 'Желтый'
