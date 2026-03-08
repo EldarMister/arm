@@ -388,7 +388,7 @@ export default function CarCard({ car }) {
               <span>${Number(car.storage || 0).toLocaleString()}</span>
             </div>
             <div className="car-price-row car-price-vat">
-              <span>Возврат НДС (6.3%):</span>
+              <span>Возврат НДС 7%:</span>
               <span>-${Number(car.vatRefund || 0).toLocaleString()}</span>
             </div>
           </div>

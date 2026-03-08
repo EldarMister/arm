@@ -822,7 +822,7 @@ export default function CarDetailsPage() {
               <div className="car-details-breakdown">
                 <div className="car-price-row"><span>Цена машины (KRW)</span><span>{car.priceKRW.toLocaleString()} ₩</span></div>
                 <div className="car-price-row"><span>Финальная цена (USD)</span><span>${car.priceUSD.toLocaleString()}</span></div>
-                <div className="car-price-row car-price-vat"><span>Возврат НДС (6.3%)</span><span>-${car.vatRefund.toLocaleString()}</span></div>
+                <div className="car-price-row car-price-vat"><span>Возврат НДС 7%</span><span>-${car.vatRefund.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Комиссия компании</span><span>${car.commission.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Доставка</span><span>${car.delivery.toLocaleString()}</span></div>
                 <div className="car-price-row"><span>Погрузка</span><span>${car.loading.toLocaleString()}</span></div>
