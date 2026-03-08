@@ -223,6 +223,8 @@ const TITLE_SAFE_TRIM_SOURCES = [
   'collection',
   'celebrity',
   'le blanc',
+  'high grade',
+  'prime pack',
   'hi-limousine',
   'air',
   'earth',
@@ -230,11 +232,17 @@ const TITLE_SAFE_TRIM_SOURCES = [
   'family',
   'export',
   'school bus',
+  'coach',
+  'dynamic',
+  'iconic',
   'choice',
   '1 million',
   '5-door',
+  'top',
+  'libic',
 ]
 const PASSENGER_COUNT_TRIM_RE = /\b\d+\s*inseung\b/i
+const DOOR_COUNT_TRIM_RE = /\b\d+\s*(?:ddeo|doeo|door)\b/i
 
 const KNOWN_CITY_RULES = [
   [/서울|seoul/i, 'Сеул'],
@@ -322,6 +330,7 @@ function hasKnownTrimKeyword(value) {
   const text = cleanText(value)
   if (!text) return false
   if (PASSENGER_COUNT_TRIM_RE.test(text)) return true
+  if (DOOR_COUNT_TRIM_RE.test(text)) return true
 
   return TRIM_REPLACEMENTS.some(([source]) => {
     const pattern = new RegExp(`\\b${source.replace(/\s+/g, '\\s+')}\\b`, 'i')
@@ -630,6 +639,12 @@ export function extractTrimLevelFromTitle(...values) {
     const passengerMatch = text.match(PASSENGER_COUNT_TRIM_RE)
     if (passengerMatch) {
       const normalized = translateTrimWords(passengerMatch[0])
+      if (normalized && !candidates.includes(normalized)) candidates.push(normalized)
+    }
+
+    const doorMatch = text.match(DOOR_COUNT_TRIM_RE)
+    if (doorMatch) {
+      const normalized = translateTrimWords(doorMatch[0])
       if (normalized && !candidates.includes(normalized)) candidates.push(normalized)
     }
 
