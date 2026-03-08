@@ -18,6 +18,7 @@ const enrichState = {
   finished_at: null,
   current: null,
   last_error: '',
+  report: [],
 }
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
@@ -111,6 +112,13 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function pushEnrichReportItem(item) {
+  enrichState.report.unshift(item)
+  if (enrichState.report.length > 200) {
+    enrichState.report = enrichState.report.slice(0, 200)
+  }
+}
+
 function isWeakBodyTypeForEnrichment(value) {
   return WEAK_BODY_TYPES.has(cleanText(value))
 }
@@ -177,6 +185,7 @@ async function runEmptyFieldEnrichment() {
   enrichState.finished_at = null
   enrichState.current = null
   enrichState.last_error = ''
+  enrichState.report = []
 
   try {
     const result = await pool.query(`
@@ -217,14 +226,36 @@ async function runEmptyFieldEnrichment() {
         }
 
         if (Object.keys(patch).length) {
+          const changes = Object.entries(patch).map(([field, nextValue]) => ({
+            field,
+            before: car[field] ?? '',
+            after: nextValue ?? '',
+          }))
+
           await updateCarFields(car.id, patch)
           enrichState.updated += 1
+          pushEnrichReportItem({
+            status: 'updated',
+            id: car.id,
+            encar_id: car.encar_id,
+            name: car.name || car.model || '',
+            changes,
+            finished_at: new Date().toISOString(),
+          })
         } else {
           enrichState.skipped += 1
         }
       } catch (err) {
         enrichState.errors += 1
         enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
+        pushEnrichReportItem({
+          status: 'error',
+          id: car.id,
+          encar_id: car.encar_id,
+          name: car.name || car.model || '',
+          error: err.message,
+          finished_at: new Date().toISOString(),
+        })
       } finally {
         enrichState.processed += 1
       }

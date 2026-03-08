@@ -9,6 +9,7 @@ import {
   normalizeColorName,
   normalizeFuel,
   normalizeInteriorColorName,
+  resolveManufacturerDisplayName,
   normalizeManufacturer,
   resolveBodyType,
   normalizeTransmission,
@@ -86,7 +87,17 @@ function mapCar(raw, exchangeSnapshot, pricingSettings) {
     ? translateVehicleText(translatedManufacturer)
     : translatedManufacturer
   const normalizedManufacturer = normalizeManufacturer(manufacturer || '')
-  const displayManufacturer = normalizedManufacturer === 'Renault Korea' ? '' : normalizedManufacturer
+  const displayManufacturer = resolveManufacturerDisplayName(
+    rawManufacturer,
+    manufacturer,
+    normalizedManufacturer,
+    raw.Model,
+    raw.Badge,
+    raw.Name,
+    raw.SubModel,
+    raw.Grade,
+    raw.GradeDetail,
+  )
   const trim_level = normalizeTrimLevel(raw.BadgeDetail, raw.GradeDetail) || extractTrimLevelFromTitle(
     raw.BadgeDetail,
     raw.GradeDetail,

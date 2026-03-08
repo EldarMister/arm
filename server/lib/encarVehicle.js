@@ -13,6 +13,7 @@ import {
   normalizeColorName,
   normalizeFuel,
   normalizeInteriorColorName,
+  resolveManufacturerDisplayName,
   normalizeManufacturer,
   normalizeText,
   resolveBodyType,
@@ -95,7 +96,16 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     ad.subTitle,
   )
 
-  const displayManufacturer = manufacturer === 'Renault Korea' ? '' : manufacturer
+  const displayManufacturer = resolveManufacturerDisplayName(
+    manufacturerRaw,
+    manufacturer,
+    modelGroupRaw,
+    modelGroup,
+    gradeNameRaw,
+    gradeName,
+    ad.title,
+    ad.subTitle,
+  )
   const name = appendTitleTrimSuffix(
     [displayManufacturer, modelGroup, gradeName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
     category.gradeDetailEnglishName,

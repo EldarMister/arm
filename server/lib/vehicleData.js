@@ -272,6 +272,29 @@ export function normalizeManufacturer(value) {
   return text
 }
 
+const LEGACY_RENAULT_SAMSUNG_MODEL_RE = /\b(sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3)\b/i
+
+export function resolveManufacturerDisplayName(manufacturer, ...contextValues) {
+  const normalized = normalizeManufacturer(manufacturer)
+  if (!normalized) return ''
+
+  if (normalized === 'Renault Korea') {
+    const context = [manufacturer, normalized, ...contextValues]
+      .map((value) => cleanText(value))
+      .filter(Boolean)
+      .join(' ')
+
+    if (
+      LEGACY_RENAULT_SAMSUNG_MODEL_RE.test(context) ||
+      /samseong|samsung|르노삼성/i.test(context)
+    ) {
+      return 'Renault Samsung'
+    }
+  }
+
+  return normalized
+}
+
 export function normalizeFuel(value) {
   const text = cleanText(value)
   if (!text) return ''

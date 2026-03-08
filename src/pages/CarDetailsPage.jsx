@@ -322,15 +322,26 @@ const SUSPICIOUS_NAME_PATTERNS = [
 
 const TITLE_MARKETING_PREFIXES = ['The New', 'All New', 'New Rise', 'The Bold']
 const SPEC_ONLY_TITLE_TOKEN_RE = /^(?:l?\d+(?:\.\d+)?|[24]wd|awd|fwd|rwd|diesel|gasoline|lpg|hybrid|turbo|auto|automatic|manual|cvt|dct|at|mt)$/i
+const LEGACY_RENAULT_SAMSUNG_MODEL_RE = /\b(?:sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3)\b/i
 
 function stripVehicleTitleNoise(value) {
   let text = String(value || '').trim()
   if (!text) return ''
 
+  const isLegacyRenaultSamsung = LEGACY_RENAULT_SAMSUNG_MODEL_RE.test(text)
   text = text
-    .replace(/^(?:reunokoria|renault[-\s]*korea|renault\s*samsung)\s*\(?\s*(?:samseong|samsung)?\s*\)?\s*/gi, '')
+    .replace(
+      /^(?:reunokoria|renault[-\s]*korea|renault\s*samsung)\s*\(?\s*(?:samseong|samsung)?\s*\)?\s*/gi,
+      isLegacyRenaultSamsung ? 'Renault Samsung ' : ''
+    )
     .replace(/\bRenault Korea\s*\((?:Samseong|Samsung)\)/gi, 'Renault Korea')
     .replace(/\b(KG Mobility)\s*\((?:SsangYong)\)/gi, '$1')
+
+  if (isLegacyRenaultSamsung) {
+    text = text
+      .replace(/\bRenault Korea\b/gi, 'Renault Samsung')
+      .replace(/\bRenault Samsung\s+Renault Samsung\b/gi, 'Renault Samsung')
+  }
 
   const prefixGroup = TITLE_MARKETING_PREFIXES.map((item) => item.replace(/\s+/g, '\\s+')).join('|')
   const leadingMarketingRe = new RegExp(`^(?:${prefixGroup})\\s+`, 'i')

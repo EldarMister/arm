@@ -34,6 +34,26 @@ const IC = {
 
 const fmtU = n => '$' + Number(n || 0).toLocaleString('ru-RU')
 const fmtK = n => Number(n || 0).toLocaleString('ko-KR') + ' ₩'
+const LEGACY_RENAULT_SAMSUNG_MODEL_RE = /\b(?:sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3)\b/i
+
+function normalizeAdminVehicleTitle(value, { keepBrand = true } = {}) {
+    let text = String(value || '').trim().replace(/\s+/g, ' ')
+    if (!text) return ''
+
+    const isLegacyRenaultSamsung = LEGACY_RENAULT_SAMSUNG_MODEL_RE.test(text)
+    text = text.replace(
+        /^(?:reunokoria|renault[-\s]*korea|renault\s*samsung)\s*\(?\s*(?:samseong|samsung)?\s*\)?\s*/i,
+        isLegacyRenaultSamsung
+            ? (keepBrand ? 'Renault Samsung ' : '')
+            : (keepBrand ? 'Renault Korea ' : '')
+    )
+
+    if (isLegacyRenaultSamsung) {
+        text = text.replace(/\bRenault Korea\b/gi, 'Renault Samsung')
+    }
+
+    return text.replace(/\s+/g, ' ').trim()
+}
 
 /* ── API ── */
 async function apiFetch(url, opts = {}) {
@@ -771,6 +791,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         finished_at: null,
         current: null,
         last_error: '',
+        report: [],
     })
     const [selected, setSelected] = useState(new Set())
     const prevEnrichRunningRef = useRef(false)
@@ -940,6 +961,46 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     Последняя ошибка: {enrichStatus.last_error}
                 </div>
             )}
+            {!!enrichStatus.report?.length && (
+                <div className="adm-chart-box" style={{ marginBottom: 16 }}>
+                    <div className="adm-chart-title">Что изменило обогащение</div>
+                    <div className="adm-car-sub" style={{ marginBottom: 12 }}>
+                        Показаны последние {enrichStatus.report.length} изменений и ошибок текущего/последнего запуска.
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                        {enrichStatus.report.map((item, index) => (
+                            <div key={`${item.id}-${item.encar_id}-${item.finished_at || index}`} className="adm-settings-card" style={{ padding: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+                                    <div style={{ fontWeight: 700, color: '#e2e8f0' }}>
+                                        {item.name || `ID ${item.id}`}
+                                    </div>
+                                    <span className={`adm-tag-sm ${item.status === 'error' ? 'adm-tag-more' : ''}`}>
+                                        {item.status === 'error' ? 'Ошибка' : 'Обновлено'}
+                                    </span>
+                                </div>
+                                <div className="adm-car-sub" style={{ marginBottom: 8 }}>
+                                    ID: {item.id} • Encar: {item.encar_id}
+                                </div>
+                                {item.status === 'error' ? (
+                                    <div className="adm-car-sub" style={{ color: '#fca5a5' }}>
+                                        {item.error}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'grid', gap: 6 }}>
+                                        {(item.changes || []).map((change, changeIndex) => (
+                                            <div key={`${item.id}-${change.field}-${changeIndex}`} className="adm-car-sub">
+                                                <strong>{change.field}</strong>: `{change.before || '-'}`
+                                                {' -> '}
+                                                `{change.after || '-'}`
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             {error ? (
@@ -965,6 +1026,10 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                         </tr></thead>
                         <tbody>
                             {cars.map(car => (
+                                (() => {
+                                    const displayName = normalizeAdminVehicleTitle(car.name, { keepBrand: true }) || car.name
+                                    const displayModel = normalizeAdminVehicleTitle(car.model, { keepBrand: false }) || car.model
+                                    return (
                                 <tr key={car.id} className={selected.has(car.id) ? 'adm-tr-sel' : ''}>
                                     <td><input type="checkbox" checked={selected.has(car.id)} onChange={() => toggleSel(car.id)} style={{ accentColor: '#6366f1' }} /></td>
                                     <td className="adm-td-id">#{car.id}</td>
@@ -977,8 +1042,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                         </div>
                                     </td>
                                     <td>
-                                        <div className="adm-car-name">{car.name}</div>
-                                        <div className="adm-car-model">{car.model}</div>
+                                        <div className="adm-car-name">{displayName}</div>
+                                        <div className="adm-car-model">{displayModel}</div>
                                         {car.vin && <div className="adm-car-vin">VIN: {car.vin}</div>}
                                     </td>
                                     <td><div>{car.year}</div><div className="adm-car-sub">{Number(car.mileage || 0).toLocaleString()} км</div></td>
@@ -1001,6 +1066,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                         </div>
                                     </td>
                                 </tr>
+                                    )
+                                })()
                             ))}
                         </tbody>
                     </table>
