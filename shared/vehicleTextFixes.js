@@ -37,9 +37,15 @@ function placeMarketingEdition(brand, prefix, rest) {
 function relocateMarketingEdition(value) {
   const text = cleanText(value)
   if (!text) return ''
+  const knownBrands = /^(Kia|Hyundai|Genesis|Chevrolet|Renault|Renault Samsung|Renault Korea|KG|SsangYong|Mercedes-Benz|BMW|Audi|Toyota|Honda|Volkswagen|Nissan|Lexus)\b/i
+
+  let misplaced = text.match(/^([A-Za-z0-9&.+/-]+)\s+(.+)\s+\((The New|All New)\)\s+(.+)$/i)
+  if (misplaced && !knownBrands.test(text)) {
+    return `${misplaced[1]} (${normalizeMarketingPrefix(misplaced[3])}) ${misplaced[2]} ${misplaced[4]}`.replace(/\s+/g, ' ').trim()
+  }
 
   let match = text.match(/^(The New|All New)\s+([A-Za-z0-9&.+/-]+)\s+(.+)$/i)
-  if (match) return placeMarketingEdition(match[2], match[1], match[3])
+  if (match) return `${match[2]} (${normalizeMarketingPrefix(match[1])}) ${match[3]}`.replace(/\s+/g, ' ').trim()
 
   match = text.match(/^([A-Za-z0-9&.+/-]+)\s+(The New|All New)\s+(.+)$/i)
   if (match) return placeMarketingEdition(match[1], match[2], match[3])
@@ -53,11 +59,19 @@ const TITLE_REPLACEMENTS = [
   [/\bgia\b/gi, 'Kia'],
   [/\bhyeondae\b/gi, 'Hyundai'],
   [/\bjenesiseu\b/gi, 'Genesis'],
+  [/\baionik\b/gi, 'Ioniq'],
+  [/\babeo\b/gi, 'Aveo'],
+  [/\bbolteu\b/gi, 'Bolt'],
+  [/\bbenyu\b/gi, 'Venue'],
+  [/\bberakeurujeu\b/gi, 'Veracruz'],
   [/\bnyu\s+damaseu\b/gi, 'New Damas'],
+  [/\brieol\b/gi, 'Real'],
+  [/\bkolrorado\b/gi, 'Colorado'],
   [/\bkaeptiba\b/gi, 'Captiva'],
   [/\bkochi\b/gi, 'Coach'],
   [/\bgeurang\s+kolreoseu\b/gi, 'Grand Koleos'],
   [/\bkolreoseu\b/gi, 'Koleos'],
+  [/\brabo\b/gi, 'Labo'],
   [/\bmaseuteo\b/gi, 'Master'],
   [/\bseutarekseu\b/gi, 'Starex'],
   [/\bwaegeon\b/gi, 'Wagon'],
@@ -69,6 +83,7 @@ const TITLE_REPLACEMENTS = [
   [/\bilrekteurik\b/gi, 'Electric'],
   [/\bdeo\s+nyu\b/gi, 'The New'],
   [/\bol\s+nyu\b/gi, 'All New'],
+  [/\bnyu\b/gi, 'New'],
   [/\bsinhyeong\b/gi, 'New'],
   [/\bgeuraendeu\b/gi, 'Grand'],
   [/\bkei\s*(?=(?:3|5|7|8|9)\b)/gi, 'K'],
@@ -78,6 +93,12 @@ const TITLE_REPLACEMENTS = [
 
 const TRIM_REPLACEMENTS = [
   [/baelryu\s+(?:peulreoseu|plus|\u041f\u043b\u044e\u0441)/gi, 'Value Plus'],
+  [/\bbeseuteu\s+selreksyeon\b/gi, 'Best Selection'],
+  [/\bbest\s+selection\b/gi, 'Best Selection'],
+  [/\bsyupeurim\b/gi, 'Supreme'],
+  [/\bsupreme\b/gi, 'Supreme'],
+  [/\bbaelryu\b/gi, 'Value'],
+  [/\bvalue\b/gi, 'Value'],
   [/\bgogeuphyeong\b/gi, 'High Grade'],
   [/\bhigh\s+grade\b/gi, 'High Grade'],
   [/\bseupesyeol\b/gi, 'Special'],
@@ -130,6 +151,8 @@ const TRIM_REPLACEMENTS = [
   [/\bexport\b/gi, 'Export'],
   [/\beorinibobocha\b/gi, 'School Bus'],
   [/\bschool\s+bus\b/gi, 'School Bus'],
+  [/\bebinyu\b/gi, 'Avenue'],
+  [/\bavenue\b/gi, 'Avenue'],
   [/\bkochi\b/gi, 'Coach'],
   [/\bcoach\b/gi, 'Coach'],
   [/\bdainamik\b/gi, 'Dynamic'],
@@ -168,6 +191,8 @@ export function normalizeRequestedRomanizedColorAlias(value) {
 
   if (/^(ppalgansaek|ppalgangsaek|ppalgangsaek)$/.test(low)) return '\u041A\u0440\u0430\u0441\u043D\u044B\u0439'
   if (/^(noransaek|norangsaek)$/.test(low)) return '\u0416\u0435\u043B\u0442\u044B\u0439'
+  if (/^bunhongsaek$/.test(low)) return '\u0420\u043E\u0437\u043E\u0432\u044B\u0439'
+  if (/^cheongoksaek$/.test(low)) return '\u0411\u0438\u0440\u044E\u0437\u043E\u0432\u044B\u0439'
   if (/^haneulsaek$/.test(low)) return '\u041D\u0435\u0431\u0435\u0441\u043D\u043E-\u0433\u043E\u043B\u0443\u0431\u043E\u0439'
   if (/^jajusaek$/.test(low)) return '\u0411\u043E\u0440\u0434\u043E\u0432\u044B\u0439'
   if (/^(damnoksaek|damnogsaek|dampoksaek)$/.test(low)) return '\u0421\u0432\u0435\u0442\u043B\u043E-\u0437\u0435\u043B\u0435\u043D\u044B\u0439'

@@ -463,6 +463,8 @@ function inferAdditionalColorSwatch(name) {
   const text = String(name || '').toLowerCase()
   if (!text) return null
 
+  if (/\u0440\u043e\u0437\u043e\u0432/i.test(text)) return { color: '#f472b6' }
+  if (/\u0431\u0438\u0440\u044e\u0437/i.test(text)) return { color: '#14b8a6' }
   if (/\u043d\u0435\u0431\u0435\u0441\u043d\u043e-\u0433\u043e\u043b\u0443\u0431/i.test(text)) return { color: '#60a5fa' }
   if (/\u0431\u043e\u0440\u0434\u043e\u0432|\u0432\u0438\u043d\u043d/i.test(text)) return { color: '#7f1d1d' }
   if (/\u0441\u0432\u0435\u0442\u043b\u043e-\u0437\u0435\u043b\u0435\u043d/i.test(text)) return { color: '#86efac', border: '#16a34a' }

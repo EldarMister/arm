@@ -140,6 +140,9 @@ const TITLE_SAFE_TRIM_SOURCES = [
   'black edition',
   'elite',
   'special',
+  'best selection',
+  'supreme',
+  'value',
   'collection',
   'celebrity',
   'le blanc',
@@ -152,6 +155,7 @@ const TITLE_SAFE_TRIM_SOURCES = [
   'family',
   'export',
   'school bus',
+  'avenue',
   'coach',
   'dynamic',
   'iconic',
@@ -507,6 +511,8 @@ export function normalizeInteriorColorLabel(interiorValue, bodyValue = '') {
 
 export function getColorSwatch(value) {
   const text = normalizeColorLabel(value).toLowerCase()
+  if (/\u0440\u043e\u0437\u043e\u0432/i.test(text)) return '#f472b6'
+  if (/\u0431\u0438\u0440\u044e\u0437/i.test(text)) return '#14b8a6'
   if (/\u043d\u0435\u0431\u0435\u0441\u043d\u043e-\u0433\u043e\u043b\u0443\u0431/i.test(text)) return '#60a5fa'
   if (/\u0431\u043e\u0440\u0434\u043e\u0432|wine/i.test(text)) return '#7f1d1d'
   if (/\u0441\u0432\u0435\u0442\u043b\u043e-\u0437\u0435\u043b\u0435\u043d/i.test(text)) return '#86efac'
