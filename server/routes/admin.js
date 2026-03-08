@@ -457,4 +457,43 @@ router.get('/stats', async (_req, res) => {
   }
 })
 
+router.get('/catalog-export', async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        c.*,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', ci.id,
+              'url', ci.url,
+              'position', ci.position
+            )
+            ORDER BY ci.position ASC
+          ) FILTER (WHERE ci.id IS NOT NULL),
+          '[]'::json
+        ) AS images
+      FROM cars c
+      LEFT JOIN car_images ci ON ci.car_id = c.id
+      GROUP BY c.id
+      ORDER BY c.created_at DESC, c.id DESC
+    `)
+
+    const exportedAt = new Date().toISOString()
+    const payload = {
+      exported_at: exportedAt,
+      total: result.rows.length,
+      cars: result.rows,
+    }
+
+    const fileStamp = exportedAt.replace(/[:.]/g, '-')
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="catalog-export-${fileStamp}.json"`)
+    return res.status(200).send(JSON.stringify(payload, null, 2))
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
 export default router

@@ -29,6 +29,7 @@ const IC = {
     tag: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z',
     set: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
     photo: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z M15 13a3 3 0 11-6 0 3 3 0 016 0z',
+    download: 'M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14',
 }
 
 const fmtU = n => '$' + Number(n || 0).toLocaleString('ru-RU')
@@ -51,6 +52,7 @@ const api = {
     getStats: () => apiFetch('/api/admin/stats'),
     getPricingSettings: () => apiFetch('/api/admin/pricing-settings'),
     updatePricingSettings: d => apiFetch('/api/admin/pricing-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }),
+    downloadCatalogExport: () => fetch('/api/admin/catalog-export'),
 }
 
 const PRICING_FALLBACK = {
@@ -754,6 +756,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [delCar, setDelCar] = useState(null)
     const [adding, setAdding] = useState(!!initAdd)
     const [busy, setBusy] = useState(false)
+    const [exporting, setExporting] = useState(false)
     const [selected, setSelected] = useState(new Set())
 
     const load = useCallback(async (pg, sq, so) => {
@@ -798,6 +801,32 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         setSelected(new Set()); load(page, search, sort); toast(`Удалено ${selected.size} авто`, 'success')
     }
 
+    const downloadCatalogExport = async () => {
+        setExporting(true)
+        try {
+            const response = await api.downloadCatalogExport()
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+            const blob = await response.blob()
+            const disposition = response.headers.get('Content-Disposition') || ''
+            const fallbackName = `catalog-export-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`
+            const match = disposition.match(/filename="?([^"]+)"?/i)
+            const filename = match?.[1] || fallbackName
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            toast('JSON каталога скачан', 'success')
+        } catch {
+            toast('Ошибка экспорта JSON', 'error')
+        }
+        setExporting(false)
+    }
+
     const toggleSel = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
     const toggleAll = () => setSelected(s => s.size === cars.length ? new Set() : new Set(cars.map(c => c.id)))
 
@@ -810,6 +839,9 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     <div className="adm-meta">{loading ? '...' : `Всего: ${total.toLocaleString()}`}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
+                        <Ic d={IC.download} s={14} /> {exporting ? 'Экспорт...' : 'Скачать JSON'}
+                    </button>
                     {selected.size > 0 && <button className="adm-btn adm-btn-danger" onClick={delSelected}><Ic d={IC.trash} s={14} />Удалить ({selected.size})</button>}
                     <button className="adm-btn adm-btn-primary" onClick={() => { setAdding(true); setEditCar(null) }}>
                         <Ic d={IC.plus} s={15} /> Добавить
