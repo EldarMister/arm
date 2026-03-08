@@ -43,6 +43,21 @@ const TRIM_REPLACEMENTS = [
   ['geuraebiti', 'Гравити'],
   ['bijeon', 'Вижен'],
   ['seupesyeol', 'Спешл'],
+  ['direokseu', 'Делюкс'],
+  ['intelrijeonteu', 'Интеллиджент'],
+  ['maseuteojeu', 'Мастер'],
+  ['koeo', 'Коре'],
+  ['rimujin', 'Лимузин'],
+  ['raunji', 'Лаунж'],
+  ['teurendi', 'Тренди'],
+  ['kaempingka', 'Кемпер'],
+  ['camping car', 'Кемпер'],
+  ['idongsamucha', 'Мобильный офис'],
+  ['hairimujin', 'Хай-Лимузин'],
+  ['hailimujin', 'Хай-Лимузин'],
+  ['4inseung', '4 мест'],
+  ['7inseung', '7 мест'],
+  ['9inseung', '9 мест'],
   ['peulreoseu', 'Плюс'],
   ['plus', 'Плюс'],
   ['peurimieo', 'Премьер'],
@@ -83,6 +98,21 @@ const TITLE_SAFE_TRIM_SOURCES = [
   'geuraebiti',
   'bijeon',
   'seupesyeol',
+  'direokseu',
+  'intelrijeonteu',
+  'maseuteojeu',
+  'koeo',
+  'rimujin',
+  'raunji',
+  'teurendi',
+  'kaempingka',
+  'camping car',
+  'idongsamucha',
+  'hairimujin',
+  'hailimujin',
+  '4inseung',
+  '7inseung',
+  '9inseung',
   'peulreoseu',
   'plus',
   'peurimieo',
@@ -128,11 +158,26 @@ const BODY_CLASS_LABELS = new Set([
   'Бизнес-класс',
 ])
 
+const SUV_BODY_HINT_RE = /\b(santa[\s-]*fe|santafe|tucson|sorento|sportage|seltos|palisade|mohave|trailblazer|trax|qm6|gv60|gv70|gv80|korando|tivoli|niro|kona|torres)\b/i
+const MINIVAN_BODY_HINT_RE = /\b(carnival|staria|starex|orlando|master)\b/i
+const MINI_BODY_HINT_RE = /\b(casper|morning|spark|ray)\b/i
+const PICKUP_BODY_HINT_RE = /\b(korando\s+sports|rexton\s+sports|sports\s+cx7|pickup)\b/i
 const SEDAN_BODY_HINT_RE = /\b(k3|k5|k7|k8|k9|avante|elantra|sonata|grandeur|g70|g80|g90|eq900|sm3|sm5|sm6|sm7|malibu|impala|cts|s80|s90|camry|accord)\b/i
-const HATCH_BODY_HINT_RE = /\b(i30|ceed|cee['’ -]?d|picanto|morning|spark|matiz|golf|polo|veloster|brio)\b/i
+const HATCH_BODY_HINT_RE = /\b(ioniq|aionik|i30|ceed|cee['’ -]?d|picanto|morning|spark|matiz|golf|polo|veloster|brio)\b/i
 const WAGON_BODY_HINT_RE = /\b(wagon|estate|touring|shooting\s*brake)\b/i
 const COUPE_BODY_HINT_RE = /\b(coupe|genesis\s+coupe|86|brz)\b/i
 const CABRIO_BODY_HINT_RE = /\b(cabrio|cabriolet|convertible|roadster)\b/i
+
+function normalizeRawBodyLabel(value) {
+  const raw = cleanText(value)
+  if (!raw) return ''
+  const low = raw.toLowerCase()
+
+  if (low === 'suv' || low === 'rv') return 'Кроссовер / внедорожник'
+  if (low === 'вэн' || low === 'van' || low === 'minivan') return 'Минивэн'
+  if (low === '-') return ''
+  return raw
+}
 
 function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -231,11 +276,15 @@ function inferPassengerBodyTypeFromText(...values) {
     .toLowerCase()
 
   if (!text) return ''
+  if (PICKUP_BODY_HINT_RE.test(text)) return 'Грузовой / пикап'
+  if (MINIVAN_BODY_HINT_RE.test(text)) return 'Минивэн'
+  if (MINI_BODY_HINT_RE.test(text)) return 'Мини'
   if (CABRIO_BODY_HINT_RE.test(text)) return 'Кабриолет'
   if (WAGON_BODY_HINT_RE.test(text)) return 'Универсал'
   if (COUPE_BODY_HINT_RE.test(text)) return 'Купе'
   if (HATCH_BODY_HINT_RE.test(text) || /\bhatch|sportback|fastback|liftback\b/i.test(text)) return 'Хэтчбек'
   if (SEDAN_BODY_HINT_RE.test(text) || /\bsedan\b/i.test(text)) return 'Седан'
+  if (SUV_BODY_HINT_RE.test(text)) return 'Кроссовер / внедорожник'
   return ''
 }
 
@@ -246,8 +295,21 @@ export function isWeakBodyTypeLabel(value) {
 }
 
 export function resolveDisplayBodyTypeLabel(bodyValue, ...contextValues) {
-  const normalized = cleanText(bodyValue)
+  const normalized = normalizeRawBodyLabel(bodyValue)
   const actual = inferPassengerBodyTypeFromText(normalized, ...contextValues)
+
+  if (
+    actual &&
+    (
+      !normalized ||
+      BODY_CLASS_LABELS.has(normalized) ||
+      normalized === 'Кроссовер / внедорожник' ||
+      normalized === 'Минивэн' ||
+      normalized === 'Мини'
+    )
+  ) {
+    return actual
+  }
 
   if (
     normalized === 'Мини' ||

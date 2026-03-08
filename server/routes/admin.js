@@ -1,12 +1,27 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
+import { fetchEncarVehicleDetail } from '../lib/encarVehicle.js'
 import { getPricingSettings, savePricingSettings } from '../lib/pricingSettings.js'
-import { normalizeColorName } from '../lib/vehicleData.js'
+import { normalizeColorName, normalizeInteriorColorName, normalizeTrimLevel } from '../lib/vehicleData.js'
 
 const router = Router()
+const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
+const enrichState = {
+  running: false,
+  total: 0,
+  processed: 0,
+  updated: 0,
+  skipped: 0,
+  errors: 0,
+  started_at: null,
+  finished_at: null,
+  current: null,
+  last_error: '',
+}
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
+const ENRICH_TRIM_ROMANIZED_RE = /\b(choegogeuphyeong|gibonhyeong|kaelrigeuraepi|geuraebiti|bijeon|seupesyeol|direokseu|intelrijeonteu|maseuteojeu|koeo|rimujin|raunji|teurendi|kaempingka|camping\s+car|idongsamucha|hairimujin|hailimujin|peulreoseu|peurimieo|peurimio)\b/i
 
 const COLOR_SWATCH = {
   Черный: { color: '#1a1a1a' },
@@ -90,6 +105,135 @@ const KO = {
 function hasAny(value, needles) {
   const src = String(value || '')
   return needles.some((needle) => src.includes(needle))
+}
+
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function isWeakBodyTypeForEnrichment(value) {
+  return WEAK_BODY_TYPES.has(cleanText(value))
+}
+
+function shouldRefreshTrim(value) {
+  const raw = cleanText(value)
+  if (!raw) return true
+  if (ENRICH_TRIM_ROMANIZED_RE.test(raw)) return true
+  const normalized = normalizeTrimLevel(raw)
+  return Boolean(normalized && normalized !== raw)
+}
+
+function shouldRefreshBodyColor(value) {
+  const raw = cleanText(value)
+  if (!raw) return true
+  const normalized = normalizeColorName(raw)
+  return Boolean(normalized && normalized !== raw)
+}
+
+function shouldRefreshInteriorColor(interiorValue, bodyValue = '') {
+  const raw = cleanText(interiorValue)
+  if (!raw) return true
+  const normalized = normalizeInteriorColorName(raw, bodyValue)
+  return !normalized || normalized !== raw
+}
+
+function shouldEnrichCar(car) {
+  return (
+    shouldRefreshBodyColor(car.body_color) ||
+    shouldRefreshInteriorColor(car.interior_color, car.body_color) ||
+    isWeakBodyTypeForEnrichment(car.body_type) ||
+    shouldRefreshTrim(car.trim_level)
+  )
+}
+
+async function updateCarFields(id, patch) {
+  const fields = Object.entries(patch).filter(([, value]) => value !== undefined)
+  if (!fields.length) return false
+
+  const updates = []
+  const params = []
+  let index = 1
+
+  for (const [field, value] of fields) {
+    updates.push(`${field} = $${index++}`)
+    params.push(value)
+  }
+
+  updates.push('updated_at = NOW()')
+  params.push(id)
+
+  await pool.query(`UPDATE cars SET ${updates.join(', ')} WHERE id = $${index}`, params)
+  return true
+}
+
+async function runEmptyFieldEnrichment() {
+  enrichState.running = true
+  enrichState.total = 0
+  enrichState.processed = 0
+  enrichState.updated = 0
+  enrichState.skipped = 0
+  enrichState.errors = 0
+  enrichState.started_at = new Date().toISOString()
+  enrichState.finished_at = null
+  enrichState.current = null
+  enrichState.last_error = ''
+
+  try {
+    const result = await pool.query(`
+      SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color
+      FROM cars
+      WHERE encar_id IS NOT NULL AND encar_id != ''
+      ORDER BY updated_at ASC NULLS FIRST, id ASC
+    `)
+
+    const candidates = result.rows.filter(shouldEnrichCar)
+    enrichState.total = candidates.length
+
+    for (const car of candidates) {
+      enrichState.current = {
+        id: car.id,
+        encar_id: car.encar_id,
+        name: car.name || car.model || '',
+      }
+
+      try {
+        const detail = await fetchEncarVehicleDetail(car.encar_id)
+        const patch = {}
+
+        if (shouldRefreshBodyColor(car.body_color) && cleanText(detail.body_color)) {
+          patch.body_color = detail.body_color
+        }
+
+        if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color) && cleanText(detail.interior_color)) {
+          patch.interior_color = detail.interior_color
+        }
+
+        if (isWeakBodyTypeForEnrichment(car.body_type) && cleanText(detail.body_type)) {
+          patch.body_type = detail.body_type
+        }
+
+        if (shouldRefreshTrim(car.trim_level) && cleanText(detail.trim_level)) {
+          patch.trim_level = detail.trim_level
+        }
+
+        if (Object.keys(patch).length) {
+          await updateCarFields(car.id, patch)
+          enrichState.updated += 1
+        } else {
+          enrichState.skipped += 1
+        }
+      } catch (err) {
+        enrichState.errors += 1
+        enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
+      } finally {
+        enrichState.processed += 1
+      }
+    }
+  } finally {
+    enrichState.running = false
+    enrichState.current = null
+    enrichState.finished_at = new Date().toISOString()
+  }
 }
 
 function stripHangul(value) {
@@ -455,6 +599,32 @@ router.get('/stats', async (_req, res) => {
     console.error(err)
     return res.status(500).json({ error: 'Ошибка сервера' })
   }
+})
+
+router.get('/enrich-empty-fields/status', (_req, res) => {
+  return res.json(enrichState)
+})
+
+router.post('/enrich-empty-fields/start', async (_req, res) => {
+  if (enrichState.running) {
+    return res.status(409).json({ error: 'Обогащение уже запущено', status: enrichState })
+  }
+
+  enrichState.running = true
+  enrichState.started_at = new Date().toISOString()
+  enrichState.finished_at = null
+  enrichState.last_error = ''
+
+  setImmediate(() => {
+    runEmptyFieldEnrichment().catch((err) => {
+      enrichState.running = false
+      enrichState.last_error = err.message
+      enrichState.finished_at = new Date().toISOString()
+      console.error('Catalog enrichment error:', err)
+    })
+  })
+
+  return res.json({ ok: true, message: 'Обогащение пустых полей запущено' })
 })
 
 router.get('/catalog-export', async (_req, res) => {

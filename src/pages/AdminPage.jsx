@@ -53,6 +53,8 @@ const api = {
     getPricingSettings: () => apiFetch('/api/admin/pricing-settings'),
     updatePricingSettings: d => apiFetch('/api/admin/pricing-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }),
     downloadCatalogExport: () => fetch('/api/admin/catalog-export'),
+    getEnrichStatus: () => apiFetch('/api/admin/enrich-empty-fields/status'),
+    startEnrichEmptyFields: () => apiFetch('/api/admin/enrich-empty-fields/start', { method: 'POST' }),
 }
 
 const PRICING_FALLBACK = {
@@ -757,7 +759,21 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [adding, setAdding] = useState(!!initAdd)
     const [busy, setBusy] = useState(false)
     const [exporting, setExporting] = useState(false)
+    const [enriching, setEnriching] = useState(false)
+    const [enrichStatus, setEnrichStatus] = useState({
+        running: false,
+        total: 0,
+        processed: 0,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        started_at: null,
+        finished_at: null,
+        current: null,
+        last_error: '',
+    })
     const [selected, setSelected] = useState(new Set())
+    const prevEnrichRunningRef = useRef(false)
 
     const load = useCallback(async (pg, sq, so) => {
         setLoading(true); setError(null)
@@ -771,6 +787,29 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     }, [])
 
     useEffect(() => { load(page, search, sort) }, [page, sort, load, pricingRevision])
+
+    const loadEnrichStatus = useCallback(async () => {
+        try {
+            const data = await api.getEnrichStatus()
+            setEnrichStatus(data)
+        } catch { }
+    }, [])
+
+    useEffect(() => {
+        loadEnrichStatus()
+        const timer = setInterval(loadEnrichStatus, enrichStatus.running ? 2000 : 10000)
+        return () => clearInterval(timer)
+    }, [loadEnrichStatus, enrichStatus.running])
+
+    useEffect(() => {
+        if (prevEnrichRunningRef.current && !enrichStatus.running) {
+            load(page, search, sort)
+            if (enrichStatus.total > 0) {
+                toast(`Обогащение завершено: обновлено ${enrichStatus.updated}, ошибок ${enrichStatus.errors}`, enrichStatus.errors ? 'error' : 'success')
+            }
+        }
+        prevEnrichRunningRef.current = enrichStatus.running
+    }, [enrichStatus, load, page, search, sort, toast])
 
     const doSearch = e => { e.preventDefault(); setPage(1); load(1, search, sort) }
     const reset = () => { setSearch(''); setPage(1); load(1, '', sort) }
@@ -827,6 +866,18 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         setExporting(false)
     }
 
+    const startEnrichEmptyFields = async () => {
+        setEnriching(true)
+        try {
+            await api.startEnrichEmptyFields()
+            await loadEnrichStatus()
+            toast('Обогащение пустых полей запущено', 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка запуска обогащения', 'error')
+        }
+        setEnriching(false)
+    }
+
     const toggleSel = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
     const toggleAll = () => setSelected(s => s.size === cars.length ? new Set() : new Set(cars.map(c => c.id)))
 
@@ -837,8 +888,18 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                 <div>
                     <h2 className="adm-section-heading">🚗 Автомобили</h2>
                     <div className="adm-meta">{loading ? '...' : `Всего: ${total.toLocaleString()}`}</div>
+                    {(enrichStatus.running || enrichStatus.finished_at) && (
+                        <div className="adm-meta" style={{ marginTop: 4 }}>
+                            {enrichStatus.running
+                                ? `Обогащение: ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • ошибок ${enrichStatus.errors}`
+                                : `Последнее обогащение: обновлено ${enrichStatus.updated} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || enrichStatus.running}>
+                        <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Обогащение...' : (enriching ? 'Запуск...' : 'Обогатить пустые поля')}
+                    </button>
                     <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
                         <Ic d={IC.download} s={14} /> {exporting ? 'Экспорт...' : 'Скачать JSON'}
                     </button>
@@ -868,6 +929,17 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                 </select>
                 <button className="adm-btn adm-btn-sm" onClick={() => load(page, search, sort)}><Ic d={IC.ref} s={14} /></button>
             </div>
+
+            {enrichStatus.current?.name && enrichStatus.running && (
+                <div className="adm-car-sub" style={{ marginBottom: 12 }}>
+                    Сейчас обрабатывается: {enrichStatus.current.name} (ID: {enrichStatus.current.id}, Encar: {enrichStatus.current.encar_id})
+                </div>
+            )}
+            {!!enrichStatus.last_error && (
+                <div className="adm-car-sub" style={{ marginBottom: 12, color: '#fca5a5' }}>
+                    Последняя ошибка: {enrichStatus.last_error}
+                </div>
+            )}
 
             {/* Content */}
             {error ? (
