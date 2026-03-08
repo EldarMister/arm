@@ -34,6 +34,25 @@ const apiClient = axios.create({
   },
 })
 
+async function fetchEncarVehicleApiData(encarId) {
+  const url = `https://www.encar.com/dc/dc_cardetailview.do?carid=${encarId}`
+  const { data } = await apiClient.get(`/v1/readside/vehicle/${encodeURIComponent(encarId)}`)
+
+  return {
+    url,
+    data,
+    category: data?.category || {},
+    spec: data?.spec || {},
+    ad: data?.advertisement || {},
+    contact: data?.contact || {},
+    manage: data?.manage || {},
+    condition: data?.condition || {},
+    contents: data?.contents || {},
+    view: data?.view || {},
+    partnership: data?.partnership || {},
+  }
+}
+
 function toAbsolutePhotoUrl(path) {
   if (!path) return null
   if (/^https?:\/\//i.test(path)) return path
@@ -41,18 +60,19 @@ function toAbsolutePhotoUrl(path) {
 }
 
 export async function fetchEncarVehicleDetail(encarId, { includeInspection = false } = {}) {
-  const url = `https://www.encar.com/dc/dc_cardetailview.do?carid=${encarId}`
-  const { data } = await apiClient.get(`/v1/readside/vehicle/${encodeURIComponent(encarId)}`)
-
-  const category = data?.category || {}
-  const spec = data?.spec || {}
-  const ad = data?.advertisement || {}
-  const contact = data?.contact || {}
-  const manage = data?.manage || {}
-  const condition = data?.condition || {}
-  const contents = data?.contents || {}
-  const view = data?.view || {}
-  const partnership = data?.partnership || {}
+  const {
+    url,
+    data,
+    category,
+    spec,
+    ad,
+    contact,
+    manage,
+    condition,
+    contents,
+    view,
+    partnership,
+  } = await fetchEncarVehicleApiData(encarId)
   const exchangeSnapshot = await getExchangeRateSnapshot()
   const pricingSettings = await getPricingSettings()
   const priceKRW = (Number(ad.price) || 0) * 10000
@@ -255,5 +275,53 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     vat_rate: pricing.vat_rate,
     parking_address_ko: PARKING_ADDRESS_KO,
     parking_address_en: PARKING_ADDRESS_EN,
+  }
+}
+
+export async function fetchEncarVehicleEnrichment(encarId) {
+  const { category, spec, ad } = await fetchEncarVehicleApiData(encarId)
+
+  const modelGroup = normalizeText(category.modelGroupEnglishName || category.modelGroupName || category.modelName || '')
+  const gradeName = normalizeText(category.gradeDetailEnglishName || category.gradeDetailName || category.gradeName || '')
+  const trimLevel = normalizeTrimLevel(
+    category.gradeDetailEnglishName,
+    category.gradeDetailName,
+    category.gradeName,
+    category.gradeEnglishName,
+  ) || extractTrimLevelFromTitle(
+    category.gradeDetailEnglishName,
+    category.gradeDetailName,
+    category.gradeName,
+    category.gradeEnglishName,
+    ad.title,
+    ad.subTitle,
+  )
+
+  return {
+    body_color: normalizeColorName(spec.colorName),
+    interior_color: normalizeInteriorColorName(
+      spec?.customColor?.interiorColorName ||
+      spec?.customColor?.interiorColor ||
+      spec?.interiorColorName ||
+      spec?.interiorColor ||
+      spec?.innerColorName ||
+      spec?.innerColor ||
+      spec?.trimColorName ||
+      spec?.trimColor ||
+      spec?.seatColorName ||
+      spec?.seatColor ||
+      '',
+      spec.colorName
+    ),
+    body_type: resolveBodyType(
+      spec.bodyName,
+      modelGroup,
+      gradeName,
+      category.modelGroupEnglishName,
+      category.modelGroupName,
+      ad.title,
+      ad.subTitle,
+    ),
+    trim_level: trimLevel,
   }
 }

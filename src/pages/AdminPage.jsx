@@ -37,6 +37,21 @@ const fmtU = n => '$' + Number(n || 0).toLocaleString('ru-RU')
 const fmtK = n => Number(n || 0).toLocaleString('ko-KR') + ' ₩'
 const LEGACY_RENAULT_SAMSUNG_MODEL_RE = /\b(?:sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3)\b/i
 const ENRICH_REPORT_VISIBILITY_KEY = 'tlv-admin-enrich-report-open'
+const ENRICH_SCOPE_ALL = 'all'
+const ENRICH_SCOPE_LATEST = 'latest'
+const DEFAULT_LATEST_ENRICH_LIMIT = 50
+
+function normalizeLatestEnrichLimit(value) {
+    const parsed = Number.parseInt(String(value || DEFAULT_LATEST_ENRICH_LIMIT), 10)
+    if (!Number.isFinite(parsed)) return DEFAULT_LATEST_ENRICH_LIMIT
+    return Math.min(Math.max(parsed, 1), 300)
+}
+
+function formatEnrichScopeLabel(scope, latestLimit) {
+    return scope === ENRICH_SCOPE_LATEST
+        ? `последние ${normalizeLatestEnrichLimit(latestLimit)}`
+        : 'все машины'
+}
 
 function normalizeAdminVehicleTitle(value, { keepBrand = true } = {}) {
     let text = String(value || '').trim().replace(/\s+/g, ' ')
@@ -78,7 +93,7 @@ const api = {
     updatePricingSettings: d => apiFetch('/api/admin/pricing-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }),
     downloadCatalogExport: () => fetch('/api/admin/catalog-export'),
     getEnrichStatus: () => apiFetch('/api/admin/enrich-empty-fields/status'),
-    startEnrichEmptyFields: () => apiFetch('/api/admin/enrich-empty-fields/start', { method: 'POST' }),
+    startEnrichEmptyFields: d => apiFetch('/api/admin/enrich-empty-fields/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d || {}) }),
     getNormalizeExistingCarsStatus: () => apiFetch('/api/admin/normalize-existing-cars/status'),
     startNormalizeExistingCars: () => apiFetch('/api/admin/normalize-existing-cars/start', { method: 'POST' }),
 }
@@ -786,6 +801,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [busy, setBusy] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [enriching, setEnriching] = useState(false)
+    const [enrichScope, setEnrichScope] = useState(ENRICH_SCOPE_ALL)
+    const [latestEnrichLimit, setLatestEnrichLimit] = useState(String(DEFAULT_LATEST_ENRICH_LIMIT))
     const [normalizingCars, setNormalizingCars] = useState(false)
     const [enrichStatus, setEnrichStatus] = useState({
         running: false,
@@ -799,6 +816,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         current: null,
         last_error: '',
         report: [],
+        scope: ENRICH_SCOPE_ALL,
+        latest_limit: DEFAULT_LATEST_ENRICH_LIMIT,
     })
     const [normalizeCarsStatus, setNormalizeCarsStatus] = useState({
         running: false,
@@ -951,9 +970,13 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const startEnrichEmptyFields = async () => {
         setEnriching(true)
         try {
-            await api.startEnrichEmptyFields()
+            const payload = {
+                scope: enrichScope,
+                latest_limit: normalizeLatestEnrichLimit(latestEnrichLimit),
+            }
+            await api.startEnrichEmptyFields(payload)
             await loadEnrichStatus()
-            toast('Обогащение пустых полей запущено', 'success')
+            toast(`Обогащение запущено: ${formatEnrichScopeLabel(payload.scope, payload.latest_limit)}`, 'success')
         } catch (e) {
             toast(e.message || 'Ошибка запуска обогащения', 'error')
         }
@@ -985,8 +1008,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {(enrichStatus.running || enrichStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {enrichStatus.running
-                                ? `Обогащение: ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • ошибок ${enrichStatus.errors}`
-                                : `Последнее обогащение: обновлено ${enrichStatus.updated} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
+                                ? `Обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • ошибок ${enrichStatus.errors}`
+                                : `Последнее обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): обновлено ${enrichStatus.updated} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
                         </div>
                     )}
                     {(normalizeCarsStatus.running || normalizeCarsStatus.finished_at) && (
@@ -1001,6 +1024,30 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     <button className="adm-btn adm-btn-sm" onClick={startNormalizeExistingCars} disabled={normalizingCars || normalizeCarsStatus.running || enriching || enrichStatus.running}>
                         <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Нормализация...' : (normalizingCars ? 'Запуск...' : 'Нормализовать названия')}
                     </button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <select
+                            className="adm-select"
+                            value={enrichScope}
+                            onChange={e => setEnrichScope(e.target.value)}
+                            disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}
+                            style={{ minWidth: 190 }}
+                        >
+                            <option value={ENRICH_SCOPE_ALL}>Все машины</option>
+                            <option value={ENRICH_SCOPE_LATEST}>Последние добавленные</option>
+                        </select>
+                        {enrichScope === ENRICH_SCOPE_LATEST && (
+                            <input
+                                className="adm-input"
+                                type="number"
+                                min="1"
+                                max="300"
+                                value={latestEnrichLimit}
+                                onChange={e => setLatestEnrichLimit(e.target.value)}
+                                disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}
+                                style={{ width: 96 }}
+                            />
+                        )}
+                    </div>
                     <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}>
                         <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Обогащение...' : (enriching ? 'Запуск...' : 'Обогатить пустые поля')}
                     </button>

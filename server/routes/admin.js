@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
-import { fetchEncarVehicleDetail } from '../lib/encarVehicle.js'
+import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
 import { getPricingSettings, savePricingSettings } from '../lib/pricingSettings.js'
 import {
   classifyVehicleOrigin,
@@ -14,6 +14,10 @@ import { createCarTextBackfillState, runCarTextBackfill } from '../lib/carTextBa
 import { normalizeKnownBrandAlias } from '../../shared/brandAliases.js'
 
 const router = Router()
+const ENRICH_SCOPE_ALL = 'all'
+const ENRICH_SCOPE_LATEST = 'latest'
+const DEFAULT_LATEST_ENRICH_LIMIT = 50
+const MAX_LATEST_ENRICH_LIMIT = 300
 const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
 const enrichState = {
   running: false,
@@ -27,8 +31,15 @@ const enrichState = {
   current: null,
   last_error: '',
   report: [],
+  scope: ENRICH_SCOPE_ALL,
+  latest_limit: DEFAULT_LATEST_ENRICH_LIMIT,
 }
 const normalizeCarsState = createCarTextBackfillState()
+const DEFAULT_ENRICH_CONCURRENCY = (() => {
+  const raw = Number.parseInt(process.env.ENRICH_CONCURRENCY || '3', 10)
+  if (!Number.isFinite(raw)) return 3
+  return Math.min(Math.max(raw, 1), 6)
+})()
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 const ENRICH_TRIM_ROMANIZED_RE = /\b(choegogeuphyeong|gibonhyeong|kaelrigeuraepi|geuraebiti|bijeon|seupesyeol|direokseu|intelrijeonteu|maseuteojeu|koeo|rimujin|raunji|teurendi|kaempingka|camping\s+car|idongsamucha|hairimujin|hailimujin|peulreoseu|peurimieo|peurimio)\b/i
@@ -128,6 +139,16 @@ function pushEnrichReportItem(item) {
   }
 }
 
+function normalizeEnrichOptions(value = {}) {
+  const scope = value?.scope === ENRICH_SCOPE_LATEST ? ENRICH_SCOPE_LATEST : ENRICH_SCOPE_ALL
+  const latestLimitRaw = Number.parseInt(String(value?.latest_limit ?? value?.latestLimit ?? DEFAULT_LATEST_ENRICH_LIMIT), 10)
+  const latestLimit = Number.isFinite(latestLimitRaw)
+    ? Math.min(Math.max(latestLimitRaw, 1), MAX_LATEST_ENRICH_LIMIT)
+    : DEFAULT_LATEST_ENRICH_LIMIT
+
+  return { scope, latestLimit }
+}
+
 function isWeakBodyTypeForEnrichment(value) {
   return WEAK_BODY_TYPES.has(cleanText(value))
 }
@@ -183,7 +204,71 @@ async function updateCarFields(id, patch) {
   return true
 }
 
-async function runEmptyFieldEnrichment() {
+async function enrichCar(car) {
+  enrichState.current = {
+    id: car.id,
+    encar_id: car.encar_id,
+    name: car.name || car.model || '',
+  }
+
+  try {
+    const detail = await fetchEncarVehicleEnrichment(car.encar_id)
+    const patch = {}
+
+    if (shouldRefreshBodyColor(car.body_color) && cleanText(detail.body_color)) {
+      patch.body_color = detail.body_color
+    }
+
+    if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color) && cleanText(detail.interior_color)) {
+      patch.interior_color = detail.interior_color
+    }
+
+    if (isWeakBodyTypeForEnrichment(car.body_type) && cleanText(detail.body_type)) {
+      patch.body_type = detail.body_type
+    }
+
+    if (shouldRefreshTrim(car.trim_level) && cleanText(detail.trim_level)) {
+      patch.trim_level = detail.trim_level
+    }
+
+    if (Object.keys(patch).length) {
+      const changes = Object.entries(patch).map(([field, nextValue]) => ({
+        field,
+        before: car[field] ?? '',
+        after: nextValue ?? '',
+      }))
+
+      await updateCarFields(car.id, patch)
+      enrichState.updated += 1
+      pushEnrichReportItem({
+        status: 'updated',
+        id: car.id,
+        encar_id: car.encar_id,
+        name: car.name || car.model || '',
+        changes,
+        finished_at: new Date().toISOString(),
+      })
+    } else {
+      enrichState.skipped += 1
+    }
+  } catch (err) {
+    enrichState.errors += 1
+    enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
+    pushEnrichReportItem({
+      status: 'error',
+      id: car.id,
+      encar_id: car.encar_id,
+      name: car.name || car.model || '',
+      error: err.message,
+      finished_at: new Date().toISOString(),
+    })
+  } finally {
+    enrichState.processed += 1
+  }
+}
+
+async function runEmptyFieldEnrichment(options = {}) {
+  const { scope, latestLimit } = normalizeEnrichOptions(options)
   enrichState.running = true
   enrichState.total = 0
   enrichState.processed = 0
@@ -195,80 +280,39 @@ async function runEmptyFieldEnrichment() {
   enrichState.current = null
   enrichState.last_error = ''
   enrichState.report = []
+  enrichState.scope = scope
+  enrichState.latest_limit = latestLimit
 
   try {
-    const result = await pool.query(`
-      SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color
-      FROM cars
-      WHERE encar_id IS NOT NULL AND encar_id != ''
-      ORDER BY updated_at ASC NULLS FIRST, id ASC
-    `)
+    const result = scope === ENRICH_SCOPE_LATEST
+      ? await pool.query(`
+        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color
+        FROM cars
+        WHERE encar_id IS NOT NULL AND encar_id != ''
+        ORDER BY created_at DESC NULLS LAST, id DESC
+        LIMIT $1
+      `, [latestLimit])
+      : await pool.query(`
+        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color
+        FROM cars
+        WHERE encar_id IS NOT NULL AND encar_id != ''
+        ORDER BY updated_at ASC NULLS FIRST, id ASC
+      `)
 
     const candidates = result.rows.filter(shouldEnrichCar)
     enrichState.total = candidates.length
 
-    for (const car of candidates) {
-      enrichState.current = {
-        id: car.id,
-        encar_id: car.encar_id,
-        name: car.name || car.model || '',
+    let nextIndex = 0
+    const workerCount = Math.min(DEFAULT_ENRICH_CONCURRENCY, candidates.length || 1)
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = nextIndex++
+        if (currentIndex >= candidates.length) return
+        await enrichCar(candidates[currentIndex])
       }
+    })
 
-      try {
-        const detail = await fetchEncarVehicleDetail(car.encar_id)
-        const patch = {}
-
-        if (shouldRefreshBodyColor(car.body_color) && cleanText(detail.body_color)) {
-          patch.body_color = detail.body_color
-        }
-
-        if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color) && cleanText(detail.interior_color)) {
-          patch.interior_color = detail.interior_color
-        }
-
-        if (isWeakBodyTypeForEnrichment(car.body_type) && cleanText(detail.body_type)) {
-          patch.body_type = detail.body_type
-        }
-
-        if (shouldRefreshTrim(car.trim_level) && cleanText(detail.trim_level)) {
-          patch.trim_level = detail.trim_level
-        }
-
-        if (Object.keys(patch).length) {
-          const changes = Object.entries(patch).map(([field, nextValue]) => ({
-            field,
-            before: car[field] ?? '',
-            after: nextValue ?? '',
-          }))
-
-          await updateCarFields(car.id, patch)
-          enrichState.updated += 1
-          pushEnrichReportItem({
-            status: 'updated',
-            id: car.id,
-            encar_id: car.encar_id,
-            name: car.name || car.model || '',
-            changes,
-            finished_at: new Date().toISOString(),
-          })
-        } else {
-          enrichState.skipped += 1
-        }
-      } catch (err) {
-        enrichState.errors += 1
-        enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
-        pushEnrichReportItem({
-          status: 'error',
-          id: car.id,
-          encar_id: car.encar_id,
-          name: car.name || car.model || '',
-          error: err.message,
-          finished_at: new Date().toISOString(),
-        })
-      } finally {
-        enrichState.processed += 1
-      }
-    }
+    await Promise.all(workers)
   } finally {
     enrichState.running = false
     enrichState.current = null
@@ -703,9 +747,10 @@ router.post('/enrich-empty-fields/start', async (_req, res) => {
   enrichState.started_at = new Date().toISOString()
   enrichState.finished_at = null
   enrichState.last_error = ''
+  const options = normalizeEnrichOptions(_req.body || {})
 
   setImmediate(() => {
-    runEmptyFieldEnrichment().catch((err) => {
+    runEmptyFieldEnrichment(options).catch((err) => {
       enrichState.running = false
       enrichState.last_error = err.message
       enrichState.finished_at = new Date().toISOString()
@@ -713,7 +758,12 @@ router.post('/enrich-empty-fields/start', async (_req, res) => {
     })
   })
 
-  return res.json({ ok: true, message: 'Обогащение пустых полей запущено' })
+  return res.json({
+    ok: true,
+    message: 'Enrichment started',
+    scope: options.scope,
+    latest_limit: options.latestLimit,
+  })
 })
 
 router.get('/normalize-existing-cars/status', (_req, res) => {
