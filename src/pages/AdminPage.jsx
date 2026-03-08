@@ -40,11 +40,12 @@ const ENRICH_REPORT_VISIBILITY_KEY = 'tlv-admin-enrich-report-open'
 const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
+const MAX_LATEST_ENRICH_LIMIT = 50000
 
 function normalizeLatestEnrichLimit(value) {
     const parsed = Number.parseInt(String(value || DEFAULT_LATEST_ENRICH_LIMIT), 10)
     if (!Number.isFinite(parsed)) return DEFAULT_LATEST_ENRICH_LIMIT
-    return Math.min(Math.max(parsed, 1), 300)
+    return Math.min(Math.max(parsed, 1), MAX_LATEST_ENRICH_LIMIT)
 }
 
 function formatEnrichScopeLabel(scope, latestLimit) {
@@ -1041,7 +1042,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                 className="adm-input"
                                 type="number"
                                 min="1"
-                                max="300"
+                                max={Math.max(total || DEFAULT_LATEST_ENRICH_LIMIT, DEFAULT_LATEST_ENRICH_LIMIT)}
+                                step="1"
                                 value={latestEnrichLimit}
                                 onChange={e => setLatestEnrichLimit(e.target.value)}
                                 disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}

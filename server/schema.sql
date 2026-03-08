@@ -133,3 +133,22 @@ VALUES (
   ]$$::jsonb
 )
 ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS users (
+  id         SERIAL PRIMARY KEY,
+  phone      VARCHAR(20) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sms_codes (
+  id         SERIAL PRIMARY KEY,
+  phone      VARCHAR(20) NOT NULL,
+  code       VARCHAR(6)  NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+CREATE INDEX IF NOT EXISTS idx_sms_codes_phone_created_at ON sms_codes(phone, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sms_codes_expires_at ON sms_codes(expires_at);

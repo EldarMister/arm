@@ -9,6 +9,7 @@ import imagesRouter from './routes/images.js'
 import encarRouter from './routes/encar.js'
 import adminRouter from './routes/admin.js'
 import scraperRouter from './routes/scraper.js'
+import authRouter from './routes/auth.js'
 import { startScheduler } from './scraper/scheduler.js'
 import { state as scraperState } from './scraper/state.js'
 
@@ -32,6 +33,7 @@ app.use('/api/cars', imagesRouter)
 app.use('/api/encar', encarRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/scraper', scraperRouter)
+app.use('/api/auth', authRouter)
 app.delete('/api/images/:id', (req, res, next) => {
   req.url = `/${req.params.id}`
   imagesRouter(req, res, next)
@@ -70,6 +72,7 @@ async function start() {
         scraperState.config.dailyLimit    = cfg.daily_limit    || 100
         scraperState.config.hour          = cfg.start_hour     || 10
         scraperState.config.intervalHours = cfg.interval_hours || 1
+        scraperState.lastRun = cfg.last_run ? new Date(cfg.last_run).toISOString() : null
         if (scraperState.config.schedule !== 'manual') {
           startScheduler(scraperState.config)
           console.log(`⏰ Планировщик восстановлен: ${scraperState.config.schedule}`)

@@ -1,70 +1,122 @@
-import cron from 'node-cron'
 import { runScrapeJob } from './job.js'
 import { state } from './state.js'
 
 let task = null
 
-/**
- * Build cron expression from config:
- *   'hourly'  → every N hours (intervalHours)
- *   'daily'   → every day at state.config.hour:00
- *   'manual'  → no cron
- */
-function buildCronExpr(config) {
-  const { schedule, hour = 10, intervalHours = 1 } = config
+function parseLastRun() {
+  if (!state.lastRun) return null
+  const value = new Date(state.lastRun)
+  return Number.isNaN(value.getTime()) ? null : value
+}
 
-  if (schedule === 'hourly') {
-    const interval = Math.max(1, Math.min(12, intervalHours))
-    return `0 */${interval} * * *`
+function getNextHourlyRun(config, now = new Date()) {
+  const intervalHours = Math.max(1, Math.min(12, Number.parseInt(config.intervalHours, 10) || 1))
+  const intervalMs = intervalHours * 60 * 60 * 1000
+  const lastRun = parseLastRun()
+
+  let nextRun = lastRun ? new Date(lastRun.getTime() + intervalMs) : new Date(now.getTime() + intervalMs)
+  while (nextRun.getTime() <= now.getTime()) {
+    nextRun = new Date(nextRun.getTime() + intervalMs)
   }
-  if (schedule === 'daily') {
-    const h = Math.max(0, Math.min(23, hour))
-    return `0 ${h} * * *`
+
+  return nextRun
+}
+
+function getNextDailyRun(config, now = new Date()) {
+  const nextRun = new Date(now)
+  const hour = Math.max(0, Math.min(23, Number.parseInt(config.hour, 10) || 10))
+  nextRun.setHours(hour, 0, 0, 0)
+
+  if (nextRun.getTime() <= now.getTime()) {
+    nextRun.setDate(nextRun.getDate() + 1)
   }
+
+  return nextRun
+}
+
+function getNextRun(config, now = new Date()) {
+  if (config.schedule === 'hourly') {
+    return getNextHourlyRun(config, now)
+  }
+
+  if (config.schedule === 'daily') {
+    return getNextDailyRun(config, now)
+  }
+
   return null
 }
 
-function computeNextRun(cronExpr) {
-  try {
-    // Use node-cron v3 interval API if available
-    const schedule = cron.schedule(cronExpr, () => {}, { scheduled: false })
-    if (schedule.nextDate) {
-      return schedule.nextDate().toISO()
-    }
-  } catch { /* ignore */ }
-  return null
+function formatScheduleLabel(config) {
+  if (config.schedule === 'hourly') {
+    return `каждые ${Math.max(1, Math.min(12, Number.parseInt(config.intervalHours, 10) || 1))} ч`
+  }
+
+  if (config.schedule === 'daily') {
+    const hour = Math.max(0, Math.min(23, Number.parseInt(config.hour, 10) || 10))
+    return `ежедневно в ${String(hour).padStart(2, '0')}:00`
+  }
+
+  return 'вручную'
 }
 
-export function startScheduler(config = state.config) {
-  stopScheduler()
-
-  const cronExpr = buildCronExpr(config)
-  if (!cronExpr) {
-    state.info('📅 Расписание: Вручную (автозапуск отключён)')
+function scheduleNext(config = state.config) {
+  const nextRun = getNextRun(config)
+  if (!nextRun) {
     state.nextRun = null
+    state.cronJob = null
     return
   }
 
-  state.info(`⏰ Планировщик запущен: "${config.schedule}", cron="${cronExpr}"`)
-  state.nextRun = computeNextRun(cronExpr)
+  const delay = Math.max(1000, nextRun.getTime() - Date.now())
+  state.nextRun = nextRun.toISOString()
 
-  task = cron.schedule(cronExpr, async () => {
+  task = setTimeout(async () => {
+    task = null
+    state.cronJob = null
+    state.nextRun = null
+
+    if (state.config.schedule === 'manual') {
+      return
+    }
+
+    if (state.isRunning) {
+      state.warn('Автозапуск пропущен: парсер уже выполняется')
+      scheduleNext(state.config)
+      return
+    }
+
     state.info(`⏰ Автозапуск по расписанию (лимит: ${state.config.dailyLimit})`)
     try {
       await runScrapeJob(state.config.dailyLimit)
     } catch (err) {
       state.error(`Ошибка автозапуска: ${err.message}`)
+    } finally {
+      scheduleNext(state.config)
     }
-  })
+  }, delay)
 
   state.cronJob = task
 }
 
+export function startScheduler(config = state.config) {
+  stopScheduler()
+
+  if (config.schedule === 'manual') {
+    state.info('📅 Расписание: вручную (автозапуск отключен)')
+    state.nextRun = null
+    return
+  }
+
+  scheduleNext(config)
+  state.info(`⏰ Планировщик запущен: ${formatScheduleLabel(config)}${state.nextRun ? `, следующий запуск ${state.nextRun}` : ''}`)
+}
+
 export function stopScheduler() {
   if (task) {
-    task.stop()
+    clearTimeout(task)
     task = null
-    state.cronJob = null
-    state.nextRun = null
   }
+
+  state.cronJob = null
+  state.nextRun = null
 }

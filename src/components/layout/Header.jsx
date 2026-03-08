@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
+import { useAuth } from '../../context/AuthContext'
+import { formatPhoneForDisplay } from '../../lib/authClient'
 import logoImg from '../../assets/logo.png'
 
 const SearchIcon = () => (
@@ -29,16 +31,23 @@ const CloseIcon = () => (
 
 const SunIcon = () => (
   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="5" strokeWidth={2}/>
-    <path strokeLinecap="round" strokeWidth={2}
-      d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+    <circle cx="12" cy="12" r="5" strokeWidth={2} />
+    <path
+      strokeLinecap="round"
+      strokeWidth={2}
+      d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+    />
   </svg>
 )
 
 const MoonIcon = () => (
   <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+    />
   </svg>
 )
 
@@ -62,6 +71,7 @@ export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
+  const { user, loading: authLoading, openAuthModal } = useAuth()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -101,8 +111,8 @@ export default function Header() {
     return () => clearTimeout(timer)
   }, [searchDirty, searchTerm, location.pathname, location.search, navigate])
 
-  const submitSearch = (e) => {
-    e.preventDefault()
+  const submitSearch = (event) => {
+    event.preventDefault()
     const query = searchTerm.trim()
     const params = new URLSearchParams()
     if (query) params.set('q', query)
@@ -116,14 +126,13 @@ export default function Header() {
     setSearchDirty(true)
   }
 
+  const authButtonLabel = authLoading ? '...' : user ? formatPhoneForDisplay(user.phone) : 'Войти'
+
   return (
     <header className={`site-header${scrolled ? ' site-header-scrolled' : ''}`}>
       <div className="header-row">
-
-        {/* Logo */}
         <AVTLogo />
 
-        {/* Desktop Nav */}
         <nav className="header-nav">
           {navLinks.map(({ label, to }) => (
             <Link
@@ -136,7 +145,6 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Desktop Search */}
         <form className="header-search" onSubmit={submitSearch}>
           <span className="header-search-icon">
             <SearchIcon />
@@ -146,46 +154,47 @@ export default function Header() {
             placeholder="Марка / модель / VIN / Encar ID"
             className="search-input"
             value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(event) => handleSearchChange(event.target.value)}
           />
         </form>
 
-        {/* Theme toggle — desktop */}
         <button
           className="theme-toggle"
-          onClick={e => toggle(e)}
-          title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+          onClick={(event) => toggle(event)}
+          title={theme === 'light' ? 'Темная тема' : 'Светлая тема'}
         >
           {theme === 'light' ? <MoonIcon /> : <SunIcon />}
         </button>
 
-        {/* Desktop Login */}
-        <button className="header-login">
+        <button
+          className={`header-login${user ? ' header-login-authenticated' : ''}`}
+          onClick={openAuthModal}
+          type="button"
+          title={user?.phone || 'Войти по номеру телефона'}
+        >
           <UserIcon />
-          Войти
+          {authButtonLabel}
         </button>
 
-        {/* Mobile controls */}
         <div className="header-mobile-controls">
           <button
             className="header-icon-btn"
-            onClick={() => setMobileOpen(v => v === 'search' ? false : 'search')}
+            onClick={() => setMobileOpen((value) => (value === 'search' ? false : 'search'))}
           >
             <SearchIcon />
           </button>
-          <button className="theme-toggle" onClick={e => toggle(e)} title="Сменить тему" style={{ width: 32, height: 32 }}>
+          <button className="theme-toggle" onClick={(event) => toggle(event)} title="Сменить тему" style={{ width: 32, height: 32 }}>
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
           <button
             className="header-icon-btn"
-            onClick={() => setMobileOpen(v => v === 'menu' ? false : 'menu')}
+            onClick={() => setMobileOpen((value) => (value === 'menu' ? false : 'menu'))}
           >
             {mobileOpen === 'menu' ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
       </div>
 
-      {/* Mobile search dropdown */}
       {mobileOpen === 'search' && (
         <div className="header-mobile-menu">
           <form className="mobile-search-wrap" onSubmit={submitSearch}>
@@ -198,13 +207,12 @@ export default function Header() {
               placeholder="Марка / модель / VIN / Encar ID"
               className="search-input"
               value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(event) => handleSearchChange(event.target.value)}
             />
           </form>
         </div>
       )}
 
-      {/* Mobile nav dropdown */}
       {mobileOpen === 'menu' && (
         <div className="header-mobile-menu">
           {navLinks.map(({ label, to }) => (
@@ -217,9 +225,16 @@ export default function Header() {
               {label}
             </Link>
           ))}
-          <button className="mobile-login-btn">
+          <button
+            className={`mobile-login-btn${user ? ' mobile-login-btn-authenticated' : ''}`}
+            type="button"
+            onClick={() => {
+              openAuthModal()
+              setMobileOpen(false)
+            }}
+          >
             <UserIcon />
-            Войти
+            {authButtonLabel}
           </button>
         </div>
       )}

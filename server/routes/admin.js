@@ -17,7 +17,7 @@ const router = Router()
 const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
-const MAX_LATEST_ENRICH_LIMIT = 300
+const MAX_LATEST_ENRICH_LIMIT = 50000
 const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
 const enrichState = {
   running: false,

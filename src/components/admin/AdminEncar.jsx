@@ -243,11 +243,52 @@ export default function AdminEncar() {
     }
   }, [logs, autoScroll])
 
+  const hasPendingConfigChanges = Boolean(
+    status?.config && (
+      status.config.schedule !== cfgSchedule ||
+      Number(status.config.dailyLimit || 100) !== Number(cfgLimit || 100) ||
+      Number(status.config.hour || 10) !== Number(cfgHour || 10) ||
+      Number(status.config.intervalHours || 1) !== Number(cfgInterval || 1)
+    )
+  )
+
+  const saveConfig = useCallback(async ({ silent = false } = {}) => {
+    const res  = await fetch('/api/scraper/config', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schedule:      cfgSchedule,
+        dailyLimit:    cfgLimit,
+        hour:          cfgHour,
+        intervalHours: cfgInterval,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Ошибка сохранения')
+
+    setStatus(prev => prev ? {
+      ...prev,
+      config: {
+        ...(prev.config || {}),
+        ...data.config,
+      },
+    } : prev)
+
+    if (!silent) {
+      flash('✅ Настройки сохранены', 'success')
+    }
+
+    return data
+  }, [cfgHour, cfgInterval, cfgLimit, cfgSchedule])
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleStart = async () => {
     setStarting(true)
     setError(null)
     try {
+      if (hasPendingConfigChanges) {
+        await saveConfig({ silent: true })
+      }
       const res  = await fetch('/api/scraper/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,6 +317,8 @@ export default function AdminEncar() {
     setSaving(true)
     setError(null)
     try {
+      await saveConfig()
+      return
       const res  = await fetch('/api/scraper/config', {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
