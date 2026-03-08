@@ -10,6 +10,7 @@ import {
   normalizeTrimLevel,
   VEHICLE_ORIGIN_LABELS,
 } from '../lib/vehicleData.js'
+import { createCarTextBackfillState, runCarTextBackfill } from '../lib/carTextBackfill.js'
 import { normalizeKnownBrandAlias } from '../../shared/brandAliases.js'
 
 const router = Router()
@@ -27,6 +28,7 @@ const enrichState = {
   last_error: '',
   report: [],
 }
+const normalizeCarsState = createCarTextBackfillState()
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 const ENRICH_TRIM_ROMANIZED_RE = /\b(choegogeuphyeong|gibonhyeong|kaelrigeuraepi|geuraebiti|bijeon|seupesyeol|direokseu|intelrijeonteu|maseuteojeu|koeo|rimujin|raunji|teurendi|kaempingka|camping\s+car|idongsamucha|hairimujin|hailimujin|peulreoseu|peurimieo|peurimio)\b/i
@@ -689,6 +691,10 @@ router.get('/enrich-empty-fields/status', (_req, res) => {
 })
 
 router.post('/enrich-empty-fields/start', async (_req, res) => {
+  if (normalizeCarsState.running) {
+    return res.status(409).json({ error: 'Normalization is already running' })
+  }
+
   if (enrichState.running) {
     return res.status(409).json({ error: 'Обогащение уже запущено', status: enrichState })
   }
@@ -708,6 +714,42 @@ router.post('/enrich-empty-fields/start', async (_req, res) => {
   })
 
   return res.json({ ok: true, message: 'Обогащение пустых полей запущено' })
+})
+
+router.get('/normalize-existing-cars/status', (_req, res) => {
+  return res.json(normalizeCarsState)
+})
+
+router.post('/normalize-existing-cars/start', async (_req, res) => {
+  if (enrichState.running) {
+    return res.status(409).json({ error: 'Enrichment is already running' })
+  }
+
+  if (normalizeCarsState.running) {
+    return res.status(409).json({ error: 'РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ СѓР¶Рµ Р·Р°РїСѓС‰РµРЅР°', status: normalizeCarsState })
+  }
+
+  Object.assign(normalizeCarsState, createCarTextBackfillState(), {
+    running: true,
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    last_error: '',
+  })
+
+  setImmediate(() => {
+    runCarTextBackfill({
+      onProgress: (snapshot) => {
+        Object.assign(normalizeCarsState, snapshot)
+      },
+    }).catch((err) => {
+      normalizeCarsState.running = false
+      normalizeCarsState.last_error = err.message
+      normalizeCarsState.finished_at = new Date().toISOString()
+      console.error('Car text normalization error:', err)
+    })
+  })
+
+  return res.json({ ok: true, message: 'РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ СѓР¶Рµ СЃРѕС…СЂР°РЅРµРЅРЅС‹С… РјР°С€РёРЅ Р·Р°РїСѓС‰РµРЅР°' })
 })
 
 router.get('/catalog-export', async (_req, res) => {

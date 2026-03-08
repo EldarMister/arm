@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AdminEncar from '../components/admin/AdminEncar'
+import { applyVehicleTitleFixes } from '../../shared/vehicleTextFixes.js'
 
 /* ── SVG Icon ── */
 const Ic = ({ d, s = 18 }) => (
@@ -53,6 +54,8 @@ function normalizeAdminVehicleTitle(value, { keepBrand = true } = {}) {
         text = text.replace(/\bRenault Korea\b/gi, 'Renault Samsung')
     }
 
+    text = applyVehicleTitleFixes(text)
+
     return text.replace(/\s+/g, ' ').trim()
 }
 
@@ -76,6 +79,8 @@ const api = {
     downloadCatalogExport: () => fetch('/api/admin/catalog-export'),
     getEnrichStatus: () => apiFetch('/api/admin/enrich-empty-fields/status'),
     startEnrichEmptyFields: () => apiFetch('/api/admin/enrich-empty-fields/start', { method: 'POST' }),
+    getNormalizeExistingCarsStatus: () => apiFetch('/api/admin/normalize-existing-cars/status'),
+    startNormalizeExistingCars: () => apiFetch('/api/admin/normalize-existing-cars/start', { method: 'POST' }),
 }
 
 const PRICING_FALLBACK = {
@@ -781,6 +786,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [busy, setBusy] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [enriching, setEnriching] = useState(false)
+    const [normalizingCars, setNormalizingCars] = useState(false)
     const [enrichStatus, setEnrichStatus] = useState({
         running: false,
         total: 0,
@@ -794,6 +800,26 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         last_error: '',
         report: [],
     })
+    const [normalizeCarsStatus, setNormalizeCarsStatus] = useState({
+        running: false,
+        total: 0,
+        processed: 0,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        started_at: null,
+        finished_at: null,
+        current: null,
+        last_error: '',
+        report: [],
+        field_totals: {
+            name: 0,
+            model: 0,
+            trim_level: 0,
+            body_color: 0,
+            interior_color: 0,
+        },
+    })
     const [isEnrichReportOpen, setIsEnrichReportOpen] = useState(() => {
         if (typeof window === 'undefined') return true
         const saved = window.localStorage.getItem(ENRICH_REPORT_VISIBILITY_KEY)
@@ -801,6 +827,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     })
     const [selected, setSelected] = useState(new Set())
     const prevEnrichRunningRef = useRef(false)
+    const prevNormalizeCarsRunningRef = useRef(false)
 
     const load = useCallback(async (pg, sq, so) => {
         setLoading(true); setError(null)
@@ -822,11 +849,24 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         } catch { }
     }, [])
 
+    const loadNormalizeCarsStatus = useCallback(async () => {
+        try {
+            const data = await api.getNormalizeExistingCarsStatus()
+            setNormalizeCarsStatus(data)
+        } catch { }
+    }, [])
+
     useEffect(() => {
         loadEnrichStatus()
         const timer = setInterval(loadEnrichStatus, enrichStatus.running ? 2000 : 10000)
         return () => clearInterval(timer)
     }, [loadEnrichStatus, enrichStatus.running])
+
+    useEffect(() => {
+        loadNormalizeCarsStatus()
+        const timer = setInterval(loadNormalizeCarsStatus, normalizeCarsStatus.running ? 2000 : 10000)
+        return () => clearInterval(timer)
+    }, [loadNormalizeCarsStatus, normalizeCarsStatus.running])
 
     useEffect(() => {
         if (prevEnrichRunningRef.current && !enrichStatus.running) {
@@ -837,6 +877,16 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         }
         prevEnrichRunningRef.current = enrichStatus.running
     }, [enrichStatus, load, page, search, sort, toast])
+
+    useEffect(() => {
+        if (prevNormalizeCarsRunningRef.current && !normalizeCarsStatus.running) {
+            load(page, search, sort)
+            if (normalizeCarsStatus.total > 0) {
+                toast(`Нормализация завершена: обновлено ${normalizeCarsStatus.updated}, ошибок ${normalizeCarsStatus.errors}`, normalizeCarsStatus.errors ? 'error' : 'success')
+            }
+        }
+        prevNormalizeCarsRunningRef.current = normalizeCarsStatus.running
+    }, [normalizeCarsStatus, load, page, search, sort, toast])
 
     useEffect(() => {
         if (typeof window === 'undefined') return
@@ -910,6 +960,18 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         setEnriching(false)
     }
 
+    const startNormalizeExistingCars = async () => {
+        setNormalizingCars(true)
+        try {
+            await api.startNormalizeExistingCars()
+            await loadNormalizeCarsStatus()
+            toast('Нормализация сохраненных машин запущена', 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка запуска нормализации', 'error')
+        }
+        setNormalizingCars(false)
+    }
+
     const toggleSel = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
     const toggleAll = () => setSelected(s => s.size === cars.length ? new Set() : new Set(cars.map(c => c.id)))
 
@@ -927,9 +989,19 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                 : `Последнее обогащение: обновлено ${enrichStatus.updated} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
                         </div>
                     )}
+                    {(normalizeCarsStatus.running || normalizeCarsStatus.finished_at) && (
+                        <div className="adm-meta" style={{ marginTop: 4 }}>
+                            {normalizeCarsStatus.running
+                                ? `Нормализация: ${normalizeCarsStatus.processed}/${normalizeCarsStatus.total} • обновлено ${normalizeCarsStatus.updated} • ошибок ${normalizeCarsStatus.errors}`
+                                : `Последняя нормализация: обновлено ${normalizeCarsStatus.updated} • пропущено ${normalizeCarsStatus.skipped} • ошибок ${normalizeCarsStatus.errors}`}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || enrichStatus.running}>
+                    <button className="adm-btn adm-btn-sm" onClick={startNormalizeExistingCars} disabled={normalizingCars || normalizeCarsStatus.running || enriching || enrichStatus.running}>
+                        <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Нормализация...' : (normalizingCars ? 'Запуск...' : 'Нормализовать названия')}
+                    </button>
+                    <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}>
                         <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Обогащение...' : (enriching ? 'Запуск...' : 'Обогатить пустые поля')}
                     </button>
                     <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
@@ -962,6 +1034,16 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                 <button className="adm-btn adm-btn-sm" onClick={() => load(page, search, sort)}><Ic d={IC.ref} s={14} /></button>
             </div>
 
+            {normalizeCarsStatus.current?.name && normalizeCarsStatus.running && (
+                <div className="adm-car-sub" style={{ marginBottom: 12 }}>
+                    Сейчас нормализуется: {normalizeCarsStatus.current.name} (ID: {normalizeCarsStatus.current.id}{normalizeCarsStatus.current.encar_id ? `, Encar: ${normalizeCarsStatus.current.encar_id}` : ''})
+                </div>
+            )}
+            {!!normalizeCarsStatus.last_error && (
+                <div className="adm-car-sub" style={{ marginBottom: 12, color: '#fca5a5' }}>
+                    Последняя ошибка нормализации: {normalizeCarsStatus.last_error}
+                </div>
+            )}
             {enrichStatus.current?.name && enrichStatus.running && (
                 <div className="adm-car-sub" style={{ marginBottom: 12 }}>
                     Сейчас обрабатывается: {enrichStatus.current.name} (ID: {enrichStatus.current.id}, Encar: {enrichStatus.current.encar_id})

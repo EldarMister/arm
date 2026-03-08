@@ -11,6 +11,7 @@ import {
   normalizeInteriorColorName,
   normalizeTrimLevel,
 } from '../lib/vehicleData.js'
+import { normalizeCarTextFields } from '../lib/carRecordNormalization.js'
 
 const router = Router()
 
@@ -273,6 +274,10 @@ function searchPatterns(value) {
 }
 
 function decorateCarRow(row, exchangeSnapshot, pricingSettings) {
+  const normalizedText = normalizeCarTextFields(row)
+  const normalizedName = normalizedText.name ?? row.name
+  const normalizedModel = normalizedText.model ?? row.model
+  const normalizedBodyColor = normalizedText.body_color ?? normalizeColorName(row.body_color || '')
   const fees = resolveVehicleFees(row, pricingSettings)
   const pricing = computePricing({
     priceKrw: row.price_krw,
@@ -285,9 +290,11 @@ function decorateCarRow(row, exchangeSnapshot, pricingSettings) {
 
   return {
     ...row,
-    body_color: normalizeColorName(row.body_color || ''),
-    interior_color: normalizeInteriorColorName(row.interior_color || '', row.body_color || ''),
-    trim_level: normalizeTrimLevel(row.trim_level || '') || extractTrimLevelFromTitle(row.name || '', row.model || ''),
+    name: normalizedName,
+    model: normalizedModel,
+    body_color: normalizedBodyColor,
+    interior_color: normalizedText.interior_color ?? normalizeInteriorColorName(row.interior_color || '', normalizedBodyColor || ''),
+    trim_level: normalizedText.trim_level || normalizeTrimLevel(row.trim_level || '') || extractTrimLevelFromTitle(normalizedName || '', normalizedModel || ''),
     key_info: String(row.key_info || '').trim(),
     location_short: extractShortLocation(row.location || ''),
     pricing_locked: fees.pricing_locked,
@@ -571,6 +578,7 @@ router.post('/', async (req, res) => {
       commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total,
       encar_url, encar_id, can_negotiate, tags,
     } = req.body
+    const normalizedText = normalizeCarTextFields({ name, model, trim_level, body_color, interior_color })
 
     const result = await pool.query(
       `INSERT INTO cars
@@ -583,9 +591,9 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
        RETURNING *`,
       [
-        name, model, year, mileage || 0,
-        fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement || 0,
-        body_color, body_color_dots || [], interior_color, interior_color_dots || [],
+        normalizedText.name ?? name, normalizedText.model ?? model, year, mileage || 0,
+        fuel_type, transmission, drive_type, body_type, normalizedText.trim_level ?? trim_level, key_info, displacement || 0,
+        normalizedText.body_color ?? body_color, body_color_dots || [], normalizedText.interior_color ?? interior_color, interior_color_dots || [],
         location, vin, price_krw || 0, price_usd || 0,
         commission ?? DEFAULT_FEES.commission, delivery ?? 0, delivery_profile_code || null, loading ?? DEFAULT_FEES.loading, unloading ?? DEFAULT_FEES.unloading,
         storage ?? DEFAULT_FEES.storage, pricing_locked || false, vat_refund || 0, total || 0,
@@ -616,11 +624,12 @@ router.put('/:id', async (req, res) => {
     const params = []
     let p = 1
     const images = req.body.images
+    const normalizedText = normalizeCarTextFields(req.body)
 
     for (const field of fields) {
       if (req.body[field] !== undefined) {
         updates.push(`${field} = $${p++}`)
-        params.push(req.body[field])
+        params.push(normalizedText[field] !== undefined ? normalizedText[field] : req.body[field])
       }
     }
 
