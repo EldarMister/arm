@@ -1,5 +1,5 @@
 import { applyTrimFixes, applyVehicleTitleFixes } from '../../shared/vehicleTextFixes.js'
-import { normalizeColorName, normalizeInteriorColorName, normalizeTrimLevel } from './vehicleData.js'
+import { normalizeColorName, normalizeInteriorColorName, normalizeLocationName, normalizeTrimLevel } from './vehicleData.js'
 
 function normalizeNullableText(value, normalizer) {
   if (value === undefined) return undefined
@@ -17,6 +17,7 @@ export function normalizeCarTextFields(input = {}) {
     trim_level: normalizeNullableText(input.trim_level, (value) => normalizeTrimLevel(value) || applyTrimFixes(value)),
     body_color: bodyColor,
     interior_color: normalizeNullableText(input.interior_color, (value) => normalizeInteriorColorName(value, bodyColorForInterior)),
+    location: normalizeNullableText(input.location, (value) => normalizeLocationName(value)),
   }
 }
 

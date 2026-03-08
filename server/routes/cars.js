@@ -9,6 +9,7 @@ import {
   KOREAN_VEHICLE_SQL_PATTERNS,
   normalizeColorName,
   normalizeInteriorColorName,
+  normalizeLocationName,
   normalizeTrimLevel,
 } from '../lib/vehicleData.js'
 import { normalizeCarTextFields } from '../lib/carRecordNormalization.js'
@@ -296,7 +297,8 @@ function decorateCarRow(row, exchangeSnapshot, pricingSettings) {
     interior_color: normalizedText.interior_color ?? normalizeInteriorColorName(row.interior_color || '', normalizedBodyColor || ''),
     trim_level: normalizedText.trim_level || normalizeTrimLevel(row.trim_level || '') || extractTrimLevelFromTitle(normalizedName || '', normalizedModel || ''),
     key_info: String(row.key_info || '').trim(),
-    location_short: extractShortLocation(row.location || ''),
+    location: normalizedText.location || normalizeLocationName(row.location || '') || row.location || '',
+    location_short: extractShortLocation(normalizedText.location ?? row.location ?? ''),
     pricing_locked: fees.pricing_locked,
     delivery_profile_code: fees.delivery_profile_code,
     delivery_profile_label: fees.delivery_profile_label,
@@ -579,7 +581,7 @@ router.post('/', async (req, res) => {
       commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total,
       encar_url, encar_id, can_negotiate, tags,
     } = req.body
-    const normalizedText = normalizeCarTextFields({ name, model, trim_level, body_color, interior_color })
+    const normalizedText = normalizeCarTextFields({ name, model, trim_level, body_color, interior_color, location })
 
     const result = await pool.query(
       `INSERT INTO cars
@@ -595,7 +597,7 @@ router.post('/', async (req, res) => {
         normalizedText.name ?? name, normalizedText.model ?? model, year, mileage || 0,
         fuel_type, transmission, drive_type, body_type, normalizedText.trim_level ?? trim_level, key_info, displacement || 0,
         normalizedText.body_color ?? body_color, body_color_dots || [], normalizedText.interior_color ?? interior_color, interior_color_dots || [],
-        location, vin, price_krw || 0, price_usd || 0,
+        normalizedText.location || location, vin, price_krw || 0, price_usd || 0,
         commission ?? DEFAULT_FEES.commission, delivery ?? 0, delivery_profile_code || null, loading ?? DEFAULT_FEES.loading, unloading ?? DEFAULT_FEES.unloading,
         storage ?? DEFAULT_FEES.storage, pricing_locked || false, vat_refund || 0, total || 0,
         encar_url, encar_id, can_negotiate || false, tags || [],

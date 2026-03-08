@@ -64,9 +64,13 @@ const TITLE_REPLACEMENTS = [
   [/\bbolteu\b/gi, 'Bolt'],
   [/\bbenyu\b/gi, 'Venue'],
   [/\bberakeurujeu\b/gi, 'Veracruz'],
+  [/\bnyu\s*qm5\b/gi, 'New QM5'],
+  [/\bnyu\s*qm3\b/gi, 'New QM3'],
   [/\bnyu\s*sm3\b/gi, 'New SM3'],
   [/\bnyu\s*sm5\b/gi, 'New SM5'],
   [/\bnyu\s*moning\b/gi, 'New Morning'],
+  [/\bnyu\s*korando\b/gi, 'New Korando'],
+  [/\bnyu\s*opireoseu\b/gi, 'New Opirus'],
   [/\bnyu\s+damaseu\b/gi, 'New Damas'],
   [/\brieol\b/gi, 'Real'],
   [/\bkolrorado\b/gi, 'Colorado'],
@@ -82,10 +86,12 @@ const TITLE_REPLACEMENTS = [
   [/\bwaegeon\b/gi, 'Wagon'],
   [/\bdainamik\b/gi, 'Dynamic'],
   [/\baikonik\b/gi, 'Iconic'],
+  [/\bturiseumo\b/gi, 'Turismo'],
   [/\bmornin\b/gi, 'Morning'],
   [/\bssoul\b/gi, 'Soul'],
   [/\bsoul\s+ev\s+ev\b/gi, 'Soul EV'],
-  [/\bjangaeinyong\b/gi, 'Для инвалидов'],
+  [/\bseuboteiji\b/gi, 'Sportage'],
+  [/\bjangaeinyong\b/gi, 'Для людей с ограниченными возможностями'],
   [/\beorinibobocha\b/gi, 'Школьный / Детский'],
   [/\bschool\s+bus\b/gi, 'Школьный / Детский'],
   [/\bjeopisiktapcha\b/gi, 'Folding Top'],
@@ -122,8 +128,12 @@ const TRIM_REPLACEMENTS = [
   [/\bkaelrigeuraepi\b/gi, 'Calligraphy'],
   [/\bkaelligeuraepi\b/gi, 'Calligraphy'],
   [/\bcalligraphy\b/gi, 'Calligraphy'],
+  [/\beodeubencheo\b/gi, 'Adventure'],
+  [/\badventure\b/gi, 'Adventure'],
   [/\beodeubaenseu\b/gi, 'Advanced'],
   [/\badvanced\b/gi, 'Advanced'],
+  [/\bdireokseupaek\b/gi, 'Deluxe Pack'],
+  [/\bdeluxe\s+pack\b/gi, 'Deluxe Pack'],
   [/\bpeuraimpaek\b/gi, 'Prime Pack'],
   [/\bprime\s+pack\b/gi, 'Prime Pack'],
   [/\bselreobeuriti\b/gi, 'Celebrity'],
@@ -163,6 +173,7 @@ const TRIM_REPLACEMENTS = [
   [/\bfamily\b/gi, 'Family'],
   [/\bsuchulhyeong\b/gi, 'Export'],
   [/\bexport\b/gi, 'Export'],
+  [/\beorini\s+bokocha\b/gi, 'Детский / Школьный автобус'],
   [/\beorinibobocha\b/gi, 'Детский / Школьный'],
   [/\bschool\s+bus\b/gi, 'Детский / Школьный'],
   [/\bebinyu\b/gi, 'Avenue'],
@@ -177,6 +188,8 @@ const TRIM_REPLACEMENTS = [
   [/\bchoice\b/gi, 'Choice'],
   [/\b1\s*milrion\b/gi, '1 Million'],
   [/\b1\s*million\b/gi, '1 Million'],
+  [/\byeongpaek\b/gi, 'Young Pack'],
+  [/\byoung\s+pack\b/gi, 'Young Pack'],
   [/\b5\s*ddeo\b/gi, '5-door'],
   [/\b5\s*doeo\b/gi, '5-door'],
   [/\b5[-\s]*door\b/gi, '5-door'],
@@ -207,11 +220,65 @@ export function normalizeRequestedRomanizedColorAlias(value) {
   if (/^(noransaek|norangsaek)$/.test(low)) return '\u0416\u0435\u043B\u0442\u044B\u0439'
   if (/^bunhongsaek$/.test(low)) return '\u0420\u043E\u0437\u043E\u0432\u044B\u0439'
   if (/^cheongoksaek$/.test(low)) return '\u0411\u0438\u0440\u044E\u0437\u043E\u0432\u044B\u0439'
+  if (/^geomjeongtuton$/.test(low)) return '\u0427\u0435\u0440\u043D\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
+  if (/^eunsaektuton$/.test(low)) return '\u0421\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
+  if (/^(huinseaktuton|huinsaektuton)$/.test(low)) return '\u0411\u0435\u043B\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
   if (/^haneulsaek$/.test(low)) return '\u041D\u0435\u0431\u0435\u0441\u043D\u043E-\u0433\u043E\u043B\u0443\u0431\u043E\u0439'
   if (/^jajusaek$/.test(low)) return '\u0411\u043E\u0440\u0434\u043E\u0432\u044B\u0439'
   if (/^(damnoksaek|damnogsaek|dampoksaek)$/.test(low)) return '\u0421\u0432\u0435\u0442\u043B\u043E-\u0437\u0435\u043B\u0435\u043D\u044B\u0439'
+  if (/^yeondusaek$/.test(low)) return '\u0421\u0432\u0435\u0442\u043B\u043E-\u0437\u0435\u043B\u0435\u043D\u044B\u0439'
   if (/^galdaesaek$/.test(low)) return '\u0411\u0435\u0436\u0435\u0432\u044B\u0439'
   if (/^yeongeumsaek$/.test(low)) return '\u0417\u043E\u043B\u043E\u0442\u0438\u0441\u0442\u044B\u0439'
+  if (/^myeongeunsaek$/.test(low)) return '\u042F\u0440\u043A\u043E-\u0441\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442\u044B\u0439'
 
   return ''
+}
+
+const LOCATION_REPLACEMENTS = [
+  [/\bseoul\b/gi, 'Сеул'],
+  [/\bincheon\b/gi, 'Инчхон'],
+  [/\bbusan\b/gi, 'Пусан'],
+  [/\bdaegu\b/gi, 'Тэгу'],
+  [/\bdaejeon\b/gi, 'Тэджон'],
+  [/\bgwangju\b/gi, 'Кванджу'],
+  [/\bulsan\b/gi, 'Ульсан'],
+  [/\bsejong\b/gi, 'Седжон'],
+  [/\bgyeonggi\b/gi, 'Кёнги'],
+  [/\bgyeongbuk\b/gi, 'Кёнбук'],
+  [/\bgyeongnam\b/gi, 'Кённам'],
+  [/\bjeonbuk\b/gi, 'Чоллабук'],
+  [/\bjeonnam\b/gi, 'Чолланам'],
+  [/\bchungbuk\b/gi, 'Чхунчхонбук'],
+  [/\bchungnam\b/gi, 'Чхунчхоннам'],
+  [/\bjeju\b/gi, 'Чеджу'],
+  [/\bsuwon\b/gi, 'Сувон'],
+  [/\byongin\b/gi, 'Йонъин'],
+  [/\bseongnam\b/gi, 'Соннам'],
+  [/\bansan\b/gi, 'Ансан'],
+  [/\bcheonan\b/gi, 'Чхонан'],
+  [/\uC11C\uC6B8/gu, 'Сеул'],
+  [/\uC778\uCC9C/gu, 'Инчхон'],
+  [/\uBD80\uC0B0/gu, 'Пусан'],
+  [/\uB300\uAD6C/gu, 'Тэгу'],
+  [/\uB300\uC804/gu, 'Тэджон'],
+  [/\uAD11\uC8FC/gu, 'Кванджу'],
+  [/\uC6B8\uC0B0/gu, 'Ульсан'],
+  [/\uC138\uC885/gu, 'Седжон'],
+  [/\uACBD\uAE30/gu, 'Кёнги'],
+  [/\uACBD\uBD81/gu, 'Кёнбук'],
+  [/\uACBD\uB0A8/gu, 'Кённам'],
+  [/\uC804\uBD81/gu, 'Чоллабук'],
+  [/\uC804\uB0A8/gu, 'Чолланам'],
+  [/\uCDA9\uBD81/gu, 'Чхунчхонбук'],
+  [/\uCDA9\uB0A8/gu, 'Чхунчхоннам'],
+  [/\uC81C\uC8FC/gu, 'Чеджу'],
+  [/\uC218\uC6D0/gu, 'Сувон'],
+  [/\uC6A9\uC778/gu, 'Йонъин'],
+  [/\uC131\uB0A8/gu, 'Соннам'],
+  [/\uC548\uC0B0/gu, 'Ансан'],
+  [/\uCC9C\uC548/gu, 'Чхонан'],
+]
+
+export function normalizeLocationText(value) {
+  return applyReplacementList(value, LOCATION_REPLACEMENTS)
 }

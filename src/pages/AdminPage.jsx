@@ -837,6 +837,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             trim_level: 0,
             body_color: 0,
             interior_color: 0,
+            location: 0,
         },
     })
     const [isEnrichReportOpen, setIsEnrichReportOpen] = useState(() => {

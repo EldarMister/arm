@@ -1,4 +1,4 @@
-import { applyTrimFixes, normalizeRequestedRomanizedColorAlias } from '../../shared/vehicleTextFixes.js'
+import { applyTrimFixes, normalizeLocationText, normalizeRequestedRomanizedColorAlias } from '../../shared/vehicleTextFixes.js'
 
 export const VAT_REFUND_RATE = 0.063
 export const VEHICLE_ORIGIN_LABELS = Object.freeze({
@@ -26,20 +26,27 @@ const GENERIC_COLOR_LABELS = new Set([
 ])
 
 const SHORT_LOCATION_RULES = [
-  [/서울|seoul/i, 'Сеул'],
-  [/인천|incheon/i, 'Инчхон'],
-  [/부산|busan/i, 'Пусан'],
-  [/대구|daegu/i, 'Тэгу'],
-  [/대전|daejeon/i, 'Тэджон'],
-  [/광주|gwangju/i, 'Кванджу'],
-  [/울산|ulsan/i, 'Ульсан'],
-  [/세종|sejong/i, 'Седжон'],
-  [/수원|suwon/i, 'Сувон'],
-  [/용인|yongin/i, 'Йонъин'],
-  [/성남|seongnam/i, 'Соннам'],
-  [/안산|ansan/i, 'Ансан'],
-  [/천안|cheonan/i, 'Чхонан'],
-  [/제주|jeju/i, 'Чеджу'],
+  [/서울|seoul|сеул/i, 'Сеул'],
+  [/인천|incheon|инчхон/i, 'Инчхон'],
+  [/부산|busan|пусан/i, 'Пусан'],
+  [/대구|daegu|тэгу/i, 'Тэгу'],
+  [/대전|daejeon|тэджон/i, 'Тэджон'],
+  [/광주|gwangju|кванджу/i, 'Кванджу'],
+  [/울산|ulsan|ульсан/i, 'Ульсан'],
+  [/세종|sejong|седжон/i, 'Седжон'],
+  [/수원|suwon|сувон/i, 'Сувон'],
+  [/용인|yongin|йонъин/i, 'Йонъин'],
+  [/성남|seongnam|соннам/i, 'Соннам'],
+  [/안산|ansan|ансан/i, 'Ансан'],
+  [/천안|cheonan|чхонан/i, 'Чхонан'],
+  [/제주|jeju|чеджу/i, 'Чеджу'],
+  [/경기|gyeonggi|кёнги/i, 'Кёнги'],
+  [/경북|gyeongbuk|кёнбук/i, 'Кёнбук'],
+  [/경남|gyeongnam|кённам/i, 'Кённам'],
+  [/전북|jeonbuk|чоллабук/i, 'Чоллабук'],
+  [/전남|jeonnam|чолланам/i, 'Чолланам'],
+  [/충북|chungbuk|чхунчхонбук/i, 'Чхунчхонбук'],
+  [/충남|chungnam|чхунчхоннам/i, 'Чхунчхоннам'],
 ]
 
 const TRIM_REPLACEMENTS = [
@@ -477,7 +484,12 @@ export function getShortLocationLabel(value, fallback = 'Корея') {
     if (pattern.test(raw)) return label
   }
 
-  const firstToken = raw.split(/[,\s]+/).find(Boolean) || raw
+  const normalized = normalizeLocationText(raw)
+  for (const [pattern, label] of SHORT_LOCATION_RULES) {
+    if (pattern.test(normalized)) return label
+  }
+
+  const firstToken = normalized.split(/[,\s]+/).find(Boolean) || normalized
   for (const [pattern, label] of SHORT_LOCATION_RULES) {
     if (pattern.test(firstToken)) return label
   }

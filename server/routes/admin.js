@@ -444,11 +444,16 @@ function normalizeColor(value) {
   const compact = low.replace(/[\s_-]/g, '')
 
   if (low.includes('black') || /^(geomeunsaek|geomjeongsaek|heugsaek)$/.test(compact) || hasAny(src, [KO.black, KO.blackAlt])) return 'Черный'
+  if (/^geomjeongtuton$/.test(compact)) return 'Черный двухцветный'
+  if (/^eunsaektuton$/.test(compact)) return 'Серебристый двухцветный'
+  if (/^(huinseaktuton|huinsaektuton)$/.test(compact)) return 'Белый двухцветный'
+  if (/^myeongeunsaek$/.test(compact)) return 'Ярко-серебристый'
   if (low.includes('white') || /^(baegsaek|huinsaek)$/.test(compact) || hasAny(src, [KO.white, KO.whiteAlt])) return 'Белый'
   if (low.includes('silver') || /^(eunsaek)$/.test(compact) || src.includes(KO.silver)) return 'Серебристый'
   if (low.includes('gray') || low.includes('grey') || /^(hoesaek|jwisaek)$/.test(compact) || hasAny(src, [KO.gray, KO.grayAlt])) return 'Серый'
   if (low.includes('blue') || /^(cheongsaek|parangsaek)$/.test(compact) || hasAny(src, [KO.blue, KO.blueAlt])) return 'Синий'
   if (low.includes('red') || /^(ppalgangsaek|hongsaek)$/.test(compact) || hasAny(src, [KO.red, KO.redAlt])) return 'Красный'
+  if (/^yeondusaek$/.test(compact)) return 'Светло-зеленый'
   if (low.includes('green') || /^(noksaek|choroksaek)$/.test(compact) || hasAny(src, [KO.green, KO.greenAlt])) return 'Зеленый'
   if (low.includes('brown') || /^(galsaek)$/.test(compact) || src.includes(KO.brown)) return 'Коричневый'
   if (low.includes('beige') || /^(beijisaek)$/.test(compact) || src.includes(KO.beige)) return 'Бежевый'
@@ -467,6 +472,10 @@ function inferAdditionalColorSwatch(name) {
   if (/\u0431\u0438\u0440\u044e\u0437/i.test(text)) return { color: '#14b8a6' }
   if (/\u043d\u0435\u0431\u0435\u0441\u043d\u043e-\u0433\u043e\u043b\u0443\u0431/i.test(text)) return { color: '#60a5fa' }
   if (/\u0431\u043e\u0440\u0434\u043e\u0432|\u0432\u0438\u043d\u043d/i.test(text)) return { color: '#7f1d1d' }
+  if (/\u0447\u0435\u0440\u043d.*\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(text)) return { color: '#111827', border: '#374151' }
+  if (/\u044f\u0440\u043a\u043e-\u0441\u0435\u0440\u0435\u0431\u0440/i.test(text)) return { color: '#e5e7eb', border: '#9ca3af' }
+  if (/\u0441\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442.*\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(text)) return { color: '#d1d5db', border: '#9ca3af' }
+  if (/\u0431\u0435\u043b.*\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(text)) return { color: '#f8fafc', border: '#d1d5db' }
   if (/\u0441\u0432\u0435\u0442\u043b\u043e-\u0437\u0435\u043b\u0435\u043d/i.test(text)) return { color: '#86efac', border: '#16a34a' }
   if (/\u0437\u043e\u043b\u043e\u0442\u0438\u0441\u0442/i.test(text)) return { color: '#d4a72c' }
 
