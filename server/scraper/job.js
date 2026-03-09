@@ -28,6 +28,7 @@ import {
 import { state } from './state.js'
 
 const PAGE_SIZE = 20
+const MIN_SCRAPER_YEAR = 2019
 
 function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -280,6 +281,14 @@ export async function runScrapeJob(limit = 100) {
         }
 
         const car = mapCar(raw, exchangeSnapshot, pricingSettings)
+        const carYear = Number.parseInt(String(car.year || ''), 10)
+        if (!Number.isFinite(carYear) || carYear < MIN_SCRAPER_YEAR) {
+          const yearLabel = car.year || 'unknown year'
+          state.info(`⏭ Пропуск ${car.name} (${yearLabel}) — год раньше ${MIN_SCRAPER_YEAR}`)
+          state.setProgress({ skipped: state.progress.skipped + 1 })
+          continue
+        }
+
         const existId = await getExistingId(raw.Id)
         if (existId) {
           state.info(`⏭ Пропуск ${car.name} (${car.year}) — уже в базе`)

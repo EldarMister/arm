@@ -19,6 +19,7 @@ import {
 } from '../lib/vehicleDisplay'
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
+const MIN_CATALOG_YEAR = '2019'
 const encarDetailCache = new Map()
 const encarDetailInFlight = new Map()
 const KO = {
@@ -629,7 +630,7 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 })
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState({ minYear: MIN_CATALOG_YEAR })
   const [page, setPage] = useState(1)
   const sortRef = useRef(null)
   const location = useLocation()

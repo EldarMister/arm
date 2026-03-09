@@ -15,6 +15,21 @@ import {
 import { normalizeCarTextFields } from '../lib/carRecordNormalization.js'
 
 const router = Router()
+const MIN_CAR_YEAR = 2019
+
+function parseCatalogYear(value) {
+  const match = String(value ?? '').match(/\d{4}/)
+  if (!match) return null
+
+  const year = Number.parseInt(match[0], 10)
+  return Number.isFinite(year) ? year : null
+}
+
+function normalizeCatalogYear(value) {
+  const year = parseCatalogYear(value)
+  if (!year || year < MIN_CAR_YEAR) return null
+  return String(year)
+}
 
 const KO = {
   kia: '\uAE30\uC544',
@@ -346,6 +361,10 @@ router.get('/', async (req, res) => {
     const interiorColorValues = parseListFilter(interiorColor)
     const originValues = parseListFilter(origin)
     const yearSql = `COALESCE(NULLIF(SUBSTRING(c.year FROM 1 FOR 4), ''), '0')::int`
+    const requestedMinYear = Number.parseInt(String(minYear || ''), 10)
+    const effectiveMinYear = Number.isFinite(requestedMinYear)
+      ? Math.max(requestedMinYear, MIN_CAR_YEAR)
+      : MIN_CAR_YEAR
 
     if (qText) {
       const patterns = uniqPatterns(searchPatterns(qText))
@@ -423,7 +442,8 @@ router.get('/', async (req, res) => {
     }
     if (minPrice) { conditions.push(`${priceUsdSql} >= $${p++}`); params.push(Number(minPrice)) }
     if (maxPrice) { conditions.push(`${priceUsdSql} <= $${p++}`); params.push(Number(maxPrice)) }
-    if (minYear) { conditions.push(`${yearSql} >= $${p++}`); params.push(Number(minYear)) }
+    conditions.push(`${yearSql} >= $${p++}`)
+    params.push(effectiveMinYear)
     if (maxYear) { conditions.push(`${yearSql} <= $${p++}`); params.push(Number(maxYear)) }
     if (minMileage) { conditions.push(`c.mileage >= $${p++}`); params.push(Number(minMileage)) }
     if (maxMileage) { conditions.push(`c.mileage <= $${p++}`); params.push(Number(maxMileage)) }
@@ -571,8 +591,13 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const normalizedYear = normalizeCatalogYear(req.body?.year)
+    if (!normalizedYear) {
+      return res.status(400).json({ error: `Год выпуска должен быть не раньше ${MIN_CAR_YEAR}` })
+    }
+
     const {
-      name, model, year, mileage,
+      name, model, mileage,
       fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement,
       body_color, body_color_dots,
       interior_color, interior_color_dots,
@@ -594,7 +619,7 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
        RETURNING *`,
       [
-        normalizedText.name ?? name, normalizedText.model ?? model, year, mileage || 0,
+        normalizedText.name ?? name, normalizedText.model ?? model, normalizedYear, mileage || 0,
         fuel_type, transmission, drive_type, body_type, normalizedText.trim_level ?? trim_level, key_info, displacement || 0,
         normalizedText.body_color ?? body_color, body_color_dots || [], normalizedText.interior_color ?? interior_color, interior_color_dots || [],
         normalizedText.location || location, vin, price_krw || 0, price_usd || 0,
@@ -614,6 +639,15 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    const payload = { ...(req.body || {}) }
+    if (payload.year !== undefined) {
+      const normalizedYear = normalizeCatalogYear(payload.year)
+      if (!normalizedYear) {
+        return res.status(400).json({ error: `Год выпуска должен быть не раньше ${MIN_CAR_YEAR}` })
+      }
+      payload.year = normalizedYear
+    }
+
     const fields = [
       'name', 'model', 'year', 'mileage',
       'fuel_type', 'transmission', 'drive_type', 'body_type', 'trim_level', 'key_info', 'displacement',
@@ -626,13 +660,13 @@ router.put('/:id', async (req, res) => {
     const updates = []
     const params = []
     let p = 1
-    const images = req.body.images
-    const normalizedText = normalizeCarTextFields(req.body)
+    const images = payload.images
+    const normalizedText = normalizeCarTextFields(payload)
 
     for (const field of fields) {
-      if (req.body[field] !== undefined) {
+      if (payload[field] !== undefined) {
         updates.push(`${field} = $${p++}`)
-        params.push(normalizedText[field] !== undefined ? normalizedText[field] : req.body[field])
+        params.push(normalizedText[field] !== undefined ? normalizedText[field] : payload[field])
       }
     }
 

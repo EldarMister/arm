@@ -14,6 +14,7 @@ import { createCarTextBackfillState, runCarTextBackfill } from '../lib/carTextBa
 import { normalizeKnownBrandAlias } from '../../shared/brandAliases.js'
 
 const router = Router()
+const MIN_CATALOG_YEAR = 2019
 const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
@@ -681,8 +682,8 @@ router.get('/filter-options', async (_req, res) => {
       pool.query(`
         SELECT MIN(year::integer) AS min_year, MAX(year::integer) AS max_year
         FROM cars
-        WHERE year ~ '^[0-9]{4}$'
-      `),
+        WHERE year ~ '^[0-9]{4}$' AND year::integer >= $1
+      `, [MIN_CATALOG_YEAR]),
       pool.query(`SELECT MIN(${priceUsdSql}) AS min_price, MAX(${priceUsdSql}) AS max_price FROM cars`),
       pool.query(`SELECT MIN(mileage) AS min_mileage, MAX(mileage) AS max_mileage FROM cars`),
       pool.query(`SELECT COUNT(*)::int AS count FROM cars`),
@@ -696,6 +697,9 @@ router.get('/filter-options', async (_req, res) => {
     const bodyColors = aggregateColors(bodyColorRows.rows)
     const interiorColors = aggregateColors(interiorColorRows.rows)
 
+    const rawYearRange = yearRange.rows[0] || {}
+    const maxYear = Math.max(Number(rawYearRange.max_year) || new Date().getFullYear(), MIN_CATALOG_YEAR)
+
     return res.json({
       brands,
       originTypes,
@@ -704,7 +708,10 @@ router.get('/filter-options', async (_req, res) => {
       bodyTypes,
       bodyColors,
       interiorColors,
-      yearRange: yearRange.rows[0] || { min_year: 1990, max_year: new Date().getFullYear() },
+      yearRange: {
+        min_year: Math.max(Number(rawYearRange.min_year) || MIN_CATALOG_YEAR, MIN_CATALOG_YEAR),
+        max_year: maxYear,
+      },
       priceRange: priceRange.rows[0] || { min_price: 0, max_price: 100000 },
       mileageRange: mileageRange.rows[0] || { min_mileage: 0, max_mileage: 500000 },
       totalCars: total.rows[0]?.count || 0,

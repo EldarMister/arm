@@ -42,6 +42,9 @@ const CloseIcon = () => (
   </svg>
 )
 
+const MIN_FILTER_YEAR = 2019
+const YEAR_ANY_LABEL = '\u041B\u044E\u0431\u043E\u0439'
+
 /* Fallback статичные данные (если бэкенд недоступен / база пустая) */
 const FALLBACK = {
   originTypes: [
@@ -103,7 +106,7 @@ const FALLBACK = {
 
 const EMPTY_LOCAL_FILTERS = {
   minPrice: '', maxPrice: '',
-  minYear: '', maxYear: '',
+  minYear: String(MIN_FILTER_YEAR), maxYear: '',
   minMileage: '', maxMileage: '',
   origin: [], brands: [], drive: [], fuel: [], body: [], bodyColor: [], interiorColor: [],
 }
@@ -178,7 +181,7 @@ function buildLocalFilters(filters) {
     ...EMPTY_LOCAL_FILTERS,
     minPrice: String(src.minPrice ?? ''),
     maxPrice: String(src.maxPrice ?? ''),
-    minYear: String(src.minYear ?? ''),
+    minYear: String(src.minYear ?? MIN_FILTER_YEAR),
     maxYear: String(src.maxYear ?? ''),
     minMileage: String(src.minMileage ?? ''),
     maxMileage: String(src.maxMileage ?? ''),
@@ -450,14 +453,15 @@ function ColorGrid({ colors, selected, onToggle, showMoreLabel }) {
   )
 }
 
-function FilterYearSelect({ label, value, years = [], onChange }) {
+function FilterYearSelect({ label, value, years = [], allowEmpty = true, onChange }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const options = useMemo(
-    () => [{ value: '', label: 'Любой' }, ...years.map((year) => ({ value: String(year), label: String(year) }))],
-    [years]
-  )
-  const selectedLabel = options.find((option) => option.value === String(value || ''))?.label || 'Любой'
+  const options = useMemo(() => {
+    const yearOptions = years.map((year) => ({ value: String(year), label: String(year) }))
+    return allowEmpty ? [{ value: '', label: YEAR_ANY_LABEL }, ...yearOptions] : yearOptions
+  }, [allowEmpty, years])
+  const selectedLabel = options.find((option) => option.value === String(value || ''))?.label
+    || (allowEmpty ? YEAR_ANY_LABEL : String(MIN_FILTER_YEAR))
 
   useEffect(() => {
     if (!open) return undefined
@@ -606,10 +610,14 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
     () => (options.interiorColors?.length ? mergeOptionItems(options.interiorColors, liveInteriorColors) : liveInteriorColors),
     [liveInteriorColors, options.interiorColors]
   )
-  const effectiveYearRange = useMemo(() => ({
-    min: Number(options?.yearRange?.min_year) || liveYearRange?.min || 1990,
-    max: Number(options?.yearRange?.max_year) || liveYearRange?.max || new Date().getFullYear(),
-  }), [liveYearRange, options?.yearRange])
+  const effectiveYearRange = useMemo(() => {
+    const rawMin = Number(options?.yearRange?.min_year) || liveYearRange?.min || MIN_FILTER_YEAR
+    const rawMax = Number(options?.yearRange?.max_year) || liveYearRange?.max || new Date().getFullYear()
+    return {
+      min: Math.max(rawMin, MIN_FILTER_YEAR),
+      max: Math.max(rawMax, MIN_FILTER_YEAR),
+    }
+  }, [liveYearRange, options?.yearRange])
   const effectivePriceRange = useMemo(() => ({
     min: Number(options?.priceRange?.min_price) || livePriceRange?.min || 0,
     max: Number(options?.priceRange?.max_price) || livePriceRange?.max || 100000,
@@ -642,7 +650,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
           bodyTypes: data.bodyTypes?.length ? data.bodyTypes : prev.bodyTypes,
           bodyColors: data.bodyColors?.length ? data.bodyColors : prev.bodyColors,
           interiorColors: data.interiorColors?.length ? data.interiorColors : prev.interiorColors,
-          yearRange: data.yearRange || { min_year: 1990, max_year: 2026 },
+          yearRange: data.yearRange || { min_year: MIN_FILTER_YEAR, max_year: 2026 },
           priceRange: data.priceRange || { min_price: 0, max_price: 100000 },
           mileageRange: data.mileageRange || { min_mileage: 0, max_mileage: 500000 },
         }))
@@ -690,7 +698,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
   const resetFilters = () => {
     const empty = { ...EMPTY_LOCAL_FILTERS }
     setLocal(empty)
-    onFiltersChange({})
+    onFiltersChange({ minYear: String(MIN_FILTER_YEAR) })
   }
 
   const filteredBrands = brandOptions.filter(b =>
@@ -759,6 +767,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
                   label="Год от"
                   value={local.minYear}
                   years={years}
+                  allowEmpty={false}
                   onChange={(nextValue) => setL('minYear', nextValue)}
                 />
               </div>
