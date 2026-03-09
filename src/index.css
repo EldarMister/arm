@@ -2923,13 +2923,29 @@ body {
 в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 
 .filter-sidebar {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.74) 0%, rgba(245, 249, 253, 0.64) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 16px;
   overflow: hidden;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.filter-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.06) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.filter-sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .filter-sidebar-hd {
@@ -4563,10 +4579,15 @@ body {
 
 /* Filter sidebar */
 [data-theme="dark"] .filter-sidebar {
-  background: rgba(17, 30, 46, 0.9);
-  border-right-color: rgba(30, 51, 72, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: linear-gradient(180deg, rgba(17, 30, 46, 0.82) 0%, rgba(17, 30, 46, 0.72) 100%);
+  border-right-color: rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .filter-sidebar::before {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.02) 100%);
 }
 
 [data-theme="dark"] .filter-header {
