@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { RecaptchaVerifier, signInWithPhoneNumber, signOut } from 'firebase/auth'
-import { formatPhoneForDisplay } from '../../lib/authClient'
 import { firebaseAuth, firebaseConfigError, isFirebaseConfigured } from '../../lib/firebase'
 
 const COUNTRY_OPTIONS = [
@@ -47,6 +46,12 @@ function composePhoneNumber(countryId, localPhone) {
 
 function getDigitsLength(value) {
   return normalizePhoneDraft(value).length
+}
+
+function formatPhoneFull(phone) {
+  const digits = normalizePhoneDraft(phone)
+  if (!digits) return ''
+  return `+${digits}`
 }
 
 function mapFirebaseError(error, fallbackMessage) {
@@ -111,7 +116,7 @@ export default function AuthModal({
   const phoneDigitsLength = getDigitsLength(composedPhone)
   const resendSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000))
   const expiresSeconds = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now) / 1000)) : 0
-  const hasRequestedCode = Boolean(requestedPhone && expiresSeconds > 0)
+  const hasRequestedCode = Boolean(requestedPhone)
   const serverAuthReady = authStatus?.ready !== false
   const shouldShowRecaptcha = !user && isFirebaseConfigured && (!hasRequestedCode || resendSeconds === 0)
   const canRequestCode = (
@@ -124,13 +129,11 @@ export default function AuthModal({
     && recaptchaReady
   )
   const canVerifyCode = hasRequestedCode && code.trim().length === 6 && !submittingVerify
-  const requestButtonLabel = submittingRequest
+  const resendButtonLabel = submittingRequest
     ? 'Отправка...'
     : resendSeconds > 0
-      ? `Повтор через ${formatSeconds(resendSeconds)}`
-      : hasRequestedCode
-        ? 'Отправить код повторно'
-        : 'Получить код'
+      ? `Повторная отправка через ${formatSeconds(resendSeconds)}`
+      : 'Отправить код повторно'
 
   function clearRecaptcha() {
     if (recaptchaVerifierRef.current) {
@@ -188,6 +191,8 @@ export default function AuthModal({
     resetVerificationState()
     clearRecaptcha()
     setRecaptchaReady(false)
+    setPhone('')
+    setCountryId(DEFAULT_COUNTRY_ID)
     return undefined
   }, [open])
 
@@ -256,7 +261,7 @@ export default function AuthModal({
   }
 
   const handleRequestCode = async (event) => {
-    event.preventDefault()
+    event?.preventDefault?.()
 
     if (!firebaseAuth || !isFirebaseConfigured) {
       setError(firebaseConfigError || 'Firebase Phone Auth не настроен')
@@ -281,16 +286,18 @@ export default function AuthModal({
       await signOut(firebaseAuth).catch(() => {})
       const confirmation = await signInWithPhoneNumber(
         firebaseAuth,
-        composedPhone,
+        hasRequestedCode ? requestedPhone : composedPhone,
         recaptchaVerifierRef.current,
       )
 
+      const targetPhone = hasRequestedCode ? requestedPhone : composedPhone
       confirmationResultRef.current = confirmation
-      setRequestedPhone(composedPhone)
+      setRequestedPhone(targetPhone)
       setExpiresAt(new Date(Date.now() + CODE_TTL_SECONDS * 1000).toISOString())
       setCooldownUntil(Date.now() + RESEND_SECONDS * 1000)
+      setPhone('')
       setCode('')
-      setStatus(`Код отправлен на ${formatPhoneForDisplay(composedPhone)}`)
+      setStatus(`Код отправлен на ${formatPhoneFull(targetPhone)}`)
       setNow(Date.now())
       clearRecaptcha()
       setRecaptchaReady(false)
@@ -348,7 +355,7 @@ export default function AuthModal({
         {user ? (
           <div className="auth-account-card">
             <div className="auth-account-badge">{authFeedback?.kind === 'register' ? 'Аккаунт создан' : 'Аккаунт активен'}</div>
-            <div className="auth-account-phone">{formatPhoneForDisplay(user.phone)}</div>
+            <div className="auth-account-phone">{formatPhoneFull(user.phone)}</div>
             <p className="auth-account-sub">{authFeedback?.message || 'Номер уже подтвержден и привязан к вашему аккаунту.'}</p>
             <div className="auth-modal-actions">
               <button type="button" className="auth-secondary-btn" onClick={onClose}>
@@ -386,56 +393,57 @@ export default function AuthModal({
               После подтверждения SMS-кода аккаунт создается автоматически. Для уже зарегистрированного номера будет выполнен обычный вход.
             </p>
 
-            <form className="auth-form" onSubmit={handleRequestCode}>
-              <label className="auth-field">
-                <span>Номер телефона</span>
-                <div className="auth-phone-row">
-                  <label className="auth-country-field">
-                    <span className="sr-only">Код страны</span>
-                    <select
-                      value={countryId}
-                      onChange={(event) => handleCountryChange(event.target.value)}
+            {!hasRequestedCode ? (
+              <form className="auth-form" onSubmit={handleRequestCode}>
+                <label className="auth-field">
+                  <span>Номер телефона</span>
+                  <div className="auth-phone-row">
+                    <label className="auth-country-field">
+                      <span className="sr-only">Код страны</span>
+                      <select
+                        value={countryId}
+                        onChange={(event) => handleCountryChange(event.target.value)}
+                        disabled={submittingRequest}
+                      >
+                        {COUNTRY_OPTIONS.map((country) => (
+                          <option key={country.id} value={country.id}>
+                            {country.label} {country.dialCode}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      placeholder={selectedCountry.hint}
+                      value={phone}
                       disabled={submittingRequest}
-                    >
-                      {COUNTRY_OPTIONS.map((country) => (
-                        <option key={country.id} value={country.id}>
-                          {country.label} {country.dialCode}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      onChange={(event) => handlePhoneChange(event.target.value)}
+                    />
+                  </div>
+                </label>
 
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel-national"
-                    placeholder={selectedCountry.hint}
-                    value={phone}
-                    disabled={submittingRequest}
-                    onChange={(event) => handlePhoneChange(event.target.value)}
-                  />
-                </div>
-              </label>
+                {shouldShowRecaptcha && (
+                  <div className="auth-recaptcha-wrap">
+                    <div ref={recaptchaContainerRef} className="auth-recaptcha" />
+                  </div>
+                )}
 
-              {!hasRequestedCode && shouldShowRecaptcha && (
-                <div className="auth-recaptcha-wrap">
-                  <div ref={recaptchaContainerRef} className="auth-recaptcha" />
-                </div>
-              )}
-
-              <button type="submit" className="auth-primary-btn" disabled={!canRequestCode}>
-                {requestButtonLabel}
-              </button>
-            </form>
-
-            {hasRequestedCode && (
+                <button type="submit" className="auth-primary-btn" disabled={!canRequestCode}>
+                  {submittingRequest ? 'Отправка...' : 'Получить код'}
+                </button>
+              </form>
+            ) : (
               <form className="auth-form auth-form-verify" onSubmit={handleVerifyCode}>
                 <div className="auth-otp-head">
                   <span className="auth-otp-title">SMS-код</span>
-                  <span className="auth-otp-phone">{formatPhoneForDisplay(requestedPhone)}</span>
+                  <span className="auth-otp-phone">{formatPhoneFull(requestedPhone)}</span>
                 </div>
 
                 <label className="auth-field">
+                  <span>Введите SMS-код</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -456,15 +464,25 @@ export default function AuthModal({
                   </span>
                 </div>
 
-                {hasRequestedCode && resendSeconds === 0 && shouldShowRecaptcha && (
+                {resendSeconds === 0 && shouldShowRecaptcha && (
                   <div className="auth-recaptcha-wrap">
                     <div ref={recaptchaContainerRef} className="auth-recaptcha" />
                   </div>
                 )}
 
-                <button type="submit" className="auth-primary-btn" disabled={!canVerifyCode}>
-                  {submittingVerify ? 'Проверка...' : 'Подтвердить'}
-                </button>
+                <div className="auth-modal-actions">
+                  <button
+                    type="button"
+                    className="auth-secondary-btn"
+                    disabled={submittingRequest || resendSeconds > 0 || !recaptchaReady}
+                    onClick={() => handleRequestCode()}
+                  >
+                    {resendButtonLabel}
+                  </button>
+                  <button type="submit" className="auth-primary-btn" disabled={!canVerifyCode}>
+                    {submittingVerify ? 'Проверка...' : 'Подтвердить'}
+                  </button>
+                </div>
               </form>
             )}
 

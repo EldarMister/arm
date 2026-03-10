@@ -512,19 +512,19 @@ function addSkipProgress(classification) {
 }
 
 function recordSkip(diagnostic) {
-  state.recordSkipDiagnostic(diagnostic)
   addSkipProgress(diagnostic)
+  state.recordSkipDiagnostic(diagnostic)
 
   const level = diagnostic.classification === 'normal' ? 'info' : 'warn'
   state[level](formatDiagnosticMessage('SKIP', diagnostic), { diagnostic })
 }
 
 function recordFailure(diagnostic) {
-  state.recordSkipDiagnostic(diagnostic)
   state.setProgress({
     failed: state.progress.failed + 1,
     discarded: state.progress.discarded + 1,
   })
+  state.recordSkipDiagnostic(diagnostic)
   state.error(formatDiagnosticMessage('FAIL', diagnostic), { diagnostic })
 }
 
@@ -642,11 +642,11 @@ function getSummaryLines() {
   const topReasons = summary.topReasons.slice(0, 8)
 
   const lines = [
-    `SESSION_SUMMARY | found=${summary.found} | imported=${summary.imported} | skipped=${summary.skipped} | failed=${summary.failed} | recovered=${summary.retryRecovered} | discarded=${summary.discarded} | normal_skips=${summary.normalSkipped} | photos=${summary.photos}`,
+    `SESSION_SUMMARY | found=${summary.found} | imported=${summary.imported} | skipped_total=${summary.totalSkipped} | skipped=${summary.skipped} | already_known=${summary.alreadyKnown} | failed=${summary.failed} | recovered=${summary.retryRecovered} | discarded=${summary.discarded} | normal_skips=${summary.normalSkipped} | photos=${summary.photos}`,
   ]
 
   for (const item of topReasons) {
-    lines.push(`SESSION_REASON | ${item.code}=${item.count} (${item.percent}%)`)
+    lines.push(`SESSION_REASON | ${item.code}=${item.count} (${item.percent}%) | label=${item.label || item.code}`)
   }
 
   return lines

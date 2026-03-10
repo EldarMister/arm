@@ -30,13 +30,13 @@ function formatParseScopeLabel(parseScope) {
 router.get('/status', async (_req, res) => {
   let dbStats = { totalScraped: 0, todayScraped: 0 }
   try {
-    const r = await pool.query('SELECT total_scraped, today_scraped FROM scraper_config WHERE id=1')
-    if (r.rows.length) {
-      dbStats.totalScraped = r.rows[0].total_scraped || 0
-      dbStats.todayScraped = r.rows[0].today_scraped || 0
+    const result = await pool.query('SELECT total_scraped, today_scraped FROM scraper_config WHERE id=1')
+    if (result.rows.length) {
+      dbStats.totalScraped = result.rows[0].total_scraped || 0
+      dbStats.todayScraped = result.rows[0].today_scraped || 0
     }
   } catch {
-    // non-critical
+    // Non-critical stats read failure.
   }
 
   res.json({ ...state.getStatus(), dbStats })
@@ -56,20 +56,23 @@ router.post('/start', (req, res) => {
   const parseScope = normalizeParseScope(req.body.parseScope ?? state.config.parseScope)
   state.config.parseScope = parseScope
 
-  runScrapeJob(limit, { parseScope }).catch((err) => state.error(`Необработанная ошибка: ${err.message}`))
+  runScrapeJob(limit, { parseScope }).catch((error) => {
+    state.error(`Необработанная ошибка запуска: ${error.message}`)
+  })
+
   if (state.config.schedule !== 'manual') {
     startScheduler(state.config)
   }
 
   return res.json({
     ok: true,
-    message: `Запущен (${formatParseScopeLabel(parseScope)}, лимит: ${limit})`,
+    message: `Запущен режим "${formatParseScopeLabel(parseScope)}", лимит ${limit}`,
     limit,
     parseScope,
   })
 })
 
-router.post('/stop', (req, res) => {
+router.post('/stop', (_req, res) => {
   if (!state.isRunning) {
     return res.status(409).json({ error: 'Парсер не запущен' })
   }
@@ -79,7 +82,13 @@ router.post('/stop', (req, res) => {
 })
 
 router.put('/config', async (req, res) => {
-  const { schedule, parseScope, dailyLimit, hour, intervalHours } = req.body
+  const {
+    schedule,
+    parseScope,
+    dailyLimit,
+    hour,
+    intervalHours,
+  } = req.body
 
   if (schedule !== undefined) {
     if (!['manual', 'hourly', 'daily'].includes(schedule)) {
@@ -116,10 +125,16 @@ router.put('/config', async (req, res) => {
            start_hour = $4,
            interval_hours = $5
        WHERE id = 1`,
-      [state.config.schedule, state.config.parseScope, state.config.dailyLimit, state.config.hour, state.config.intervalHours],
+      [
+        state.config.schedule,
+        state.config.parseScope,
+        state.config.dailyLimit,
+        state.config.hour,
+        state.config.intervalHours,
+      ],
     )
   } catch {
-    // non-critical
+    // Non-critical config persistence failure.
   }
 
   if (state.config.schedule !== 'manual') {
@@ -144,7 +159,7 @@ router.get('/stream', (req, res) => {
     try {
       res.write(`data: ${JSON.stringify(data)}\n\n`)
     } catch {
-      // client disconnected
+      // Client disconnected.
     }
   }
 
@@ -180,8 +195,8 @@ router.get('/stats', async (_req, res) => {
       totalCars: parseInt(carsCount.rows[0].count, 10) || 0,
       todayCars: parseInt(todayCars.rows[0].count, 10) || 0,
     })
-  } catch (err) {
-    return res.status(500).json({ error: err.message })
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
   }
 })
 

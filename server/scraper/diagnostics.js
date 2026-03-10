@@ -8,19 +8,19 @@ export function sleep(ms) {
 
 export const REASON_DEFINITIONS = Object.freeze({
   filtered_generic_vehicle: {
-    label: 'Фильтр служебной категории',
+    label: 'Отфильтровано как служебный или нецелевой транспорт',
     classification: 'normal',
     temporary: false,
     retryable: false,
   },
   filtered_year: {
-    label: 'Фильтр по году',
+    label: 'Отфильтровано по году выпуска',
     classification: 'normal',
     temporary: false,
     retryable: false,
   },
   filtered_price: {
-    label: 'Фильтр по цене',
+    label: 'Отфильтровано по цене',
     classification: 'normal',
     temporary: false,
     retryable: false,
@@ -32,25 +32,25 @@ export const REASON_DEFINITIONS = Object.freeze({
     retryable: false,
   },
   duplicate_encar_id: {
-    label: 'Дубликат Encar ID',
+    label: 'Уже есть в базе по Encar ID',
     classification: 'normal',
     temporary: false,
     retryable: false,
   },
   duplicate_vin: {
-    label: 'Дубликат VIN',
+    label: 'Уже есть в базе по VIN',
     classification: 'normal',
     temporary: false,
     retryable: false,
   },
   detail_not_found: {
-    label: 'Карточка недоступна / 404',
+    label: 'Карточка недоступна или удалена',
     classification: 'normal',
     temporary: false,
     retryable: false,
   },
   detail_timeout: {
-    label: 'Timeout detail/API',
+    label: 'Таймаут detail/API',
     classification: 'problem',
     temporary: true,
     retryable: true,
@@ -62,55 +62,55 @@ export const REASON_DEFINITIONS = Object.freeze({
     retryable: true,
   },
   detail_rate_limited: {
-    label: 'Rate limit / anti-bot',
+    label: 'Rate limit или anti-bot',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_http_403: {
-    label: '403 / anti-bot',
+    label: '403 или anti-bot блокировка',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_http_5xx: {
-    label: '5xx upstream',
+    label: 'Ошибка upstream 5xx',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_empty_payload: {
-    label: 'Пустой API payload',
+    label: 'Пустой ответ API',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_empty_html: {
-    label: 'Пустой detail HTML',
+    label: 'Пустой HTML карточки',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_index_shell: {
-    label: 'Index shell вместо detail',
+    label: 'Получен index shell вместо карточки',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_preloaded_state_missing: {
-    label: 'Нет __PRELOADED_STATE__',
+    label: 'Не найден __PRELOADED_STATE__',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_parse_failed: {
-    label: 'Detail parse failed',
+    label: 'Не удалось распарсить detail',
     classification: 'problem',
     temporary: true,
     retryable: true,
   },
   detail_fetch_failed: {
-    label: 'Detail fetch failed',
+    label: 'Не удалось получить detail',
     classification: 'problem',
     temporary: true,
     retryable: true,
@@ -122,7 +122,7 @@ export const REASON_DEFINITIONS = Object.freeze({
     retryable: false,
   },
   db_insert_error: {
-    label: 'Ошибка сохранения в БД',
+    label: 'Ошибка сохранения в базу',
     classification: 'problem',
     temporary: false,
     retryable: false,
@@ -299,21 +299,37 @@ export function buildCarDiagnostic({
   }
 }
 
+function getPrefixLabel(prefix) {
+  switch (prefix) {
+    case 'SKIP':
+      return 'ПРОПУСК'
+    case 'FAIL':
+      return 'ОШИБКА'
+    case 'PARTIAL_IMPORT':
+      return 'ЧАСТИЧНЫЙ ИМПОРТ'
+    case 'PHOTO_WARN':
+      return 'ПРОБЛЕМА С ФОТО'
+    default:
+      return cleanText(prefix) || 'СОБЫТИЕ'
+  }
+}
+
 export function formatDiagnosticMessage(prefix, diagnostic) {
   const bits = [
-    prefix,
-    diagnostic.stage ? `stage=${diagnostic.stage}` : '',
-    diagnostic.reason ? `reason=${diagnostic.reason}` : '',
+    getPrefixLabel(prefix),
+    diagnostic.stage ? `этап=${diagnostic.stage}` : '',
+    diagnostic.label ? `причина=${diagnostic.label}` : '',
+    diagnostic.reason ? `код=${diagnostic.reason}` : '',
     diagnostic.carId ? `carId=${diagnostic.carId}` : '',
     diagnostic.vehicleId ? `vehicleId=${diagnostic.vehicleId}` : '',
     diagnostic.vehicleNo ? `vehicleNo=${diagnostic.vehicleNo}` : '',
-    diagnostic.retryable ? 'retry=yes' : 'retry=no',
-    diagnostic.temporary ? 'temp=yes' : 'temp=no',
+    diagnostic.retryable ? 'повтор=да' : 'повтор=нет',
+    diagnostic.temporary ? 'временная=да' : 'временная=нет',
   ].filter(Boolean)
 
   if (diagnostic.url) bits.push(`url=${diagnostic.url}`)
   if (diagnostic.httpStatus) bits.push(`http=${diagnostic.httpStatus}`)
-  if (diagnostic.details) bits.push(`details=${diagnostic.details}`)
+  if (diagnostic.details) bits.push(`детали=${diagnostic.details}`)
 
   return bits.join(' | ')
 }

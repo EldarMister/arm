@@ -59,6 +59,109 @@ function formatPercent(value) {
   return `${numeric.toFixed(numeric % 1 === 0 ? 0 : 1)}%`
 }
 
+function parsePipeMessage(message) {
+  const text = String(message || '').trim()
+  if (!text.includes('|')) {
+    return { head: text, fields: {} }
+  }
+
+  const parts = text.split('|').map((part) => part.trim()).filter(Boolean)
+  const [head, ...rest] = parts
+  const fields = {}
+
+  for (const part of rest) {
+    const separatorIndex = part.indexOf('=')
+    if (separatorIndex === -1) continue
+    const key = part.slice(0, separatorIndex).trim()
+    const value = part.slice(separatorIndex + 1).trim()
+    if (key) fields[key] = value
+  }
+
+  return { head, fields }
+}
+
+function formatScope(scope) {
+  if (scope === 'imported') return 'только импортные'
+  if (scope === 'japanese') return 'только японские'
+  if (scope === 'german') return 'только немецкие'
+  return 'все машины'
+}
+
+function formatListSource(source) {
+  if (source === 'proxy') return 'proxy'
+  if (source === 'direct') return 'direct'
+  if (source === 'fallback') return 'fallback'
+  return source || 'unknown'
+}
+
+function translateBackendDetail(message) {
+  const text = String(message || '').trim()
+  if (!text) return ''
+  if (text.includes('Proxy auth required (407)')) {
+    return 'proxy требует авторизацию (407). Проверьте ENCAR_PROXY_URL и доступность /api/proxy'
+  }
+  if (text.includes('Request failed with status code 407')) {
+    return 'proxy вернул 407 и не пустил запрос'
+  }
+  return text
+}
+
+function isBrokenLogMessage(message) {
+  const text = String(message || '')
+  return [
+    'рџ',
+    'вќ',
+    'вЏ',
+    'СЂСџ',
+    'РІС',
+    'Р С',
+    'РЎв',
+  ].some((pattern) => text.includes(pattern))
+}
+
+function formatLogMessage(message) {
+  const text = String(message || '').trim()
+  if (!text) return ''
+  if (isBrokenLogMessage(text)) return ''
+
+  const { head, fields } = parsePipeMessage(text)
+
+  switch (head) {
+    case 'SCRAPER_START':
+      return `Запуск парсера: режим ${formatScope(fields.scope)}, лимит ${fields.limit || '-'}`
+    case 'LIST_FETCH':
+      return `Получаю список: offset=${fields.offset || 0}, count=${fields.count || 0}, режим=${formatScope(fields.scope)}`
+    case 'LIST_FETCH_OK':
+      return `Список получен: машин=${fields.cars || 0}, просмотрено=${fields.scanned || 0}, всего=${fields.total || 0}, режим=${formatScope(fields.scope)}, источник=${formatListSource(fields.source)}`
+    case 'LIST_FETCH_ERROR':
+      return `Ошибка получения списка: режим=${formatScope(fields.scope)}, код=${fields.code || 'unknown'}, ${translateBackendDetail(fields.message || 'нет деталей')}`
+    case 'LIST_ALL_KNOWN_PAGE':
+      return `Страница уже известна базе: offset=${fields.offset || 0}, машин=${fields.known || 0}, подряд=${fields.consecutive || 0}`
+    case 'LIST_STALE_STOP':
+      return `Остановка на старом хвосте: offset=${fields.offset || 0}, подряд известных страниц=${fields.consecutiveKnownPages || 0}`
+    case 'STOP_REQUESTED':
+      return 'Остановка запрошена пользователем'
+    case 'STOPPED':
+      return `Парсер остановлен: импортировано ${fields.imported || 0}`
+    case 'PHOTO_FETCH':
+      return `Загружаю фото: carId=${fields.carId || '-'}, count=${fields.count || 0}, источник=${fields.source || 'unknown'}`
+    case 'IMPORTED':
+      return `Сохранено: ${fields.name || 'машина'} -> id=${fields.id || '-'}, фото=${fields.photos || 0}`
+    case 'LIMIT_REACHED':
+      return `Достигнут лимит новых машин: ${fields.limit || 0}`
+    case 'SCRAPER_DONE':
+      return `Готово: импортировано=${fields.imported || 0}, пропущено=${fields.skipped || 0}, ошибок=${fields.failed || 0}, retry recovered=${fields.recovered || 0}, фото=${fields.photos || 0}`
+    case 'SCRAPER_FATAL':
+      return `Критическая ошибка: ${fields.message || 'unknown error'}`
+    case 'SESSION_SUMMARY':
+      return `Итог сеанса: найдено=${fields.found || 0}, импортировано=${fields.imported || 0}, пропущено всего=${fields.skipped_total || fields.skipped || 0}, уже в базе=${fields.already_known || 0}, ошибок=${fields.failed || 0}, фото=${fields.photos || 0}`
+    case 'SESSION_REASON':
+      return `Причина: ${fields.label || head} (${text.replace(/^SESSION_REASON \|\s*/, '').replace(/\s*\|\s*label=.*$/, '')})`
+    default:
+      return text
+  }
+}
+
 function renderDiagnosticMeta(meta) {
   const diagnostic = meta?.diagnostic
   if (!diagnostic) return null
@@ -371,12 +474,21 @@ export default function AdminEncar() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const isRunning = status?.isRunning
-  const progress  = status?.progress || { done: 0, total: 0, failed: 0, skipped: 0, photos: 0 }
+  const progress  = status?.progress || {
+    done: 0,
+    total: 0,
+    failed: 0,
+    skipped: 0,
+    alreadyKnown: 0,
+    totalSkipped: 0,
+    photos: 0,
+  }
   const sessionSummary = status?.sessionSummary || {
     found: 0,
     imported: 0,
     skipped: 0,
     alreadyKnown: 0,
+    totalSkipped: 0,
     failed: 0,
     retryRecovered: 0,
     discarded: 0,
@@ -384,6 +496,8 @@ export default function AdminEncar() {
     photos: 0,
     topReasons: [],
   }
+  const totalSkipped = progress.totalSkipped ?? ((progress.skipped || 0) + (progress.alreadyKnown || 0))
+  const summaryTotalSkipped = sessionSummary.totalSkipped ?? ((sessionSummary.skipped || 0) + (sessionSummary.alreadyKnown || 0))
 
   const scheduleLabel = {
     manual: 'Вручную',
@@ -508,7 +622,7 @@ export default function AdminEncar() {
 
         <StatBadge label="Добавлено за сеанс" value={progress.done}     color="#00b894" bg="rgba(0,184,148,0.08)" />
         <StatBadge label="Фото скачано"       value={progress.photos}   color="#3b82f6" bg="rgba(59,130,246,0.08)" />
-        <StatBadge label="Ошибок / Пропущено" value={`${progress.failed} / ${progress.skipped}`} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
+        <StatBadge label="Ошибок / Пропущено" value={`${progress.failed} / ${totalSkipped}`} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
         <StatBadge label="Retry recovered"    value={progress.retryRecovered || 0} color="#8b5cf6" bg="rgba(139,92,246,0.10)" />
       </div>
 
@@ -520,7 +634,7 @@ export default function AdminEncar() {
         }}>
           <ProgressBar done={progress.done} total={progress.total} failed={progress.failed} />
           <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569' }}>
-            Фото: {progress.photos} • Пропущено: {progress.skipped} • Ошибок: {progress.failed}
+            Фото: {progress.photos} • Пропущено: {totalSkipped} • Уже в базе: {progress.alreadyKnown || 0} • Ошибок: {progress.failed}
           </div>
         </div>
       )}
@@ -538,7 +652,7 @@ export default function AdminEncar() {
             <div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#f1f5f9' }}>Reason Summary</div>
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Уже известные: {sessionSummary.alreadyKnown || 0} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
+                Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Пропущено всего: {summaryTotalSkipped} • Уже в базе: {sessionSummary.alreadyKnown || 0} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
               </div>
             </div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>
@@ -562,7 +676,7 @@ export default function AdminEncar() {
                     fontSize: '12px',
                   }}
                 >
-                  <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{item.code}</span>
+                  <span style={{ color: '#cbd5e1' }}>{item.label || item.code}</span>
                   <span style={{ color: '#94a3b8' }}>{item.count} • {formatPercent(item.percent)}</span>
                 </div>
               ))}
@@ -856,6 +970,8 @@ export default function AdminEncar() {
             </div>
           )}
           {logs.map((entry) => {
+            const renderedMessage = formatLogMessage(entry.message)
+            if (!renderedMessage) return null
             const c = LOG_COLORS[entry.level] || LOG_COLORS.info
             return (
               <div
@@ -878,7 +994,7 @@ export default function AdminEncar() {
                   marginTop: '6px', flexShrink: 0,
                 }} />
                 <span style={{ color: c.text, wordBreak: 'break-word' }}>
-                  {entry.message}
+                  {renderedMessage}
                   {renderDiagnosticMeta(entry.meta)}
                 </span>
               </div>
