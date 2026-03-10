@@ -32,8 +32,8 @@ const ENCAR_DEFAULT_SORT = 'ModifiedDate'
 const MIN_LIST_YEAR = 2019
 const MAX_LIST_TOP_UP_PAGES = 6
 const PAGE_FETCH_SIZE = 20
-const PROXY_AUTH_FAILURE_COOLDOWN_MS = 30 * 60 * 1000
-const PROXY_GENERIC_FAILURE_COOLDOWN_MS = 10 * 60 * 1000
+const PROXY_AUTH_FAILURE_COOLDOWN_MS = 6 * 60 * 60 * 1000
+const PROXY_GENERIC_FAILURE_COOLDOWN_MS = 30 * 60 * 1000
 const PARSE_SCOPE_ALL = 'all'
 const PARSE_SCOPE_IMPORTED = 'imported'
 const PARSE_SCOPE_JAPANESE = 'japanese'
@@ -43,6 +43,7 @@ const IMPORT_ONLY_SCOPES = new Set([
   PARSE_SCOPE_JAPANESE,
   PARSE_SCOPE_GERMAN,
 ])
+let lastHealthyListSource = ENCAR_PROXY_URL ? 'proxy' : 'direct'
 
 function normalizeParseScope(parseScope = PARSE_SCOPE_ALL) {
   return IMPORT_ONLY_SCOPES.has(parseScope) ? parseScope : PARSE_SCOPE_ALL
@@ -57,6 +58,27 @@ function suppressProxy(status = 0) {
     ? PROXY_AUTH_FAILURE_COOLDOWN_MS
     : PROXY_GENERIC_FAILURE_COOLDOWN_MS
   proxySuppressedUntil = Math.max(proxySuppressedUntil, Date.now() + durationMs)
+  lastHealthyListSource = 'direct'
+}
+
+function rememberHealthyListSource(source) {
+  if (source === 'proxy' || source === 'direct') {
+    lastHealthyListSource = source
+  }
+}
+
+function cleanSourceMessage(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function buildSourceDiagnostic(source, error, reason = '') {
+  return {
+    source,
+    reason: cleanSourceMessage(reason),
+    code: cleanSourceMessage(error?.code),
+    httpStatus: Number(error?.response?.status) || null,
+    message: cleanSourceMessage(error?.message),
+  }
 }
 
 function buildEncarListQuery(parseScope = PARSE_SCOPE_ALL) {
@@ -196,12 +218,14 @@ function getListFetchers() {
 
 async function fetchBatchWithFallback(offset, pageLimit, parseScope, preferredSource) {
   const fetchers = getListFetchers()
+  const preferred = preferredSource || lastHealthyListSource
   const orderedFetchers = [
-    ...fetchers.filter((fetcher) => fetcher.name === preferredSource),
-    ...fetchers.filter((fetcher) => fetcher.name !== preferredSource),
+    ...fetchers.filter((fetcher) => fetcher.name === preferred),
+    ...fetchers.filter((fetcher) => fetcher.name !== preferred),
   ]
 
   let lastError = null
+  const sourceDiagnostics = []
 
   for (const fetcher of orderedFetchers) {
     try {
@@ -209,18 +233,27 @@ async function fetchBatchWithFallback(offset, pageLimit, parseScope, preferredSo
       if (isListScopeMismatch(parseScope, batch.cars)) {
         if (fetcher.name === 'proxy') suppressProxy()
         lastError = createListScopeMismatchError(parseScope, fetcher.name, batch.cars)
+        sourceDiagnostics.push(buildSourceDiagnostic(fetcher.name, lastError, 'scope_mismatch'))
         continue
       }
 
-      return { batch, source: fetcher.name }
+      rememberHealthyListSource(fetcher.name)
+      return {
+        batch,
+        source: fetcher.name,
+        sourceDiagnostics,
+        fallbackUsed: sourceDiagnostics.length > 0,
+      }
     } catch (error) {
       if (fetcher.name === 'proxy') {
         suppressProxy(Number(error?.response?.status) || 0)
       }
+      sourceDiagnostics.push(buildSourceDiagnostic(fetcher.name, error))
       lastError = error
     }
   }
 
+  if (lastError) lastError.fetchSourceDiagnostics = sourceDiagnostics
   throw lastError || new Error(`Failed to fetch Encar list for scope=${parseScope}`)
 }
 
@@ -246,16 +279,23 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3, options 
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      let activeSource = ENCAR_PROXY_URL && !isProxyTemporarilySuppressed() ? 'proxy' : 'direct'
+      let activeSource = ENCAR_PROXY_URL && !isProxyTemporarilySuppressed()
+        ? lastHealthyListSource
+        : 'direct'
       let total = 0
       let scanned = 0
       let nextOffset = offset
       let pagesFetched = 0
       const collected = []
+      const sourceDiagnostics = []
 
       while (collected.length < pageLimit && pagesFetched < MAX_LIST_TOP_UP_PAGES) {
-        const { batch, source } = await fetchBatchWithFallback(nextOffset, PAGE_FETCH_SIZE, parseScope, activeSource)
+        const result = await fetchBatchWithFallback(nextOffset, PAGE_FETCH_SIZE, parseScope, activeSource)
+        const { batch, source } = result
         activeSource = source
+        if (Array.isArray(result.sourceDiagnostics) && result.sourceDiagnostics.length) {
+          sourceDiagnostics.push(...result.sourceDiagnostics)
+        }
 
         if (!total) total = batch.total
         const batchCars = Array.isArray(batch.cars) ? batch.cars : []
@@ -279,6 +319,8 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3, options 
         cars: collected.slice(0, pageLimit),
         scanned,
         listSource: activeSource,
+        sourceDiagnostics,
+        fallbackUsed: sourceDiagnostics.length > 0,
       }
     } catch (err) {
       withProxyHint(err)

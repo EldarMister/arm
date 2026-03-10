@@ -133,16 +133,26 @@ function formatLogMessage(message) {
       return `Получаю список: offset=${fields.offset || 0}, count=${fields.count || 0}, режим=${formatScope(fields.scope)}`
     case 'LIST_FETCH_OK':
       return `Список получен: машин=${fields.cars || 0}, просмотрено=${fields.scanned || 0}, всего=${fields.total || 0}, режим=${formatScope(fields.scope)}, источник=${formatListSource(fields.source)}`
+    case 'LIST_SOURCE_FALLBACK':
+      return `Переключаю источник списка: режим=${formatScope(fields.scope)}, offset=${fields.offset || 0}, использую=${formatListSource(fields.source)}, сбои=${fields.failures || 'нет деталей'}`
     case 'LIST_FETCH_ERROR':
-      return `Ошибка получения списка: режим=${formatScope(fields.scope)}, код=${fields.code || 'unknown'}, ${translateBackendDetail(fields.message || 'нет деталей')}`
+      return `Ошибка получения списка: режим=${formatScope(fields.scope)}, код=${fields.code || 'unknown'}, ${translateBackendDetail(fields.message || 'нет деталей')}${fields.sourceErrors && fields.sourceErrors !== 'none' ? `, источники=${fields.sourceErrors}` : ''}`
     case 'LIST_ALL_KNOWN_PAGE':
       return `Страница уже известна базе: offset=${fields.offset || 0}, машин=${fields.known || 0}, подряд=${fields.consecutive || 0}`
     case 'LIST_STALE_STOP':
       return `Остановка на старом хвосте: offset=${fields.offset || 0}, подряд известных страниц=${fields.consecutiveKnownPages || 0}`
+    case 'LIST_TAIL_GUARD_BYPASSED':
+      return `Продолжаю обход хвоста: режим=${formatScope(fields.scope)}, offset=${fields.offset || 0}, причина=${fields.reason || 'guard_bypassed'}, fresh=${fields.fresh || 0}, known=${fields.known || 0}`
     case 'STOP_REQUESTED':
       return 'Остановка запрошена пользователем'
     case 'STOPPED':
       return `Парсер остановлен: импортировано ${fields.imported || 0}`
+    case 'SOFT_RECHECK':
+      return `Мягкая перепроверка карточки: carId=${fields.carId || '-'}`
+    case 'SOFT_RECHECK_RETRY':
+      return `Повтор detail после мягкой перепроверки: carId=${fields.carId || '-'}, причина=${fields.reason || 'unknown'}, попытка=${fields.attempt || '-'}`
+    case 'SOFT_RECHECK_RECOVERED':
+      return `Карточка восстановлена после мягкой перепроверки: carId=${fields.carId || '-'}, источник=${fields.source || 'detail'}`
     case 'PHOTO_FETCH':
       return `Загружаю фото: carId=${fields.carId || '-'}, count=${fields.count || 0}, источник=${fields.source || 'unknown'}`
     case 'IMPORTED':

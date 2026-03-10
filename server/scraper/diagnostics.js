@@ -1,5 +1,7 @@
+import { repairTextEncoding } from '../lib/textEncoding.js'
+
 function cleanText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim()
+  return repairTextEncoding(String(value || '')).replace(/\s+/g, ' ').trim()
 }
 
 export function sleep(ms) {

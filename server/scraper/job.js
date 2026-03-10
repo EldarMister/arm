@@ -1,4 +1,5 @@
 import pool from '../db.js'
+import { repairTextEncoding } from '../lib/textEncoding.js'
 import { getBlockedGenericVehicleReason } from '../lib/catalogVehicleRules.js'
 import { computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { getBlockedCatalogPriceReason } from '../lib/catalogPriceRules.js'
@@ -46,6 +47,7 @@ const PARSE_SCOPE_JAPANESE = 'japanese'
 const PARSE_SCOPE_GERMAN = 'german'
 const IMPORT_ONLY_SCOPES = new Set([PARSE_SCOPE_IMPORTED, PARSE_SCOPE_JAPANESE, PARSE_SCOPE_GERMAN])
 const DETAIL_RETRY_ATTEMPTS = 3
+const DETAIL_SOFT_RECHECK_ATTEMPTS = 2
 const PHOTO_LIMIT = 8
 const STALE_KNOWN_PAGE_LIMIT = 2
 const LOW_YIELD_PAGE_LIMIT = 4
@@ -80,7 +82,7 @@ const GERMAN_BRAND_ALIASES = [
 ]
 
 function cleanText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim()
+  return repairTextEncoding(String(value || '')).replace(/\s+/g, ' ').trim()
 }
 
 function escapeRegex(value) {
@@ -270,7 +272,7 @@ function mapCar(raw, exchangeSnapshot, pricingSettings) {
     body_color,
     interior_color,
     option_features: [],
-    location: rawLocation || extractShortLocation(rawLocation) || 'РљРѕСЂРµСЏ',
+    location: rawLocation || extractShortLocation(rawLocation) || 'Корея',
     encar_url,
     encar_id,
     tags,
@@ -372,7 +374,7 @@ function normalizeImportedCar(car) {
     option_features: Array.isArray(car.option_features)
       ? [...new Set(car.option_features.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 16)
       : [],
-    location: normalizedText.location || car.location || 'РљРѕСЂРµСЏ',
+    location: normalizedText.location || car.location || 'Корея',
     vin: normalizeVin(car.vin) || null,
   }
 }
@@ -550,6 +552,61 @@ function recordRetryRecovered(stage, car, attempts, details = '') {
   )
 }
 
+function shouldUseTailStopGuard(parseScope) {
+  return parseScope !== PARSE_SCOPE_ALL
+}
+
+function formatSourceFailures(sourceDiagnostics = []) {
+  return sourceDiagnostics
+    .map((item) => {
+      const bits = [
+        cleanText(item?.source || 'unknown'),
+        item?.httpStatus ? `http=${item.httpStatus}` : '',
+        cleanText(item?.code || ''),
+        cleanText(item?.reason || ''),
+      ].filter(Boolean)
+      return bits.join(':')
+    })
+    .filter(Boolean)
+    .join(',')
+}
+
+async function softRecheckEnrichment(raw, car, exchangeSnapshot, pricingSettings) {
+  const currentEncarId = cleanText(raw?.Id)
+  state.warn(`SOFT_RECHECK | stage=detail_enrichment | carId=${currentEncarId} | action=retry`)
+
+  const result = await retryOperation(
+    () => fetchEncarVehicleEnrichment(raw.Id),
+    {
+      maxAttempts: DETAIL_SOFT_RECHECK_ATTEMPTS,
+      baseDelayMs: 2500,
+      factor: 2,
+      classifyError: (error) => classifyDetailError(error, 'detail_fetch_failed'),
+      onRetry: async ({ attempt, nextAttempt, maxAttempts, delayMs, classification }) => {
+        state.warn(
+          [
+            'SOFT_RECHECK_RETRY',
+            'stage=detail_enrichment',
+            `carId=${currentEncarId}`,
+            `reason=${classification.reason}`,
+            `attempt=${attempt}/${maxAttempts}`,
+            `next=${nextAttempt}`,
+            `delayMs=${delayMs}`,
+            classification.httpStatus ? `http=${classification.httpStatus}` : '',
+            classification.details ? `details=${classification.details}` : '',
+          ].filter(Boolean).join(' | '),
+        )
+      },
+    },
+  )
+
+  if (result.recovered || result.attempts > 0) {
+    recordRetryRecovered('detail_soft_recheck', car, result.attempts, result.value?.source || '')
+  }
+
+  return mergeCarEnrichment(car, result.value, exchangeSnapshot, pricingSettings)
+}
+
 function buildFilterDiagnostic({ stage, reason, details, car, raw }) {
   return buildCarDiagnostic({
     stage,
@@ -656,7 +713,7 @@ function getSummaryLines() {
 }
 
 export async function runScrapeJob(limit = 100, options = {}) {
-  if (state.isRunning) throw new Error('РџР°СЂСЃРµСЂ СѓР¶Рµ Р·Р°РїСѓС‰РµРЅ')
+  if (state.isRunning) throw new Error('Парсер уже запущен')
 
   const parseScope = normalizeParseScope(options?.parseScope)
 
@@ -668,7 +725,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
   state.info(`Parse scope: ${formatParseScopeLabel(parseScope)}, limit=${limit}`)
   state.info(`SCRAPER_START | scope=${parseScope} | limit=${limit}`)
 
-  state.info(`рџљЂ Р—Р°РїСѓСЃРє РїР°СЂСЃРµСЂР° вЂ” ${parseScope === PARSE_SCOPE_IMPORTED ? 'С‚РѕР»СЊРєРѕ РёРјРїРѕСЂС‚РЅС‹Рµ' : 'РІСЃРµ РјР°С€РёРЅС‹'}, Р»РёРјРёС‚ ${limit} РЅРѕРІС‹С… РјР°С€РёРЅ`)
+  state.info(`🚀 Запуск парсера: режим ${formatParseScopeLabel(parseScope)}, лимит ${limit} новых машин`)
 
   const sourceMode = globalThis.process?.env?.ENCAR_PROXY_URL ? 'Vercel proxy / direct detail' : 'direct Encar API + detail HTML fallback'
   state.info(`Source mode: ${sourceMode}`)
@@ -684,17 +741,25 @@ export async function runScrapeJob(limit = 100, options = {}) {
   try {
     while (addedThisRun < limit && !state.stopReq) {
       state.info(`LIST_FETCH | offset=${offset} | count=${PAGE_SIZE} | scope=${parseScope}`)
-      state.info(`рџ“‹ РџРѕР»СѓС‡Р°СЋ СЃРїРёСЃРѕРє (offset=${offset}, count=${PAGE_SIZE})...`)
+      state.info(`📋 Получаю список (offset=${offset}, count=${PAGE_SIZE})...`)
 
       let listResult
       try {
         listResult = await fetchCarList(offset, PAGE_SIZE, 3, { parseScope })
       } catch (err) {
-        state.error(`LIST_FETCH_ERROR | scope=${parseScope} | code=${cleanText(err?.code || '') || 'unknown'} | message=${cleanText(err?.message || 'list fetch failed')}`)
-        state.error(`вќЊ РћС€РёР±РєР° list API: ${err.message}`)
+        state.error(
+          `LIST_FETCH_ERROR | scope=${parseScope} | code=${cleanText(err?.code || '') || 'unknown'} | message=${cleanText(err?.message || 'list fetch failed')} | sourceErrors=${formatSourceFailures(err?.fetchSourceDiagnostics || []) || 'none'}`,
+        )
+        state.error(`❌ Ошибка list API: ${cleanText(err?.message || 'list fetch failed')}`)
         if (state.stopReq) break
         await sleep(8000)
         continue
+      }
+
+      if (Array.isArray(listResult.sourceDiagnostics) && listResult.sourceDiagnostics.length) {
+        state.warn(
+          `LIST_SOURCE_FALLBACK | scope=${parseScope} | offset=${offset} | source=${listResult.listSource || 'unknown'} | failures=${formatSourceFailures(listResult.sourceDiagnostics)}`,
+        )
       }
 
       const { cars, total, scanned = cars.length } = listResult
@@ -705,15 +770,15 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
       if (!cars.length) {
         if (scanned > 0) {
-          state.info(`рџ“­ Р’ СЌС‚РѕР№ РїР°С‡РєРµ РЅРµС‚ РїРѕРґС…РѕРґСЏС‰РёС… РјР°С€РёРЅ, РїСЂРѕРїСѓСЃРєР°СЋ РµС‰С‘ ${scanned} РїРѕР·РёС†РёР№`)
+          state.info(`📭 В этой пачке нет подходящих машин, пропускаю ещё ${scanned} позиций`)
           offset += scanned
           continue
         }
-        state.info('рџ“­ Р‘РѕР»СЊС€Рµ РјР°С€РёРЅ РЅРµС‚ вЂ” Р·Р°РІРµСЂС€Р°СЋ')
+        state.info('📭 Больше машин нет, завершаю')
         break
       }
 
-      state.info(`рџ“¦ РџРѕР»СѓС‡РµРЅРѕ ${cars.length} РјР°С€РёРЅ РёР· ${scanned} РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅС‹С… (Encar РІСЃРµРіРѕ: ${Number(total || 0).toLocaleString()})`)
+      state.info(`📦 Получено ${cars.length} машин из ${scanned} просмотренных (Encar всего: ${Number(total || 0).toLocaleString()})`)
       state.info(`LIST_FETCH_OK | cars=${cars.length} | scanned=${scanned} | total=${Number(total || 0).toLocaleString()} | scope=${parseScope} | source=${listResult.listSource || 'unknown'}`)
       const existingEncarIds = await getExistingEncarIdMap(cars.map((raw) => raw?.Id))
       const pageKnownCars = cars.reduce((count, raw) => {
@@ -721,18 +786,28 @@ export async function runScrapeJob(limit = 100, options = {}) {
         return existingEncarIds.has(rawId) || seenEncarIds.has(rawId) ? count + 1 : count
       }, 0)
       const pageFreshCars = Math.max(cars.length - pageKnownCars, 0)
+      const useTailStopGuard = shouldUseTailStopGuard(parseScope)
 
       if (pageKnownCars === cars.length) {
-        consecutiveKnownOnlyPages += 1
-        consecutiveLowYieldPages += 1
+        if (useTailStopGuard) {
+          consecutiveKnownOnlyPages += 1
+          consecutiveLowYieldPages += 1
+        } else {
+          consecutiveKnownOnlyPages = 0
+          consecutiveLowYieldPages = 0
+        }
         state.setProgress({
           alreadyKnown: state.progress.alreadyKnown + pageKnownCars,
         })
         state.info(`LIST_ALL_KNOWN_PAGE | scope=${parseScope} | offset=${offset} | known=${pageKnownCars} | consecutive=${consecutiveKnownOnlyPages}`)
 
-        if (consecutiveKnownOnlyPages >= STALE_KNOWN_PAGE_LIMIT || consecutiveLowYieldPages >= LOW_YIELD_PAGE_LIMIT) {
+        if (useTailStopGuard && (consecutiveKnownOnlyPages >= STALE_KNOWN_PAGE_LIMIT || consecutiveLowYieldPages >= LOW_YIELD_PAGE_LIMIT)) {
           state.info(`LIST_STALE_STOP | scope=${parseScope} | offset=${offset} | consecutiveKnownPages=${consecutiveKnownOnlyPages} | consecutiveLowYield=${consecutiveLowYieldPages}`)
           break
+        }
+
+        if (!useTailStopGuard) {
+          state.info(`LIST_TAIL_GUARD_BYPASSED | scope=${parseScope} | offset=${offset} | reason=known_only_page | known=${pageKnownCars}`)
         }
 
         offset += scanned
@@ -740,13 +815,16 @@ export async function runScrapeJob(limit = 100, options = {}) {
       }
 
       consecutiveKnownOnlyPages = 0
-      if (pageFreshCars <= LOW_YIELD_MAX_FRESH) {
+      if (useTailStopGuard && pageFreshCars <= LOW_YIELD_MAX_FRESH) {
         consecutiveLowYieldPages += 1
         state.info(`LIST_LOW_YIELD_PAGE | scope=${parseScope} | offset=${offset} | fresh=${pageFreshCars} | known=${pageKnownCars} | consecutive=${consecutiveLowYieldPages}`)
         if (consecutiveLowYieldPages >= LOW_YIELD_PAGE_LIMIT) {
           state.info(`LIST_STALE_STOP | scope=${parseScope} | offset=${offset} | consecutiveKnownPages=${consecutiveKnownOnlyPages} | consecutiveLowYield=${consecutiveLowYieldPages}`)
           break
         }
+      } else if (!useTailStopGuard && pageFreshCars <= LOW_YIELD_MAX_FRESH) {
+        state.info(`LIST_TAIL_GUARD_BYPASSED | scope=${parseScope} | offset=${offset} | reason=low_yield_page | fresh=${pageFreshCars} | known=${pageKnownCars}`)
+        consecutiveLowYieldPages = 0
       } else {
         consecutiveLowYieldPages = 0
       }
@@ -754,7 +832,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
       for (const raw of cars) {
         if (state.stopReq) {
           state.warn('STOP_REQUESTED')
-          state.warn('вЏ№ РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј')
+          state.warn('⏹️ Остановлено пользователем')
           break
         }
 
@@ -865,16 +943,32 @@ export async function runScrapeJob(limit = 100, options = {}) {
           preparedCar = mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings)
         } catch (enrichmentError) {
           const detailDiagnostic = buildDetailDiagnostic(enrichmentError, car, raw)
-          if (!canImportPartialCar(car, detailDiagnostic)) {
-            recordSkip(detailDiagnostic)
-            continue
+
+          if (detailDiagnostic.retryable && detailDiagnostic.temporary) {
+            try {
+              preparedCar = await softRecheckEnrichment(raw, car, exchangeSnapshot, pricingSettings)
+              state.success(`SOFT_RECHECK_RECOVERED | stage=detail_enrichment | carId=${currentEncarId} | source=${preparedCar.vehicle_id ? 'detail' : 'list'}`)
+            } catch (recheckError) {
+              const recheckDiagnostic = buildDetailDiagnostic(recheckError, car, raw)
+              state.warn(formatDiagnosticMessage('FAIL', recheckDiagnostic), {
+                diagnostic: recheckDiagnostic,
+                softRecheck: true,
+              })
+            }
           }
 
-          state.warn(formatDiagnosticMessage('PARTIAL_IMPORT', detailDiagnostic), {
-            diagnostic: detailDiagnostic,
-            partialImport: true,
-          })
-          preparedCar = normalizeImportedCar(car)
+          if (preparedCar !== car) {
+            // Soft re-check recovered the detail payload, continue with enriched data.
+          } else if (!canImportPartialCar(car, detailDiagnostic)) {
+            recordSkip(detailDiagnostic)
+            continue
+          } else {
+            state.warn(formatDiagnosticMessage('PARTIAL_IMPORT', detailDiagnostic), {
+              diagnostic: detailDiagnostic,
+              partialImport: true,
+            })
+            preparedCar = normalizeImportedCar(car)
+          }
         }
 
         const enrichedGenericVehicleReason = getBlockedGenericVehicleReason({
@@ -930,7 +1024,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
           continue
         }
 
-        state.info(`рџ”Ќ ${preparedCar.name} (${preparedCar.year}, ${Number(preparedCar.mileage || 0).toLocaleString()} км, $${Number(preparedCar.price_usd || 0).toLocaleString()})`)
+        state.info(`🔍 ${preparedCar.name} (${preparedCar.year}, ${Number(preparedCar.mileage || 0).toLocaleString()} км, $${Number(preparedCar.price_usd || 0).toLocaleString()})`)
 
         let photoUrls = []
         try {
@@ -983,7 +1077,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
             carId: currentEncarId,
             importedId: newId,
           })
-          state.success(`вњ… РЎРѕС…СЂР°РЅРµРЅРѕ: ${preparedCar.name} в†’ id=${newId}, фото=${photoUrls.length}`, {
+          state.success(`✅ Сохранено: ${preparedCar.name} -> id=${newId}, фото=${photoUrls.length}`, {
             carId: currentEncarId,
             importedId: newId,
           })
@@ -1015,7 +1109,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
         if (addedThisRun >= limit) {
           state.info(`LIMIT_REACHED | limit=${limit}`)
-          state.info(`вњ… Р”РѕСЃС‚РёРіРЅСѓС‚ Р»РёРјРёС‚ РЅРѕРІС‹С… РјР°С€РёРЅ: ${limit}`)
+          state.info(`✅ Достигнут лимит новых машин: ${limit}`)
           break
         }
       }
@@ -1027,13 +1121,13 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
     if (state.stopReq) {
       state.warn(`STOPPED | imported=${state.progress.done}`)
-      state.warn(`вЏ№ РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ. Р”РѕР±Р°РІР»РµРЅРѕ: ${state.progress.done}`)
+      state.warn(`⏹️ Остановлено. Добавлено: ${state.progress.done}`)
     } else {
       state.success(
         `SCRAPER_DONE | imported=${state.progress.done} | skipped=${state.progress.skipped} | failed=${state.progress.failed} | recovered=${state.progress.retryRecovered} | photos=${state.progress.photos}`,
       )
       state.success(
-        `рџЋ‰ Р“РѕС‚РѕРІРѕ! Р”РѕР±Р°РІР»РµРЅРѕ: ${state.progress.done} | РџСЂРѕРїСѓС‰РµРЅРѕ: ${state.progress.skipped} | РћС€РёР±РѕРє: ${state.progress.failed} | Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРѕ retry: ${state.progress.retryRecovered} | Р¤РѕС‚Рѕ: ${state.progress.photos}`,
+        `🎉 Готово! Добавлено: ${state.progress.done} | Пропущено: ${state.progress.skipped} | Ошибок: ${state.progress.failed} | Восстановлено retry: ${state.progress.retryRecovered} | Фото: ${state.progress.photos}`,
       )
     }
 
@@ -1042,7 +1136,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
     }
   } catch (err) {
     state.error(`SCRAPER_FATAL | message=${cleanText(err?.message || 'unknown error')}`)
-    state.error(`рџ’Ґ РљСЂРёС‚РёС‡РµСЃРєР°СЏ РѕС€РёР±РєР°: ${err.message}`)
+    state.error(`💥 Критическая ошибка: ${cleanText(err?.message || 'unknown error')}`)
   } finally {
     state.finishSession()
     state.isRunning = false

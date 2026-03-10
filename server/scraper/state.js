@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { getReasonDefinition } from './diagnostics.js'
+import { repairTextEncoding, repairTextEncodingDeep } from '../lib/textEncoding.js'
 
 function createProgress(total = 0) {
   return {
@@ -62,8 +63,8 @@ class ScraperState extends EventEmitter {
       id: Date.now() + Math.random(),
       ts: new Date().toISOString(),
       level,
-      message,
-      ...(meta ? { meta } : {}),
+      message: repairTextEncoding(String(message || '')),
+      ...(meta ? { meta: repairTextEncodingDeep(meta) } : {}),
     }
 
     this.logs.unshift(entry)
