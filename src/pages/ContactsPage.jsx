@@ -108,10 +108,10 @@ const CONTACT_CARDS = [
     icon: <InstagramIcon />,
     title: 'Instagram',
     desc: 'Instagram \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u0438',
-    value: '@tlv_auto_korea',
+    value: '@avt_shoring',
     valueClass: 'cnt-val-blue',
     sub: '\u041f\u0440\u044f\u043c\u0430\u044f \u0441\u0432\u044f\u0437\u044c \u0441 \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440\u043e\u043c',
-    href: 'https://instagram.com/tlv_auto_korea',
+    href: 'https://www.instagram.com/avt_shoring?igsh=MXhnYTgzaGJ3aGZiNQ==',
   },
   {
     icon: <YouTubeIcon />,
