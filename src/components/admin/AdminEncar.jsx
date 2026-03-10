@@ -376,6 +376,7 @@ export default function AdminEncar() {
     found: 0,
     imported: 0,
     skipped: 0,
+    alreadyKnown: 0,
     failed: 0,
     retryRecovered: 0,
     discarded: 0,
@@ -537,7 +538,7 @@ export default function AdminEncar() {
             <div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#f1f5f9' }}>Reason Summary</div>
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
+                Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Уже известные: {sessionSummary.alreadyKnown || 0} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
               </div>
             </div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>

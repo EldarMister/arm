@@ -7,7 +7,6 @@ import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
 import { getPricingSettings, resolveVehicleFees } from '../lib/pricingSettings.js'
 import {
   appendTitleTrimSuffix,
-  classifyVehicleOrigin,
   extractShortLocation,
   extractTrimLevelFromTitle,
   inferDrive,
@@ -19,7 +18,6 @@ import {
   resolveBodyType,
   normalizeTransmission,
   normalizeTrimLevel,
-  VEHICLE_ORIGIN_LABELS,
 } from '../lib/vehicleData.js'
 import { isStandardVin, normalizeVin } from '../lib/vin.js'
 import { fetchCarList, extractPhotoUrls, probePhotoUrls, sleep } from './encarApi.js'
@@ -489,11 +487,22 @@ async function updateScrapeStats(added) {
 }
 
 function addSkipProgress(classification) {
+  const resolvedClassification = typeof classification === 'object'
+    ? String(classification?.classification || '').trim()
+    : String(classification || '').trim()
+  const reason = String(classification?.reason || '').trim()
+  if (reason === 'duplicate_encar_id' || reason === 'duplicate_vin') {
+    state.setProgress({
+      alreadyKnown: state.progress.alreadyKnown + 1,
+    })
+    return
+  }
+
   const next = {
     skipped: state.progress.skipped + 1,
   }
 
-  if (classification === 'normal') {
+  if (resolvedClassification === 'normal') {
     next.normalSkipped = state.progress.normalSkipped + 1
   } else {
     next.discarded = state.progress.discarded + 1
@@ -504,7 +513,7 @@ function addSkipProgress(classification) {
 
 function recordSkip(diagnostic) {
   state.recordSkipDiagnostic(diagnostic)
-  addSkipProgress(diagnostic.classification)
+  addSkipProgress(diagnostic)
 
   const level = diagnostic.classification === 'normal' ? 'info' : 'warn'
   state[level](formatDiagnosticMessage('SKIP', diagnostic), { diagnostic })
@@ -654,6 +663,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
   state.lastRun = state.startedAt
   state.resetSession({ total: limit, parseScope, limit })
   state.info(`Parse scope: ${formatParseScopeLabel(parseScope)}, limit=${limit}`)
+  state.info(`SCRAPER_START | scope=${parseScope} | limit=${limit}`)
 
   state.info(`рџљЂ Р—Р°РїСѓСЃРє РїР°СЂСЃРµСЂР° вЂ” ${parseScope === PARSE_SCOPE_IMPORTED ? 'С‚РѕР»СЊРєРѕ РёРјРїРѕСЂС‚РЅС‹Рµ' : 'РІСЃРµ РјР°С€РёРЅС‹'}, Р»РёРјРёС‚ ${limit} РЅРѕРІС‹С… РјР°С€РёРЅ`)
 
@@ -665,15 +675,18 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
   let offset = 0
   let addedThisRun = 0
+  let consecutiveKnownOnlyPages = 0
 
   try {
     while (addedThisRun < limit && !state.stopReq) {
+      state.info(`LIST_FETCH | offset=${offset} | count=${PAGE_SIZE} | scope=${parseScope}`)
       state.info(`рџ“‹ РџРѕР»СѓС‡Р°СЋ СЃРїРёСЃРѕРє (offset=${offset}, count=${PAGE_SIZE})...`)
 
       let listResult
       try {
         listResult = await fetchCarList(offset, PAGE_SIZE, 3, { parseScope })
       } catch (err) {
+        state.error(`LIST_FETCH_ERROR | scope=${parseScope} | code=${cleanText(err?.code || '') || 'unknown'} | message=${cleanText(err?.message || 'list fetch failed')}`)
         state.error(`вќЊ РћС€РёР±РєР° list API: ${err.message}`)
         if (state.stopReq) break
         await sleep(8000)
@@ -697,10 +710,34 @@ export async function runScrapeJob(limit = 100, options = {}) {
       }
 
       state.info(`рџ“¦ РџРѕР»СѓС‡РµРЅРѕ ${cars.length} РјР°С€РёРЅ РёР· ${scanned} РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅС‹С… (Encar РІСЃРµРіРѕ: ${Number(total || 0).toLocaleString()})`)
+      state.info(`LIST_FETCH_OK | cars=${cars.length} | scanned=${scanned} | total=${Number(total || 0).toLocaleString()} | scope=${parseScope} | source=${listResult.listSource || 'unknown'}`)
       const existingEncarIds = await getExistingEncarIdMap(cars.map((raw) => raw?.Id))
+      const pageKnownCars = cars.reduce((count, raw) => {
+        const rawId = cleanText(raw?.Id)
+        return existingEncarIds.has(rawId) || seenEncarIds.has(rawId) ? count + 1 : count
+      }, 0)
+
+      if (pageKnownCars === cars.length) {
+        consecutiveKnownOnlyPages += 1
+        state.setProgress({
+          alreadyKnown: state.progress.alreadyKnown + pageKnownCars,
+        })
+        state.info(`LIST_ALL_KNOWN_PAGE | scope=${parseScope} | offset=${offset} | known=${pageKnownCars} | consecutive=${consecutiveKnownOnlyPages}`)
+
+        if (consecutiveKnownOnlyPages >= 2) {
+          state.info(`LIST_STALE_STOP | scope=${parseScope} | offset=${offset} | consecutiveKnownPages=${consecutiveKnownOnlyPages}`)
+          break
+        }
+
+        offset += scanned
+        continue
+      }
+
+      consecutiveKnownOnlyPages = 0
 
       for (const raw of cars) {
         if (state.stopReq) {
+          state.warn('STOP_REQUESTED')
           state.warn('вЏ№ РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј')
           break
         }
@@ -762,20 +799,6 @@ export async function runScrapeJob(limit = 100, options = {}) {
             existId,
           ))
           continue
-        }
-
-        if (IMPORT_ONLY_SCOPES.has(parseScope)) {
-          const origin = classifyVehicleOrigin(car.name, car.model)
-          if (origin !== VEHICLE_ORIGIN_LABELS.imported) {
-            recordSkip(buildFilterDiagnostic({
-              stage: 'scope_filter',
-              reason: 'parse_scope_filtered',
-              details: `origin=${origin || 'unknown'}, scope=${parseScope}`,
-              car,
-              raw,
-            }))
-            continue
-          }
         }
 
         if (!matchesScopedImportedBrand(car, raw, parseScope)) {
@@ -940,6 +963,10 @@ export async function runScrapeJob(limit = 100, options = {}) {
           seenEncarIds.add(preparedCar.encar_id)
           addedThisRun += 1
           state.setProgress({ done: state.progress.done + 1 })
+          state.success(`IMPORTED | name=${preparedCar.name} | id=${newId} | photos=${photoUrls.length}`, {
+            carId: currentEncarId,
+            importedId: newId,
+          })
           state.success(`вњ… РЎРѕС…СЂР°РЅРµРЅРѕ: ${preparedCar.name} в†’ id=${newId}, фото=${photoUrls.length}`, {
             carId: currentEncarId,
             importedId: newId,
@@ -971,6 +998,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
         }
 
         if (addedThisRun >= limit) {
+          state.info(`LIMIT_REACHED | limit=${limit}`)
           state.info(`вњ… Р”РѕСЃС‚РёРіРЅСѓС‚ Р»РёРјРёС‚ РЅРѕРІС‹С… РјР°С€РёРЅ: ${limit}`)
           break
         }
@@ -982,8 +1010,12 @@ export async function runScrapeJob(limit = 100, options = {}) {
     await updateScrapeStats(addedThisRun)
 
     if (state.stopReq) {
+      state.warn(`STOPPED | imported=${state.progress.done}`)
       state.warn(`вЏ№ РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ. Р”РѕР±Р°РІР»РµРЅРѕ: ${state.progress.done}`)
     } else {
+      state.success(
+        `SCRAPER_DONE | imported=${state.progress.done} | skipped=${state.progress.skipped} | failed=${state.progress.failed} | recovered=${state.progress.retryRecovered} | photos=${state.progress.photos}`,
+      )
       state.success(
         `рџЋ‰ Р“РѕС‚РѕРІРѕ! Р”РѕР±Р°РІР»РµРЅРѕ: ${state.progress.done} | РџСЂРѕРїСѓС‰РµРЅРѕ: ${state.progress.skipped} | РћС€РёР±РѕРє: ${state.progress.failed} | Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРѕ retry: ${state.progress.retryRecovered} | Р¤РѕС‚Рѕ: ${state.progress.photos}`,
       )
@@ -993,6 +1025,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
       state.info(line)
     }
   } catch (err) {
+    state.error(`SCRAPER_FATAL | message=${cleanText(err?.message || 'unknown error')}`)
     state.error(`рџ’Ґ РљСЂРёС‚РёС‡РµСЃРєР°СЏ РѕС€РёР±РєР°: ${err.message}`)
   } finally {
     state.finishSession()

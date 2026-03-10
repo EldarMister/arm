@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { isBlockedCatalogPrice } from '../lib/catalogPriceRules.js'
+import { classifyVehicleOrigin, VEHICLE_ORIGIN_LABELS } from '../lib/vehicleData.js'
 
 export function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }
 
@@ -89,6 +90,47 @@ function isUsableListCar(raw) {
   return true
 }
 
+function buildOriginSignal(raw) {
+  return [
+    raw?.Manufacturer,
+    raw?.Model,
+    raw?.Badge,
+    raw?.Name,
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
+function getImportedOriginRatio(cars = []) {
+  const sample = cars
+    .map((raw) => buildOriginSignal(raw))
+    .filter(Boolean)
+    .slice(0, 10)
+
+  if (!sample.length) return 1
+
+  const importedCount = sample.filter((value) => classifyVehicleOrigin(value) === VEHICLE_ORIGIN_LABELS.imported).length
+  return importedCount / sample.length
+}
+
+function createListScopeMismatchError(parseScope, source, cars = []) {
+  const ratio = getImportedOriginRatio(cars)
+  const sample = cars.slice(0, 3).map((raw) => `${raw?.Manufacturer || '-'} ${raw?.Model || ''}`.trim()).join(' | ')
+  const error = new Error(`List source mismatch for scope=${parseScope} via ${source}; importedRatio=${ratio.toFixed(2)}; sample=${sample}`)
+  error.code = 'LIST_SCOPE_MISMATCH'
+  error.parseScope = parseScope
+  error.source = source
+  error.importedRatio = ratio
+  return error
+}
+
+function isListScopeMismatch(parseScope, cars = []) {
+  if (!IMPORT_ONLY_SCOPES.has(parseScope)) return false
+  if (!Array.isArray(cars) || cars.length < 5) return false
+  return getImportedOriginRatio(cars) < 0.6
+}
+
 async function fetchListViaProxy(offset, pageLimit, parseScope = PARSE_SCOPE_ALL) {
   const resp = await axios.get(ENCAR_PROXY_URL, {
     timeout: 25000,
@@ -123,6 +165,47 @@ async function fetchListDirect(offset, pageLimit, parseScope = PARSE_SCOPE_ALL) 
   return asListResult(resp.data)
 }
 
+function getListFetchers() {
+  const fetchers = []
+  if (ENCAR_PROXY_URL) {
+    fetchers.push({
+      name: 'proxy',
+      run: (offset, pageLimit, parseScope) => fetchListViaProxy(offset, pageLimit, parseScope),
+    })
+  }
+  fetchers.push({
+    name: 'direct',
+    run: (offset, pageLimit, parseScope) => fetchListDirect(offset, pageLimit, parseScope),
+  })
+  return fetchers
+}
+
+async function fetchBatchWithFallback(offset, pageLimit, parseScope, preferredSource) {
+  const fetchers = getListFetchers()
+  const orderedFetchers = [
+    ...fetchers.filter((fetcher) => fetcher.name === preferredSource),
+    ...fetchers.filter((fetcher) => fetcher.name !== preferredSource),
+  ]
+
+  let lastError = null
+
+  for (const fetcher of orderedFetchers) {
+    try {
+      const batch = await fetcher.run(offset, pageLimit, parseScope)
+      if (isListScopeMismatch(parseScope, batch.cars)) {
+        lastError = createListScopeMismatchError(parseScope, fetcher.name, batch.cars)
+        continue
+      }
+
+      return { batch, source: fetcher.name }
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError || new Error(`Failed to fetch Encar list for scope=${parseScope}`)
+}
+
 function withProxyHint(err) {
   const status = err?.response?.status
   if (status === 407) {
@@ -145,6 +228,7 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3, options 
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      let activeSource = ENCAR_PROXY_URL ? 'proxy' : 'direct'
       let total = 0
       let scanned = 0
       let nextOffset = offset
@@ -152,9 +236,8 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3, options 
       const collected = []
 
       while (collected.length < pageLimit && pagesFetched < MAX_LIST_TOP_UP_PAGES) {
-        const batch = ENCAR_PROXY_URL
-          ? await fetchListViaProxy(nextOffset, PAGE_FETCH_SIZE, parseScope)
-          : await fetchListDirect(nextOffset, PAGE_FETCH_SIZE, parseScope)
+        const { batch, source } = await fetchBatchWithFallback(nextOffset, PAGE_FETCH_SIZE, parseScope, activeSource)
+        activeSource = source
 
         if (!total) total = batch.total
         const batchCars = Array.isArray(batch.cars) ? batch.cars : []
@@ -177,6 +260,7 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3, options 
         total,
         cars: collected.slice(0, pageLimit),
         scanned,
+        listSource: activeSource,
       }
     } catch (err) {
       withProxyHint(err)

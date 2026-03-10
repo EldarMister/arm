@@ -6,6 +6,7 @@ function createProgress(total = 0) {
     total,
     failed: 0,
     skipped: 0,
+    alreadyKnown: 0,
     photos: 0,
     found: 0,
     scanned: 0,
@@ -25,6 +26,7 @@ function createSessionSummary() {
     found: 0,
     imported: 0,
     skipped: 0,
+    alreadyKnown: 0,
     normalSkipped: 0,
     discarded: 0,
     failed: 0,
@@ -88,6 +90,7 @@ class ScraperState extends EventEmitter {
     this.sessionSummary.found = this.progress.found
     this.sessionSummary.imported = this.progress.done
     this.sessionSummary.skipped = this.progress.skipped
+    this.sessionSummary.alreadyKnown = this.progress.alreadyKnown
     this.sessionSummary.normalSkipped = this.progress.normalSkipped
     this.sessionSummary.discarded = this.progress.discarded
     this.sessionSummary.failed = this.progress.failed
@@ -102,7 +105,7 @@ class ScraperState extends EventEmitter {
 
     const current = this.sessionSummary.reasons[reason] || 0
     this.sessionSummary.reasons[reason] = current + 1
-    const reasonTotal = this.sessionSummary.skipped + this.sessionSummary.failed
+    const reasonTotal = this.sessionSummary.skipped + this.sessionSummary.failed + this.sessionSummary.alreadyKnown
     this.sessionSummary.topReasons = Object.entries(this.sessionSummary.reasons)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([code, count]) => ({
