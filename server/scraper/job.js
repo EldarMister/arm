@@ -1,4 +1,5 @@
 import pool from '../db.js'
+import { getBlockedGenericVehicleReason } from '../lib/catalogVehicleRules.js'
 import { computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { getBlockedCatalogPriceReason } from '../lib/catalogPriceRules.js'
 import { normalizeCarTextFields } from '../lib/carRecordNormalization.js'
@@ -190,12 +191,16 @@ function mapCar(raw, exchangeSnapshot, pricingSettings) {
   }
 }
 
-async function getExistingId(encarId) {
+async function getExistingEncarIdMap(encarIds = []) {
+  const normalized = [...new Set(encarIds.map((item) => String(item || '').trim()).filter(Boolean))]
+  if (!normalized.length) return new Map()
+
   const res = await pool.query(
-    'SELECT id FROM cars WHERE encar_id = $1',
-    [String(encarId)]
+    'SELECT id, encar_id FROM cars WHERE encar_id = ANY($1::text[])',
+    [normalized]
   )
-  return res.rows.length ? res.rows[0].id : null
+
+  return new Map(res.rows.map((row) => [String(row.encar_id || '').trim(), row.id]))
 }
 
 async function getExistingIdByVin(vin) {
@@ -353,18 +358,18 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
   state.info(`🚀 Запуск парсера — ${parseScope === PARSE_SCOPE_IMPORTED ? 'только импортные' : 'все машины'}, лимит ${limit} новых машин`)
 
-  const sourceMode = process.env.ENCAR_PROXY_URL ? 'Vercel proxy' : 'direct Encar API'
+  const sourceMode = process.env.ENCAR_PROXY_URL ? 'Vercel proxy / direct detail' : 'direct Encar API'
   state.info(`Source mode: ${sourceMode}`)
   const exchangeSnapshot = await getExchangeRateSnapshot()
   const pricingSettings = await getPricingSettings()
+  const seenEncarIds = new Set()
 
   let offset = 0
   let addedThisRun = 0
 
   try {
     while (addedThisRun < limit && !state.stopReq) {
-      const remainingToAdd = limit - addedThisRun
-      const pageLimit = Math.min(PAGE_SIZE, remainingToAdd)
+      const pageLimit = PAGE_SIZE
       state.info(`📋 Получаю список (offset=${offset}, count=${pageLimit})...`)
 
       let listResult
@@ -377,12 +382,18 @@ export async function runScrapeJob(limit = 100, options = {}) {
         continue
       }
 
-      const { cars, total } = listResult
+      const { cars, total, scanned = cars.length } = listResult
       if (!cars.length) {
+        if (scanned > 0) {
+          state.info(`📭 В этой пачке нет подходящих машин, пропускаю ещё ${scanned} позиций`)
+          offset += scanned
+          continue
+        }
         state.info('📭 Больше машин нет — завершаю')
         break
       }
-      state.info(`📦 Получено ${cars.length} машин (Encar всего: ${total.toLocaleString()})`)
+      state.info(`📦 Получено ${cars.length} машин из ${scanned} просмотренных (Encar всего: ${total.toLocaleString()})`)
+      const existingEncarIds = await getExistingEncarIdMap(cars.map((raw) => raw?.Id))
 
       for (const raw of cars) {
         if (state.stopReq) {
@@ -391,6 +402,18 @@ export async function runScrapeJob(limit = 100, options = {}) {
         }
 
         const car = mapCar(raw, exchangeSnapshot, pricingSettings)
+        const genericVehicleReason = getBlockedGenericVehicleReason({
+          name: car.name,
+          model: car.model,
+          rawManufacturer: raw.Manufacturer,
+          rawModel: raw.Model,
+        })
+        if (genericVehicleReason) {
+          state.info(`⏭ Пропуск ${car.name || raw.Name || raw.Id} — ${genericVehicleReason}`)
+          state.setProgress({ skipped: state.progress.skipped + 1 })
+          continue
+        }
+
         const carYear = Number.parseInt(String(car.year || ''), 10)
         if (!Number.isFinite(carYear) || carYear < MIN_SCRAPER_YEAR) {
           const yearLabel = car.year || 'unknown year'
@@ -409,7 +432,8 @@ export async function runScrapeJob(limit = 100, options = {}) {
           continue
         }
 
-        const existId = await getExistingId(raw.Id)
+        const currentEncarId = String(raw.Id || '').trim()
+        const existId = existingEncarIds.get(currentEncarId) || (seenEncarIds.has(currentEncarId) ? 'seen' : null)
         if (existId) {
           state.info(`⏭ Пропуск ${car.name} (${car.year}) — уже в базе`)
           state.setProgress({ skipped: state.progress.skipped + 1 })
@@ -431,6 +455,16 @@ export async function runScrapeJob(limit = 100, options = {}) {
           preparedCar = mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings)
         } catch (enrichmentError) {
           state.warn(`⏭ Пропуск ${car.name} — не удалось проверить VIN/detail: ${enrichmentError.message}`)
+          state.setProgress({ skipped: state.progress.skipped + 1 })
+          continue
+        }
+
+        const enrichedGenericVehicleReason = getBlockedGenericVehicleReason({
+          name: preparedCar.name,
+          model: preparedCar.model,
+        })
+        if (enrichedGenericVehicleReason) {
+          state.info(`⏭ Пропуск ${preparedCar.name || preparedCar.encar_id} (${preparedCar.year}) — ${enrichedGenericVehicleReason}`)
           state.setProgress({ skipped: state.progress.skipped + 1 })
           continue
         }
@@ -476,6 +510,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
         try {
           const newId = await insertCar(preparedCar, photoUrls)
+          seenEncarIds.add(preparedCar.encar_id)
           state.success(`✅ Сохранено: ${preparedCar.name} → id=${newId}, фото=${photoUrls.length}`)
           addedThisRun++
           state.setProgress({ done: state.progress.done + 1 })
@@ -490,7 +525,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
         }
       }
 
-      offset += cars.length
+      offset += scanned
     }
 
     await updateScrapeStats(addedThisRun)

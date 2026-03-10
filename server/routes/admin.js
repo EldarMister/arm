@@ -25,6 +25,7 @@ const enrichState = {
   total: 0,
   processed: 0,
   updated: 0,
+  removed: 0,
   skipped: 0,
   errors: 0,
   started_at: null,
@@ -37,9 +38,19 @@ const enrichState = {
 }
 const normalizeCarsState = createCarTextBackfillState()
 const DEFAULT_ENRICH_CONCURRENCY = (() => {
-  const raw = Number.parseInt(process.env.ENRICH_CONCURRENCY || '3', 10)
-  if (!Number.isFinite(raw)) return 3
+  const raw = Number.parseInt(process.env.ENRICH_CONCURRENCY || '5', 10)
+  if (!Number.isFinite(raw)) return 5
   return Math.min(Math.max(raw, 1), 6)
+})()
+const ENRICH_SUCCESS_COOLDOWN_HOURS = (() => {
+  const raw = Number.parseInt(process.env.ENRICH_SUCCESS_COOLDOWN_HOURS || '24', 10)
+  if (!Number.isFinite(raw)) return 24
+  return Math.min(Math.max(raw, 1), 720)
+})()
+const ENRICH_ERROR_RETRY_HOURS = (() => {
+  const raw = Number.parseInt(process.env.ENRICH_ERROR_RETRY_HOURS || '12', 10)
+  if (!Number.isFinite(raw)) return 12
+  return Math.min(Math.max(raw, 1), 168)
 })()
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
@@ -133,6 +144,33 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function getCurrentEnrichEncarId(car = {}) {
+  return cleanText(car.encar_id)
+}
+
+function getEnrichCandidateWhereSql() {
+  return `
+    encar_id IS NOT NULL
+    AND BTRIM(encar_id) != ''
+    AND NOT (
+      enrich_last_status = 'not_found'
+      AND COALESCE(NULLIF(BTRIM(enrich_last_encar_id), ''), '') = COALESCE(NULLIF(BTRIM(encar_id), ''), '')
+    )
+    AND NOT (
+      enrich_last_status IN ('updated', 'checked')
+      AND enrich_checked_at IS NOT NULL
+      AND enrich_checked_at > NOW() - INTERVAL '${ENRICH_SUCCESS_COOLDOWN_HOURS} hours'
+      AND COALESCE(NULLIF(BTRIM(enrich_last_encar_id), ''), '') = COALESCE(NULLIF(BTRIM(encar_id), ''), '')
+    )
+    AND NOT (
+      enrich_last_status = 'error'
+      AND enrich_checked_at IS NOT NULL
+      AND enrich_checked_at > NOW() - INTERVAL '${ENRICH_ERROR_RETRY_HOURS} hours'
+      AND COALESCE(NULLIF(BTRIM(enrich_last_encar_id), ''), '') = COALESCE(NULLIF(BTRIM(encar_id), ''), '')
+    )
+  `
+}
+
 function pushEnrichReportItem(item) {
   enrichState.report.unshift(item)
   if (enrichState.report.length > 200) {
@@ -191,9 +229,8 @@ function shouldEnrichCar(car) {
   )
 }
 
-async function updateCarFields(id, patch) {
+async function updateCarFields(id, patch, meta = {}) {
   const fields = Object.entries(patch).filter(([, value]) => value !== undefined)
-  if (!fields.length) return false
 
   const updates = []
   const params = []
@@ -204,11 +241,25 @@ async function updateCarFields(id, patch) {
     params.push(value)
   }
 
-  updates.push('updated_at = NOW()')
+  if (fields.length) {
+    updates.push('updated_at = NOW()')
+  }
+  updates.push('enrich_checked_at = NOW()')
+  updates.push(`enrich_last_status = $${index++}`)
+  params.push(cleanText(meta.status) || 'checked')
+  updates.push(`enrich_last_error = $${index++}`)
+  params.push(cleanText(meta.error) || null)
+  updates.push(`enrich_last_encar_id = $${index++}`)
+  params.push(cleanText(meta.encarId || meta.encar_id) || null)
   params.push(id)
 
   await pool.query(`UPDATE cars SET ${updates.join(', ')} WHERE id = $${index}`, params)
-  return true
+  return Boolean(fields.length)
+}
+
+async function deleteCarById(id) {
+  const result = await pool.query('DELETE FROM cars WHERE id = $1 RETURNING id', [id])
+  return Boolean(result.rows.length)
 }
 
 async function enrichCar(car) {
@@ -249,7 +300,10 @@ async function enrichCar(car) {
         after: nextValue ?? '',
       }))
 
-      await updateCarFields(car.id, patch)
+      await updateCarFields(car.id, patch, {
+        status: 'updated',
+        encarId: getCurrentEnrichEncarId(car),
+      })
       enrichState.updated += 1
       pushEnrichReportItem({
         status: 'updated',
@@ -260,19 +314,55 @@ async function enrichCar(car) {
         finished_at: new Date().toISOString(),
       })
     } else {
+      await updateCarFields(car.id, {}, {
+        status: 'checked',
+        encarId: getCurrentEnrichEncarId(car),
+      })
       enrichState.skipped += 1
     }
   } catch (err) {
-    enrichState.errors += 1
-    enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
-    pushEnrichReportItem({
-      status: 'error',
-      id: car.id,
-      encar_id: car.encar_id,
-      name: car.name || car.model || '',
-      error: err.message,
-      finished_at: new Date().toISOString(),
-    })
+    const statusCode = Number(err?.response?.status) || 0
+    const isNotFound = statusCode === 404
+
+    try {
+      await updateCarFields(car.id, {}, {
+        status: isNotFound ? 'not_found' : 'error',
+        error: isNotFound ? '404 Not Found' : err.message,
+        encarId: getCurrentEnrichEncarId(car),
+      })
+    } catch (persistError) {
+      console.warn('Failed to persist enrich status:', persistError.message)
+    }
+
+    if (isNotFound) {
+      const deleted = await deleteCarById(car.id)
+      if (deleted) {
+        enrichState.removed += 1
+      } else {
+        enrichState.skipped += 1
+      }
+      pushEnrichReportItem({
+        status: deleted ? 'removed' : 'not_found',
+        id: car.id,
+        encar_id: car.encar_id,
+        name: car.name || car.model || '',
+        error: deleted
+          ? 'Объявление больше недоступно в Encar (404) и удалено из каталога'
+          : 'Объявление больше недоступно в Encar (404)',
+        finished_at: new Date().toISOString(),
+      })
+    } else {
+      enrichState.errors += 1
+      enrichState.last_error = `ID ${car.id} / Encar ${car.encar_id}: ${err.message}`
+      pushEnrichReportItem({
+        status: 'error',
+        id: car.id,
+        encar_id: car.encar_id,
+        name: car.name || car.model || '',
+        error: err.message,
+        finished_at: new Date().toISOString(),
+      })
+    }
   } finally {
     enrichState.processed += 1
   }
@@ -284,6 +374,7 @@ async function runEmptyFieldEnrichment(options = {}) {
   enrichState.total = 0
   enrichState.processed = 0
   enrichState.updated = 0
+  enrichState.removed = 0
   enrichState.skipped = 0
   enrichState.errors = 0
   enrichState.started_at = new Date().toISOString()
@@ -295,19 +386,22 @@ async function runEmptyFieldEnrichment(options = {}) {
   enrichState.latest_limit = latestLimit
 
   try {
+    const candidateWhereSql = getEnrichCandidateWhereSql()
     const result = scope === ENRICH_SCOPE_LATEST
       ? await pool.query(`
-        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color, option_features
+        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color, option_features,
+               enrich_checked_at, enrich_last_status, enrich_last_error, enrich_last_encar_id
         FROM cars
-        WHERE encar_id IS NOT NULL AND encar_id != ''
+        WHERE ${candidateWhereSql}
         ORDER BY created_at DESC NULLS LAST, id DESC
         LIMIT $1
       `, [latestLimit])
       : await pool.query(`
-        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color, option_features
+        SELECT id, encar_id, name, model, body_type, trim_level, body_color, interior_color, option_features,
+               enrich_checked_at, enrich_last_status, enrich_last_error, enrich_last_encar_id
         FROM cars
-        WHERE encar_id IS NOT NULL AND encar_id != ''
-        ORDER BY updated_at ASC NULLS FIRST, id ASC
+        WHERE ${candidateWhereSql}
+        ORDER BY enrich_checked_at ASC NULLS FIRST, updated_at ASC NULLS FIRST, id ASC
       `)
 
     const candidates = result.rows.filter(shouldEnrichCar)

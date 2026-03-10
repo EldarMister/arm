@@ -810,6 +810,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         total: 0,
         processed: 0,
         updated: 0,
+        removed: 0,
         skipped: 0,
         errors: 0,
         started_at: null,
@@ -893,7 +894,10 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         if (prevEnrichRunningRef.current && !enrichStatus.running) {
             load(page, search, sort)
             if (enrichStatus.total > 0) {
-                toast(`Обогащение завершено: обновлено ${enrichStatus.updated}, ошибок ${enrichStatus.errors}`, enrichStatus.errors ? 'error' : 'success')
+                toast(
+                    `Обогащение завершено: обновлено ${enrichStatus.updated}, удалено ${enrichStatus.removed || 0}, ошибок ${enrichStatus.errors}`,
+                    enrichStatus.errors ? 'error' : 'success'
+                )
             }
         }
         prevEnrichRunningRef.current = enrichStatus.running
@@ -1010,8 +1014,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {(enrichStatus.running || enrichStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {enrichStatus.running
-                                ? `Обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • ошибок ${enrichStatus.errors}`
-                                : `Последнее обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): обновлено ${enrichStatus.updated} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
+                                ? `Обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • удалено ${enrichStatus.removed || 0} • ошибок ${enrichStatus.errors}`
+                                : `Последнее обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): обновлено ${enrichStatus.updated} • удалено ${enrichStatus.removed || 0} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
                         </div>
                     )}
                     {(normalizeCarsStatus.running || normalizeCarsStatus.finished_at) && (
@@ -1128,14 +1132,20 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                             <div style={{ fontWeight: 700, color: '#e2e8f0' }}>
                                                 {item.name || `ID ${item.id}`}
                                             </div>
-                                            <span className={`adm-tag-sm ${item.status === 'error' ? 'adm-tag-more' : ''}`}>
-                                                {item.status === 'error' ? 'Ошибка' : 'Обновлено'}
+                                            <span className={`adm-tag-sm ${(item.status === 'error' || item.status === 'not_found' || item.status === 'removed') ? 'adm-tag-more' : ''}`}>
+                                                {item.status === 'error'
+                                                    ? 'Ошибка'
+                                                    : item.status === 'removed'
+                                                        ? 'Удалено'
+                                                    : item.status === 'not_found'
+                                                        ? 'Недоступно'
+                                                        : 'Обновлено'}
                                             </span>
                                         </div>
                                         <div className="adm-car-sub" style={{ marginBottom: 8 }}>
                                             ID: {item.id} • Encar: {item.encar_id}
                                         </div>
-                                        {item.status === 'error' ? (
+                                        {(item.status === 'error' || item.status === 'not_found' || item.status === 'removed') ? (
                                             <div className="adm-car-sub" style={{ color: '#fca5a5' }}>
                                                 {item.error}
                                             </div>

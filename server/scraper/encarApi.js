@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isBlockedCatalogPrice } from '../lib/catalogPriceRules.js'
 
 export function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }
 
@@ -26,6 +27,10 @@ function nextUA() { return USER_AGENTS[uaIdx++ % USER_AGENTS.length] }
 
 const ENCAR_PROXY_URL = (process.env.ENCAR_PROXY_URL || '').trim().replace(/\/$/, '')
 const ENCAR_DEFAULT_QUERY = '(And.Hidden.N._.CarType.Y._.Year.range(201900..).)'
+const ENCAR_DEFAULT_SORT = 'ModifiedDate'
+const MIN_LIST_YEAR = 2019
+const MAX_LIST_TOP_UP_PAGES = 6
+const PAGE_FETCH_SIZE = 20
 
 const apiClient = axios.create({
   baseURL: 'https://api.encar.com',
@@ -46,6 +51,26 @@ function asListResult(data) {
   }
 }
 
+function parseListYear(rawYear) {
+  const match = String(rawYear || '').match(/\d{4}/)
+  return match ? Number.parseInt(match[0], 10) : 0
+}
+
+function parseListPriceKrw(rawPrice) {
+  const numeric = Number(rawPrice) || 0
+  return numeric > 0 ? numeric * 10000 : 0
+}
+
+function isUsableListCar(raw) {
+  const year = parseListYear(raw?.Year)
+  if (!Number.isFinite(year) || year < MIN_LIST_YEAR) return false
+
+  const priceKrw = parseListPriceKrw(raw?.Price)
+  if (isBlockedCatalogPrice({ priceKrw })) return false
+
+  return true
+}
+
 async function fetchListViaProxy(offset, pageLimit) {
   const resp = await axios.get(ENCAR_PROXY_URL, {
     timeout: 25000,
@@ -54,6 +79,10 @@ async function fetchListViaProxy(offset, pageLimit) {
       endpoint: 'list',
       offset,
       limit: pageLimit,
+      count: true,
+      q: ENCAR_DEFAULT_QUERY,
+      sr: `|${ENCAR_DEFAULT_SORT}|${offset}|${pageLimit}`,
+      sort: ENCAR_DEFAULT_SORT,
     },
     headers: {
       'User-Agent': nextUA(),
@@ -69,7 +98,7 @@ async function fetchListDirect(offset, pageLimit) {
     params: {
       count: true,
       q: ENCAR_DEFAULT_QUERY,
-      sr: `|ModifiedDate|${offset}|${pageLimit}`,
+      sr: `|${ENCAR_DEFAULT_SORT}|${offset}|${pageLimit}`,
     },
     headers: { 'User-Agent': nextUA() },
   })
@@ -96,9 +125,39 @@ export async function fetchCarList(offset = 0, limit = 20, retries = 3) {
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return ENCAR_PROXY_URL
-        ? await fetchListViaProxy(offset, pageLimit)
-        : await fetchListDirect(offset, pageLimit)
+      let total = 0
+      let scanned = 0
+      let nextOffset = offset
+      let pagesFetched = 0
+      const collected = []
+
+      while (collected.length < pageLimit && pagesFetched < MAX_LIST_TOP_UP_PAGES) {
+        const batch = ENCAR_PROXY_URL
+          ? await fetchListViaProxy(nextOffset, PAGE_FETCH_SIZE)
+          : await fetchListDirect(nextOffset, PAGE_FETCH_SIZE)
+
+        if (!total) total = batch.total
+        const batchCars = Array.isArray(batch.cars) ? batch.cars : []
+        if (!batchCars.length) break
+
+        pagesFetched += 1
+        nextOffset += batchCars.length
+        scanned += batchCars.length
+
+        for (const raw of batchCars) {
+          if (!isUsableListCar(raw)) continue
+          collected.push(raw)
+          if (collected.length >= pageLimit) break
+        }
+
+        if (batchCars.length < PAGE_FETCH_SIZE) break
+      }
+
+      return {
+        total,
+        cars: collected.slice(0, pageLimit),
+        scanned,
+      }
     } catch (err) {
       withProxyHint(err)
       if (attempt === retries) throw err

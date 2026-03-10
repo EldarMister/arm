@@ -58,6 +58,10 @@ ALTER TABLE cars ADD COLUMN IF NOT EXISTS displacement INTEGER DEFAULT 0;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS delivery_profile_code VARCHAR(60);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS pricing_locked BOOLEAN DEFAULT false;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS option_features TEXT[] DEFAULT '{}';
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS enrich_checked_at TIMESTAMPTZ;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS enrich_last_status VARCHAR(20);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS enrich_last_error TEXT;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS enrich_last_encar_id VARCHAR(50);
 
 -- Индексы для быстрых фильтров
 CREATE INDEX IF NOT EXISTS idx_cars_price_usd  ON cars(price_usd);

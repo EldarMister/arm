@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { DEFAULT_FEES, VAT_REFUND_RATE, computePricing, getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { buildBlockedCatalogPriceSql, getBlockedCatalogPriceReason } from '../lib/catalogPriceRules.js'
+import { buildBlockedGenericVehicleSql, getBlockedGenericVehicleReason } from '../lib/catalogVehicleRules.js'
 import { getPricingSettings, resolveVehicleFees } from '../lib/pricingSettings.js'
 import { getKnownBrandSqlPatterns } from '../../shared/brandAliases.js'
 import {
@@ -42,6 +43,13 @@ function getPayloadPriceBlockReason(payload = {}) {
   return getBlockedCatalogPriceReason({
     priceKrw: payload?.price_krw,
     priceUsd: payload?.price_usd,
+  })
+}
+
+function getPayloadVehicleBlockReason(payload = {}) {
+  return getBlockedGenericVehicleReason({
+    name: payload?.name,
+    model: payload?.model,
   })
 }
 
@@ -453,6 +461,7 @@ router.get('/', async (req, res) => {
     }
 
     conditions.push(`NOT ${buildBlockedCatalogPriceSql('c')}`)
+    conditions.push(`NOT ${buildBlockedGenericVehicleSql('c')}`)
 
     if (brandValues.length) {
       const patterns = uniqPatterns(brandValues.flatMap(brandPatterns))
@@ -614,6 +623,7 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN car_images ci ON ci.car_id = c.id
        WHERE c.id = $1
          AND NOT ${buildBlockedCatalogPriceSql('c')}
+         AND NOT ${buildBlockedGenericVehicleSql('c')}
        GROUP BY c.id`,
       [req.params.id]
     )
@@ -651,6 +661,11 @@ router.post('/', async (req, res) => {
     const priceBlockReason = getPayloadPriceBlockReason({ price_krw, price_usd })
     if (priceBlockReason) {
       return res.status(400).json({ error: `Автомобиль не будет сохранён: ${priceBlockReason}` })
+    }
+
+    const vehicleBlockReason = getPayloadVehicleBlockReason({ name, model })
+    if (vehicleBlockReason) {
+      return res.status(400).json({ error: `Автомобиль не будет сохранён: ${vehicleBlockReason}` })
     }
 
     const normalizedText = normalizeCarTextFields({ name, model, trim_level, body_color, interior_color, location })
@@ -706,6 +721,11 @@ router.put('/:id', async (req, res) => {
     const priceBlockReason = getPayloadPriceBlockReason(payload)
     if (priceBlockReason) {
       return res.status(400).json({ error: `Автомобиль не будет обновлён: ${priceBlockReason}` })
+    }
+
+    const vehicleBlockReason = getPayloadVehicleBlockReason(payload)
+    if (vehicleBlockReason) {
+      return res.status(400).json({ error: `Автомобиль не будет обновлён: ${vehicleBlockReason}` })
     }
 
     const fields = [
