@@ -1,0 +1,80 @@
+[
+  {
+    "method": "POST",
+    "url": "https://api.encar.com/ab/v1/tester/bucketing",
+    "resourceType": "xhr",
+    "postData": "{\"testId\":\"6979ab8d289f860ac3087f5a\",\"userId\":\"\"}"
+  },
+  {
+    "method": "PUT",
+    "url": "https://api.encar.com/legacy/usedcar/sale/car/viewcount/40887697",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/international/communication/validate-request-ip",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/vehicle/resume/valid?vehicleNo=158%EB%A1%9C4584",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/verification/40887697/simple?optionIds=10,16,327,328,329,330,1,332,85",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "POST",
+    "url": "https://api.encar.com/v1/readside/nonstandard/indicator/advertisement",
+    "resourceType": "xhr",
+    "postData": "{\"advType\":\"hs_ad\",\"channel\":\"WWW\",\"fromPage\":\"etc\",\"id\":\"\",\"ip\":\"146.19.220.117\",\"pcId\":\"\",\"vehicleId\":40887697,\"vehicleType\":\"FOREIGN_CAR\"}"
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/clean-encar/vehicle/40887697",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/user/woojji",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/inspection/vehicle/40887697",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/diagnosis/vehicle/40887697/sellingpoint",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/diagnosis/vehicle/40887697",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.encar.com/v1/readside/record/vehicle/40887697/open?vehicleNo=158%EB%A1%9C4584",
+    "resourceType": "xhr",
+    "postData": null
+  },
+  {
+    "method": "POST",
+    "url": "https://api.encar.com/ab/v1/tester/bucketing",
+    "resourceType": "xhr",
+    "postData": "{\"testId\":\"699e5b3b289f860ac3087f65\",\"userId\":\"\"}"
+  }
+]

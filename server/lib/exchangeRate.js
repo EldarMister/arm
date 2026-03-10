@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export const SITE_RATE_OFFSET = 15.0
-export const VAT_REFUND_RATE = 0.063
+export const VAT_REFUND_RATE = 0.06
 export const DEFAULT_FEES = {
   commission: 200,
   delivery: 1450,

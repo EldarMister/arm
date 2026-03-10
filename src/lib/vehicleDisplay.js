@@ -1,6 +1,6 @@
 import { applyTrimFixes, normalizeLocationText, normalizeRequestedRomanizedColorAlias } from '../../shared/vehicleTextFixes.js'
 
-export const VAT_REFUND_RATE = 0.063
+export const VAT_REFUND_RATE = 0.06
 export const VEHICLE_ORIGIN_LABELS = Object.freeze({
   korean: 'Корейские авто',
   imported: 'Импортные авто',

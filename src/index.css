@@ -2924,14 +2924,319 @@ body {
   line-height: 1.5;
 }
 
+.car-history-highlight-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.car-history-highlight-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid #e5ecf4;
+  background: linear-gradient(180deg, #fcfdff 0%, #f8fbff 100%);
+}
+
+.car-history-highlight-card-neutral {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.car-history-highlight-card-info {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(239, 246, 255, 0.95) 100%);
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+.car-history-highlight-card-danger {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.08) 0%, rgba(254, 242, 242, 0.96) 100%);
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+.car-history-highlight-card-success {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(240, 253, 244, 0.96) 100%);
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.car-history-highlight-icon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+}
+
+.car-history-highlight-icon-neutral {
+  background: rgba(15, 55, 84, 0.08);
+  color: #173754;
+  border-color: rgba(23, 55, 84, 0.12);
+}
+
+.car-history-highlight-icon-info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.car-history-highlight-icon-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.car-history-highlight-icon-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.car-history-highlight-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.car-history-highlight-copy span,
+.car-history-secondary-item span,
+.car-history-stat-card span,
+.car-history-change-card span,
+.car-history-accident-metric span {
+  color: #6d859d;
+  font-size: 13px;
+}
+
+.car-history-highlight-copy strong,
+.car-history-secondary-item strong,
+.car-history-change-card strong {
+  color: #173754;
+  font-size: 18px;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.car-history-highlight-copy small,
+.car-history-stat-card small,
+.car-history-accident-metric small {
+  color: #6d859d;
+  font-size: 12px;
+}
+
+.car-history-secondary-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.car-history-secondary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fbfdff;
+  border: 1px solid #e5ecf4;
+}
+
+.car-history-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.car-history-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 132px;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  border: 1px solid #e5ecf4;
+  background: #f8fafc;
+}
+
+.car-history-stat-card strong {
+  color: #173754;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.car-history-stat-card-neutral {
+  background: #f6f8fb;
+}
+
+.car-history-stat-card-danger {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.06) 0%, rgba(254, 242, 242, 0.94) 100%);
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+.car-history-stat-card-danger strong {
+  color: #dc2626;
+}
+
+.car-history-stat-card-info {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.08) 0%, rgba(239, 246, 255, 0.95) 100%);
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.car-history-stat-card-info strong {
+  color: #2563eb;
+}
+
+.car-history-change-list {
+  display: grid;
+  gap: 12px;
+}
+
+.car-history-change-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #f5f7fb;
+  border: 1px solid #e5ecf4;
+}
+
+.car-history-change-card-wide > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.car-history-accident-list {
+  display: grid;
+  gap: 16px;
+}
+
+.car-history-accident-card {
+  padding: 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f7fafc 100%);
+  border: 1px solid #e5ecf4;
+}
+
+.car-history-accident-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.car-history-accident-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.car-history-accident-title strong {
+  color: #173754;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.car-history-accident-date {
+  color: #4d6780;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.car-history-accident-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid transparent;
+}
+
+.car-history-accident-badge-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: #dc2626;
+}
+
+.car-history-accident-badge-info {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
+}
+
+.car-history-accident-badge-neutral {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #475569;
+}
+
+.car-history-accident-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.car-history-accident-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.car-history-accident-metric strong {
+  color: #173754;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.car-history-accident-metric strong.is-positive {
+  color: #16a34a;
+}
+
 @media (max-width: 860px) {
   .car-details-history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .car-history-secondary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 560px) {
   .car-details-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .car-history-highlight-grid,
+  .car-history-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .car-history-highlight-card,
+  .car-history-change-card,
+  .car-history-accident-head {
+    align-items: flex-start;
+  }
+
+  .car-history-change-card,
+  .car-history-accident-head {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 420px) {
+  .car-history-stats-grid,
+  .car-history-accident-metrics {
     grid-template-columns: 1fr;
   }
 }
@@ -4970,6 +5275,78 @@ body {
 [data-theme="dark"] .car-details-history-grid span,
 [data-theme="dark"] .car-details-muted {
   color: #7a96b0;
+}
+
+[data-theme="dark"] .car-history-highlight-card,
+[data-theme="dark"] .car-history-secondary-item,
+[data-theme="dark"] .car-history-stat-card,
+[data-theme="dark"] .car-history-change-card,
+[data-theme="dark"] .car-history-accident-card {
+  background: rgba(18, 33, 50, 0.88);
+  border-color: #1e3348;
+}
+
+[data-theme="dark"] .car-history-highlight-card-info,
+[data-theme="dark"] .car-history-stat-card-info {
+  background: linear-gradient(180deg, rgba(29, 78, 216, 0.16) 0%, rgba(18, 33, 50, 0.94) 100%);
+}
+
+[data-theme="dark"] .car-history-highlight-card-danger,
+[data-theme="dark"] .car-history-stat-card-danger {
+  background: linear-gradient(180deg, rgba(185, 28, 28, 0.16) 0%, rgba(33, 23, 32, 0.94) 100%);
+}
+
+[data-theme="dark"] .car-history-highlight-card-success {
+  background: linear-gradient(180deg, rgba(22, 163, 74, 0.14) 0%, rgba(18, 33, 50, 0.94) 100%);
+}
+
+[data-theme="dark"] .car-history-highlight-copy strong,
+[data-theme="dark"] .car-history-secondary-item strong,
+[data-theme="dark"] .car-history-change-card strong,
+[data-theme="dark"] .car-history-accident-title strong,
+[data-theme="dark"] .car-history-accident-metric strong,
+[data-theme="dark"] .car-history-stat-card strong {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .car-history-highlight-copy span,
+[data-theme="dark"] .car-history-highlight-copy small,
+[data-theme="dark"] .car-history-secondary-item span,
+[data-theme="dark"] .car-history-stat-card span,
+[data-theme="dark"] .car-history-stat-card small,
+[data-theme="dark"] .car-history-change-card span,
+[data-theme="dark"] .car-history-accident-date,
+[data-theme="dark"] .car-history-accident-metric span,
+[data-theme="dark"] .car-history-accident-metric small {
+  color: #7a96b0;
+}
+
+[data-theme="dark"] .car-history-highlight-icon-neutral {
+  background: rgba(30, 51, 72, 0.9);
+  color: #dbeafe;
+  border-color: rgba(96, 165, 250, 0.12);
+}
+
+[data-theme="dark"] .car-history-highlight-icon-info {
+  background: rgba(37, 99, 235, 0.2);
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+[data-theme="dark"] .car-history-highlight-icon-danger {
+  background: rgba(185, 28, 28, 0.22);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+[data-theme="dark"] .car-history-highlight-icon-success {
+  background: rgba(22, 163, 74, 0.2);
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.18);
+}
+
+[data-theme="dark"] .car-history-accident-metric strong.is-positive {
+  color: #4ade80;
 }
 
 [data-theme="dark"] .car-details-price-krw {

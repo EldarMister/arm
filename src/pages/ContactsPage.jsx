@@ -62,6 +62,8 @@ const PlayIcon = () => (
 )
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
+const PRIMARY_PHONE = '+82 10-5665-0943'
+const PRIMARY_PHONE_URL = 'tel:+821056650943'
 const SECONDARY_WHATSAPP_URL = 'https://wa.me/821065680943'
 const LOCAL_PHONE = '+996 779 574 444'
 const LOCAL_PHONE_URL = 'tel:+996779574444'
@@ -72,7 +74,7 @@ const CONTACT_CARDS = [
     icon: <WhatsAppIcon size={22} />,
     title: 'WhatsApp',
     desc: '\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043d\u043e\u043c\u0435\u0440 \u0432 \u041a\u043e\u0440\u0435\u0435',
-    value: '+82 10 5665-0943',
+    value: PRIMARY_PHONE,
     valueClass: 'cnt-val-teal',
     sub: '\u0411\u044b\u0441\u0442\u0440\u044b\u0439 \u043e\u0442\u0432\u0435\u0442 \u0432 WhatsApp',
     href: PRIMARY_WHATSAPP_URL,
@@ -134,7 +136,7 @@ const OFFICES = [
   {
     city: 'Бишкек',
     address: 'ул. Турусбекова 109/3, БЦ Максимум, офис 208',
-    phone: LOCAL_PHONE,
+    phone: PRIMARY_PHONE,
     email: CONTACT_EMAIL,
   },
   {
@@ -195,7 +197,7 @@ export default function ContactsPage() {
               >
                 <ChatIcon /> Написать в WhatsApp
               </a>
-              <a href={LOCAL_PHONE_URL} className="cnt-btn-outline">
+              <a href={PRIMARY_PHONE_URL} className="cnt-btn-outline">
                 <PhoneIcon /> Позвонить сейчас
               </a>
             </div>
@@ -249,7 +251,7 @@ export default function ContactsPage() {
                 </div>
                 <div className="cnt-office-row">
                   <span className="cnt-office-label">Телефон:</span>
-                  <a href={`tel:${o.phone.replace(/\s/g,'')}`} className="cnt-office-link">{o.phone}</a>
+                  <a href={`tel:${o.phone.replace(/[\s-]/g,'')}`} className="cnt-office-link">{o.phone}</a>
                 </div>
                 <div className="cnt-office-row">
                   <span className="cnt-office-label">Email:</span>

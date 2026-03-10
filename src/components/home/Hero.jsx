@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
+const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
 
 const CarIcon = () => (
   <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
@@ -71,7 +73,7 @@ const stats = [
     valueClass: 'stat-val-navy',
   },
   {
-    value: '7%',
+    value: `${VAT_REFUND_PERCENT}%`,
     label: 'возврат НДС',
     valueClass: 'stat-val-teal',
   },
@@ -120,13 +122,13 @@ export default function Hero() {
           <h1 className="hero-title">
             Автомобили из Кореи
             <br />
-            в Кыргызстан
+            в Кыргызстан и другие страны
             <br />
             Доставка 12-23 дня
           </h1>
 
           <p className="hero-sub">
-            Покупайте автомобили из Кореи напрямую без посредников. С площадки Encar возврат НДС. Подберём лучшие
+            Покупайте автомобили из Кореи напрямую без посредников. С площадки Encar возврат НДС {VAT_REFUND_PERCENT}% от стоимости авто. Подберём лучшие
             варианты под ваш бюджет. Выгодные цены для покупки и перепродажи.
           </p>
 

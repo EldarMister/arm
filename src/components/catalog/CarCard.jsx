@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getColorSwatch, normalizeKeyInfoLabel, normalizeTrimLabel } from '../../lib/vehicleDisplay'
+import { VAT_REFUND_RATE, getColorSwatch, normalizeKeyInfoLabel, normalizeTrimLabel } from '../../lib/vehicleDisplay'
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 
@@ -178,6 +178,7 @@ export default function CarCard({ car }) {
   const navigate = useNavigate()
   const [imgIdx, setImgIdx] = useState(0)
   const [failedUrls, setFailedUrls] = useState([])
+  const vatRefundPercent = Math.round(VAT_REFUND_RATE * 100)
 
   const images = useMemo(() => {
     const base = Array.isArray(car.images) ? car.images : []
@@ -388,7 +389,7 @@ export default function CarCard({ car }) {
               <span>${Number(car.storage || 0).toLocaleString()}</span>
             </div>
             <div className="car-price-row car-price-vat">
-              <span>Возврат НДС 7%:</span>
+              <span>{`Возврат НДС ${vatRefundPercent}%:`}</span>
               <span>-${Number(car.vatRefund || 0).toLocaleString()}</span>
             </div>
           </div>

@@ -1,3 +1,7 @@
+import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
+
+const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
+
 const ShieldIcon = () => (
   <svg width="24" height="24" fill="none" stroke="#64748b" viewBox="0 0 24 24">
     <path
@@ -78,8 +82,8 @@ const advantages = [
   },
   {
     icon: <PercentIcon />,
-    title: 'Возврат НДС 7%',
-    desc: <>При экспорте автомобиля из Кореи вы получаете возврат 7% НДС от стоимости автомобиля.</>,
+    title: `Возврат НДС ${VAT_REFUND_PERCENT}%`,
+    desc: <>При экспорте автомобиля из Кореи вы получаете возврат {VAT_REFUND_PERCENT}% НДС от стоимости автомобиля.</>,
   },
   {
     icon: <MoneyIcon />,

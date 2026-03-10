@@ -1,8 +1,10 @@
 import logoImg from '../../assets/logo.png'
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
+const PRIMARY_PHONE_LABEL = '+82 10-5665-0943'
 const SECONDARY_WHATSAPP_URL = 'https://wa.me/821065680943'
 const LOCAL_PHONE_URL = 'tel:+996779574444'
+const PRIMARY_PHONE_URL = 'tel:+821056650943'
 const CONTACT_EMAIL = 'avt.shoring@gmail.com'
 
 const PhoneIcon = () => (
@@ -86,7 +88,7 @@ export default function Footer() {
               <li>
                 <a href={PRIMARY_WHATSAPP_URL} target="_blank" rel="noreferrer" className="footer-link">
                   <span className="footer-link-icon green"><WhatsAppIcon /></span>
-                  +82 10 5665-0943
+                  {PRIMARY_PHONE_LABEL}
                 </a>
               </li>
               <li>
@@ -189,7 +191,7 @@ export default function Footer() {
               </div>
               <h3 className="footer-col-title" style={{ marginTop: '12px' }}>О нас</h3>
               <p className="footer-about-text">
-                AVT — Auto V Korea. Доставка автомобилей из Кореи в Кыргызстан под ключ. Качественное обслуживание и прозрачные цены.
+                AVT — Auto V Korea. Доставка автомобилей из Кореи в Кыргызстан под ключ и в другие страны. Качественное обслуживание и прозрачные цены.
               </p>
             </div>
           </div>
@@ -201,9 +203,9 @@ export default function Footer() {
       <div className="footer-bottom">
         <div className="footer-bottom-inner">
           <span className="footer-copy">© 2025 AVT Auto V Korea. Все права защищены.</span>
-          <a href={LOCAL_PHONE_URL} className="footer-phone-link">
+          <a href={PRIMARY_PHONE_URL} className="footer-phone-link">
             <ChatIcon />
-            +996 779 574 444
+            {PRIMARY_PHONE_LABEL}
           </a>
         </div>
       </div>

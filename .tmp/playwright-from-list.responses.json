@@ -1,0 +1,222 @@
+[
+  {
+    "status": 200,
+    "url": "https://www.encar.com/dc/dc_carcompensatelist.do?carType=for",
+    "contentType": "text/html;charset=EUC-KR"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/images/dc/visual_compensated.png?250526",
+    "contentType": "image/png"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/banner.do?method=banner&pageid=fc_carcompensated_l01",
+    "contentType": "text/html;charset=EUC-KR"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/banner.do?method=banner2&company=&model=&clsheadcd=&categorycd=&carType=for&pageid=fc_carcompensated_l01&make=&modelGroup=",
+    "contentType": "text/html;charset=EUC-KR"
+  },
+  {
+    "status": 200,
+    "url": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/940324643/?random=1773147324220&cv=9&fst=1773147324220&num=1&guid=ON&resp=GooglemKTybQhCsO&eid=376635471%2C375603261%2C466465926%2C512247839%2C658953496&u_h=720&u_w=1280&ig=1&frm=0&url=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&tiba=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&rfmt=3&fmt=4",
+    "contentType": "text/javascript; charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/js/encarapp/app/dc/fc_carcompensated_l01.js?v=1773098416002",
+    "contentType": "application/javascript"
+  },
+  {
+    "status": 200,
+    "url": "https://www.google.com/pagead/1p-user-list/940324643/?random=1773147324220&cv=9&fst=1773144000000&num=1&guid=ON&resp=GooglemKTybQhCsO&eid=376635471%2C375603261%2C466465926%2C512247839%2C658953496&u_h=720&u_w=1280&ig=1&frm=0&url=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&tiba=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&rfmt=3&fmt=3&is_vtc=1&cid=CAQSvwEA56J1efB8fiEqySMrpeWHRVHGeyelllLDzDjfDUIV6TeEKpj2HeWdaCAF7Sy_nDHe56_qZcmlJIMD5x_vmn7N-JXurdGOM0NRvB_fDI84IYohs3m7VybY6th6hEUjWTn4PZgBMyTgYJoqR1_KbCwaDEyMjNFbNcX9KDFmAiwsHeSnbakGxwh_7U2CInCu6Szby70DHjYlDRRDURJ3ywVC1T7xxlpiCGCUHOUkPJOdgbJRVPdsziIAjNGDBFSgwQ&random=1591275281&resp=GooglemKTybQhCsO&rmt_tld=0&ipr=y",
+    "contentType": "image/gif"
+  },
+  {
+    "status": 200,
+    "url": "https://www.google.kg/pagead/1p-user-list/940324643/?random=1773147324220&cv=9&fst=1773144000000&num=1&guid=ON&resp=GooglemKTybQhCsO&eid=376635471%2C375603261%2C466465926%2C512247839%2C658953496&u_h=720&u_w=1280&ig=1&frm=0&url=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&tiba=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&rfmt=3&fmt=3&is_vtc=1&cid=CAQSvwEA56J1efB8fiEqySMrpeWHRVHGeyelllLDzDjfDUIV6TeEKpj2HeWdaCAF7Sy_nDHe56_qZcmlJIMD5x_vmn7N-JXurdGOM0NRvB_fDI84IYohs3m7VybY6th6hEUjWTn4PZgBMyTgYJoqR1_KbCwaDEyMjNFbNcX9KDFmAiwsHeSnbakGxwh_7U2CInCu6Szby70DHjYlDRRDURJ3ywVC1T7xxlpiCGCUHOUkPJOdgbJRVPdsziIAjNGDBFSgwQ&random=1591275281&resp=GooglemKTybQhCsO&rmt_tld=1&ipr=y",
+    "contentType": "image/gif"
+  },
+  {
+    "status": 200,
+    "url": "https://www.google-analytics.com/j/collect?v=1&_v=j102&a=1504468655&t=pageview&_s=1&dl=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&ul=ko-kr&dt=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&sr=1280x720&vp=1280x720&_u=YEBAAAABAAAAAC~&jid=1428409490&gjid=1559980980&cid=1788763939.1773147328&tid=UA-56065139-3&_gid=725254155.1773147328&_r=1&_slc=1&gtm=45He6361n71W9QQ2Tv6915879za200zd6915879&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115616985~115938465~115938468~116024733~117484252~117625640&z=904712201",
+    "contentType": "text/plain"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/js/encarapp/model/carsearch/carsearch.application.car.fc.compensate.js?v=1773098416002",
+    "contentType": "application/javascript"
+  },
+  {
+    "status": 200,
+    "url": "https://automotive.encar.com/RealMedia/ads/adstream_sx.ads/www.encar.com/fc_carcompensated_list@Right?company=&modelGroup=&price=PM0&nearnew=",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 204,
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-WY0RWR65ED&gtm=45je6361h1v9126308069za20g&_p=1773147324216&gcd=13l3l3l3l2l1&npa=0&dma=0&ul=ko-kr&sr=1280x720&cid=1788763939.1773147328&ir=1&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EBAI&_s=1&tag_exp=103116026~103200004~115938465~115938469~116024733~117484252&dl=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&dt=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&sid=1773147329&sct=1&seg=0&_tu=wAQ&en=page_view&_fv=1&_ss=1&_ee=1&tfd=9463",
+    "contentType": "text/plain"
+  },
+  {
+    "status": 200,
+    "url": "https://www.encar.com/js/encarapp/model/search/search.main.car.fc.compensate.js?v=1773098416002",
+    "contentType": "application/javascript"
+  },
+  {
+    "status": 200,
+    "url": "https://nethru.encar.com/wlo/Logging?dv=1141995333|ver=1.0.0|sid=www.encar.com|r=https://www.encar.com/dc/dc_carcompensatelist.do?carType=for|rf=|c=PCID=17731473274830469983483;%20n_ss=1280x720;%20n_cs=ko-kr;%20|a=Mozilla/5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20HeadlessChrome/145.0.7632.6%20Safari/537.36",
+    "contentType": "text/html; charset=utf-8"
+  },
+  {
+    "status": 204,
+    "url": "https://bc.ad.daum.net/bc?d=%7B%22track_id%22%3A%226315438720142102521%22%2C%22event_code%22%3A%22PageView%22%2C%22params%22%3A%7B%7D%2C%22props%22%3A%7B%22lmt%22%3A%22N%22%7D%2C%22site%22%3A%7B%22identifier%22%3A%22www.encar.com%22%7D%2C%22sdk%22%3A%7B%22type%22%3A%22WEB%22%2C%22version%22%3A%221.6.4%22%2C%22tpc%22%3A%22Y%22%7D%2C%22page%22%3A%7B%22url%22%3A%22https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor%22%2C%22is_frame_env%22%3Afalse%7D%2C%22device%22%3A%7B%22dnt%22%3A%22N%22%2C%22device_type%22%3A%22pc%22%2C%22is_mobile%22%3A%22N%22%2C%22browser%22%3A%22HeadlessChrome%22%2C%22browser_version%22%3A%22145.0.7632.6%22%2C%22os%22%3A%22Windows%22%2C%22os_version%22%3A%2215.0.0%22%7D%7D",
+    "contentType": ""
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/search/car/list/premium?count=true&q=(And.Hidden.N._.CarType.N._.Service.Compensate.)&sr=%7CModifiedDate%7C0%7C12",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/search/car/list/premium?count=true&q=(And.Hidden.N._.CarType.N._.Service.Compensate.)&inav=%7CMetadata%7CSort",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/search/car/list/premium?count=true&q=(And.(And.Hidden.N._.CarType.N._.Service.Compensate.)_.(Or.ServiceMark.EncarDiagnosisP0._.ServiceMark.EncarDiagnosisP1._.ServiceMark.EncarDiagnosisP2.))&sr=%7CModifiedDate%7C0%7C4",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://nethru.encar.com/wlo/Logging?dv=1207506921|ver=1.0.0|sid=www.encar.com|r=https://www.encar.com/dc/dc_carcompensatelist.do?carType=for%23!|rf=|c=PCID=17731473274830469983483;%20n_ss=1280x720;%20n_cs=ko-kr;%20|a=Mozilla/5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20HeadlessChrome/145.0.7632.6%20Safari/537.36",
+    "contentType": "text/html; charset=utf-8"
+  },
+  {
+    "status": 204,
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-WY0RWR65ED&gtm=45je6361h1v9126308069za20g&_p=1773147324216&gcd=13l3l3l3l2l1&npa=0&dma=0&ul=ko-kr&sr=1280x720&cid=1788763939.1773147328&ir=1&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EBAIAAQ&_s=2&tag_exp=103116026~103200004~115938465~115938469~116024733~117484252&dl=https%3A%2F%2Fwww.encar.com%2Fdc%2Fdc_carcompensatelist.do%3FcarType%3Dfor&dt=%ED%97%9B%EA%B1%B8%EC%9D%8C%20%EB%B3%B4%EC%83%81%EC%B0%A8%EB%9F%89%20%7C%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&sid=1773147329&sct=1&seg=1&_tu=wAQ&en=page_view&_ee=1&_et=5762&tfd=20240",
+    "contentType": "text/plain"
+  },
+  {
+    "status": 302,
+    "url": "https://www.encar.com/dc/dc_cardetailview.do?pageid=dc_carcompensated_l01&listAdvType=compensate&carid=41396660&view_type=normal&adv_attribute=&wtClick_forList=019",
+    "contentType": ""
+  },
+  {
+    "status": 200,
+    "url": "https://fem.encar.com/cars/detail/41396660?pageid=dc_carcompensated_l01&listAdvType=compensate&carid=41396660&view_type=normal&adv_attribute=&wtClick_forList=019",
+    "contentType": "text/html; charset=utf-8"
+  },
+  {
+    "status": 200,
+    "url": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/699743361/?random=1773147361085&cv=11&fst=1773147361085&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be6361v886382843z8838732028za20gzb838732028zd838732028xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252~117625637&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&data=event%3Dgtag.config&rfmt=3&fmt=4",
+    "contentType": "text/javascript; charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://www.googleadservices.com/pagead/conversion/AW-699743361/?random=1773147361842&cv=11&fst=1773147361842&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6361z8838732028za20gzb838732028zd838732028xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&label=oijUCLfHy7EBEIH51M0C&capi=1&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&bttype=purchase&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&_tu=CA&gcl_ctr=1~0~0&category=acrcp_v1_512&fmt=7",
+    "contentType": "application/json; charset=UTF-8"
+  },
+  {
+    "status": 302,
+    "url": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/AW-699743361/?random=219186524&cv=11&fst=1773147361842&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6361z8838732028za20gzb838732028zd838732028xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&label=oijUCLfHy7EBEIH51M0C&capi=1&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&_tu=CA&gcl_ctr=1~0~0&category=acrcp_v1_512&fmt=8&ct_cookie_present=false&crd=CLTesQII8t-xAgihuLECCLHBsQIIsMGxAgixw7ECCIrFsQIIwsmxAgi0xrECCJPasQII29yxAgiH27ECCNPFsQII68yxAgjtzrECCNXPsQII9NqxAgiX1LECCMnbsQIIseGxAgiv3rECSitub3QtZXZlbnQtc291cmNlLCB0cmlnZ2VyPW5hdmlnYXRpb24tc291cmNlWgMKAQFiAwoBAw&cerd=CgEA&eitems=ChAI8IK_zQYQ2NeH9_-QveE9Eh0ANEZ7Z3y_lTWS3WNd_OW__XygpQyDosCJM8hYUQ&fsk=ChEI8IK_zQYQnNKus_eH-JmQARIsAN-6wDNQWHLqrCoVsJ1GcNHEZRaFFlpFZcM8FArfzNL8_7_Mh3lUJdNP5ewaAkvb&pscrd=IhMIz7W417CVkwMVs0j2CB0mlA4pMgwIA2IICAAQABgAIAAyDAgEYggIABAAGAAgADIMCAdiCAgAEAAYACAAMgwICGIICAAQABgAIAAyDAgJYggIABAAGAAgADIMCApiCAgAEAAYACAAMgwIAmIICAAQABgAIAAyDAgLYggIABAAGAAgADIMCBViCAgAEAAYACAAMgwIH2IICAAQABgAIAAyDAgTYggIABAAGAAgADIMCBJiCAgAEAAYACAAOhZodHRwczovL2ZlbS5lbmNhci5jb20vQldDaEVJOElLX3pRWVFoNWpZd3UzMGw1cmZBUklzQUdielJfRXhUMmZ0QkkzTjhvQmtjUFVvQ29XNER0dHJna2hUdGh5X2JTazF4Z2d1N2Q2RDBjXzVydnN6DAgJYggIABAAGAAgAA",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 302,
+    "url": "https://www.google.com/pagead/1p-conversion/AW-699743361/?random=219186524&cv=11&fst=1773147361842&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6361z8838732028za20gzb838732028zd838732028xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&label=oijUCLfHy7EBEIH51M0C&capi=1&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&_tu=CA&gcl_ctr=1~0~0&category=acrcp_v1_512&fmt=8&ct_cookie_present=false&crd=CLTesQII8t-xAgihuLECCLHBsQIIsMGxAgixw7ECCIrFsQIIwsmxAgi0xrECCJPasQII29yxAgiH27ECCNPFsQII68yxAgjtzrECCNXPsQII9NqxAgiX1LECCMnbsQIIseGxAgiv3rECSitub3QtZXZlbnQtc291cmNlLCB0cmlnZ2VyPW5hdmlnYXRpb24tc291cmNlWgMKAQFiAwoBAw&cerd=CgEA&fsk=ChEI8IK_zQYQnNKus_eH-JmQARIsAN-6wDNQWHLqrCoVsJ1GcNHEZRaFFlpFZcM8FArfzNL8_7_Mh3lUJdNP5ewaAkvb&pscrd=IhMIz7W417CVkwMVs0j2CB0mlA4pMgwIA2IICAAQABgAIAAyDAgEYggIABAAGAAgADIMCAdiCAgAEAAYACAAMgwICGIICAAQABgAIAAyDAgJYggIABAAGAAgADIMCApiCAgAEAAYACAAMgwIAmIICAAQABgAIAAyDAgLYggIABAAGAAgADIMCBViCAgAEAAYACAAMgwIH2IICAAQABgAIAAyDAgTYggIABAAGAAgADIMCBJiCAgAEAAYACAAOhZodHRwczovL2ZlbS5lbmNhci5jb20vQldDaEVJOElLX3pRWVFoNWpZd3UzMGw1cmZBUklzQUdielJfRXhUMmZ0QkkzTjhvQmtjUFVvQ29XNER0dHJna2hUdGh5X2JTazF4Z2d1N2Q2RDBjXzVydnN6DAgJYggIABAAGAAgAA&is_vtc=1&cid=CAQSvwEA56J1eUQ-i_6cGd8nAHETXLVzhGdCw3d9dPEfQGYlT-z1gLTM3PIuOgKRwoL6KUHjZOX5INGgQc4NPAfREc0qI9PViCnKtOqPiKdTye9reQCjao03O7CbVBZXKZNWd80mvjOcb0oAoO9vfrdEyrGCZFw7o6sRZNItZ0C-3Pz1cSWH9G017e1uw0GLg9gcijlOjCK9GncoGAJEwu8SBEK-BvfQ5dN9pciIndmDhloSnExkEsq02hJYVlL0VmoRgg&eitems=ChAI8IK_zQYQ2NeH9_-QveE9Eh0ANEZ7Z37ReBa6me6dPvUe9SgwjBJSslXJf8Z9WA&random=2468691058",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://www.google.kg/pagead/1p-conversion/AW-699743361/?random=219186524&cv=11&fst=1773147361842&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6361z8838732028za20gzb838732028zd838732028xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&label=oijUCLfHy7EBEIH51M0C&capi=1&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&_tu=CA&gcl_ctr=1~0~0&category=acrcp_v1_512&fmt=8&ct_cookie_present=false&crd=CLTesQII8t-xAgihuLECCLHBsQIIsMGxAgixw7ECCIrFsQIIwsmxAgi0xrECCJPasQII29yxAgiH27ECCNPFsQII68yxAgjtzrECCNXPsQII9NqxAgiX1LECCMnbsQIIseGxAgiv3rECSitub3QtZXZlbnQtc291cmNlLCB0cmlnZ2VyPW5hdmlnYXRpb24tc291cmNlWgMKAQFiAwoBAw&cerd=CgEA&fsk=ChEI8IK_zQYQnNKus_eH-JmQARIsAN-6wDNQWHLqrCoVsJ1GcNHEZRaFFlpFZcM8FArfzNL8_7_Mh3lUJdNP5ewaAkvb&is_vtc=1&cid=CAQSvwEA56J1eUQ-i_6cGd8nAHETXLVzhGdCw3d9dPEfQGYlT-z1gLTM3PIuOgKRwoL6KUHjZOX5INGgQc4NPAfREc0qI9PViCnKtOqPiKdTye9reQCjao03O7CbVBZXKZNWd80mvjOcb0oAoO9vfrdEyrGCZFw7o6sRZNItZ0C-3Pz1cSWH9G017e1uw0GLg9gcijlOjCK9GncoGAJEwu8SBEK-BvfQ5dN9pciIndmDhloSnExkEsq02hJYVlL0VmoRgg&eitems=ChAI8IK_zQYQ2NeH9_-QveE9Eh0ANEZ7Z37ReBa6me6dPvUe9SgwjBJSslXJf8Z9WA&random=2468691058&ipr=y&pscrd=IhMIz7W417CVkwMVs0j2CB0mlA4pMgwIA2IICAAQABgAIAAyDAgEYggIABAAGAAgADIMCAdiCAgAEAAYACAAMgwICGIICAAQABgAIAAyDAgJYggIABAAGAAgADIMCApiCAgAEAAYACAAMgwIAmIICAAQABgAIAAyDAgLYggIABAAGAAgADIMCBViCAgAEAAYACAAMgwIH2IICAAQABgAIAAyDAgTYggIABAAGAAgADIMCBJiCAgAEAAYACAAOhZodHRwczovL2ZlbS5lbmNhci5jb20vQldDaEVJOElLX3pRWVFoNWpZd3UzMGw1cmZBUklzQUdielJfRXhUMmZ0QkkzTjhvQmtjUFVvQ29XNER0dHJna2hUdGh5X2JTazF4Z2d1N2Q2RDBjXzVydnN6DAgJYggIABAAGAAgAIIBBXABiAEB",
+    "contentType": ""
+  },
+  {
+    "status": 200,
+    "url": "https://www.google.com/pagead/1p-user-list/699743361/?random=1773147361085&cv=11&fst=1773144000000&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be6361v886382843z8838732028za20gzb838732028zd838732028xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252~117625637&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&data=event%3Dgtag.config&rfmt=3&fmt=3&is_vtc=1&cid=CAQSvwEA56J1eQ8QO7wiuNRKACU4rrwxt8WjaiMtKdudBDeNsplFO0jkYVUKFsBb5PoVESLNC0mfKPxqN8R1rLVw6lsqCyKLJf2LBOjIn8CkledzTIAl25sSUtuqV6t29ExMthajiQO-VDrMtEEkylykuoXzI_oa6ul0fuJWecb8x9EwiZ56oXb-wNep_BL8MIL90rBkPZEc8lFxzrixPBD35TyYkhT2Fv55C0Dj748pvX0U1lDdhBGKbVj3rbPTjEfEow&random=2833331972&rmt_tld=0&ipr=y",
+    "contentType": "image/gif"
+  },
+  {
+    "status": 200,
+    "url": "https://www.google.kg/pagead/1p-user-list/699743361/?random=1773147361085&cv=11&fst=1773144000000&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be6361v886382843z8838732028za20gzb838732028zd838732028xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~115938465~115938468~116024733~117484252~117625637&u_w=1280&u_h=720&url=https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019&frm=0&tiba=V40%20D2%202%EC%84%B8%EB%8C%80%20%EA%B2%BD%EA%B8%B0%20%EC%A4%91%EA%B3%A0%EC%B0%A8%20%3A%20%EB%82%B4%EC%B0%A8%ED%8C%94%EA%B8%B0%C2%B7%EB%82%B4%EC%B0%A8%EC%82%AC%EA%B8%B0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1742004.1773147361&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CHeadlessChrome%3B145.0.7632.6%7CChromium%3B145.0.7632.6&uamb=0&uam=&uap=Windows&uapv=15.0.0&uaw=0&data=event%3Dgtag.config&rfmt=3&fmt=3&is_vtc=1&cid=CAQSvwEA56J1eQ8QO7wiuNRKACU4rrwxt8WjaiMtKdudBDeNsplFO0jkYVUKFsBb5PoVESLNC0mfKPxqN8R1rLVw6lsqCyKLJf2LBOjIn8CkledzTIAl25sSUtuqV6t29ExMthajiQO-VDrMtEEkylykuoXzI_oa6ul0fuJWecb8x9EwiZ56oXb-wNep_BL8MIL90rBkPZEc8lFxzrixPBD35TyYkhT2Fv55C0Dj748pvX0U1lDdhBGKbVj3rbPTjEfEow&random=2833331972&rmt_tld=1&ipr=y",
+    "contentType": "image/gif"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/readside/clean-encar/vehicle/41396660",
+    "contentType": "application/json;charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/readside/inspection/vehicle/41396660",
+    "contentType": "application/json;charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/readside/user/ysw0916",
+    "contentType": "application/json;charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/vehicle/resume/valid?vehicleNo=46%EC%98%A48577",
+    "contentType": "application/json;charset=UTF-8"
+  },
+  {
+    "status": 201,
+    "url": "https://api.encar.com/legacy/usedcar/sale/car/viewcount/41396660",
+    "contentType": ""
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/readside/nonstandard/indicator/advertisement",
+    "contentType": ""
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/international/communication/validate-request-ip",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://automotive.encar.com/RealMedia/ads/adstream_sx.ads/encar.com/dc_detail@x67?city=002&company=detail_Volvo&detail_ca_Med=checked&fuel_detail=002&mileage=section6&modelGroup=detail_Volvo_V40&pageid=dc&price=PM500&salesmethod=general&seller=dealer&service=Compensate&year=2014",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/v1/readside/record/vehicle/41396660/open?vehicleNo=46%EC%98%A48577",
+    "contentType": "application/json;charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/ab/v1/tester/bucketing",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://api.encar.com/ab/v1/tester/bucketing",
+    "contentType": "application/json"
+  },
+  {
+    "status": 200,
+    "url": "https://automotive.encar.com/RealMedia/ads/adstream_sx.ads/encar.com/dc_detail@Bottom?city=002&company=detail_Volvo&detail_ca_Med=checked&fuel_detail=002&mileage=section6&modelGroup=detail_Volvo_V40&pageid=dc&price=PM500&salesmethod=general&seller=dealer&service=Compensate&year=2014&adconnection=",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 200,
+    "url": "https://automotive.encar.com/RealMedia/ads/adstream_sx.ads/encar.com/dc_detail@Right?city=002&company=detail_Volvo&detail_ca_Med=checked&fuel_detail=002&mileage=section6&modelGroup=detail_Volvo_V40&pageid=dc&price=PM500&salesmethod=general&seller=dealer&service=Compensate&year=2014&adconnection=",
+    "contentType": "text/html; charset=UTF-8"
+  },
+  {
+    "status": 204,
+    "url": "https://bc.ad.daum.net/bc?d=%7B%22track_id%22%3A%226315438720142102521%22%2C%22event_code%22%3A%22PageView%22%2C%22params%22%3A%7B%7D%2C%22props%22%3A%7B%22lmt%22%3A%22N%22%7D%2C%22site%22%3A%7B%22identifier%22%3A%22fem.encar.com%22%7D%2C%22sdk%22%3A%7B%22type%22%3A%22WEB%22%2C%22version%22%3A%221.6.4%22%2C%22tpc%22%3A%22Y%22%7D%2C%22page%22%3A%7B%22url%22%3A%22https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019%22%2C%22is_frame_env%22%3Afalse%7D%2C%22device%22%3A%7B%22dnt%22%3A%22N%22%2C%22device_type%22%3A%22pc%22%2C%22is_mobile%22%3A%22N%22%2C%22browser%22%3A%22HeadlessChrome%22%2C%22browser_version%22%3A%22145.0.7632.6%22%2C%22os%22%3A%22Windows%22%2C%22os_version%22%3A%2215.0.0%22%7D%7D",
+    "contentType": ""
+  },
+  {
+    "status": 204,
+    "url": "https://bc.ad.daum.net/bc?d=%7B%22track_id%22%3A%226315438720142102521%22%2C%22event_code%22%3A%22PageView%22%2C%22params%22%3A%7B%22tag%22%3A%22car_detail%22%7D%2C%22props%22%3A%7B%22lmt%22%3A%22N%22%7D%2C%22site%22%3A%7B%22identifier%22%3A%22fem.encar.com%22%7D%2C%22sdk%22%3A%7B%22type%22%3A%22WEB%22%2C%22version%22%3A%221.6.4%22%2C%22tpc%22%3A%22Y%22%7D%2C%22page%22%3A%7B%22url%22%3A%22https%3A%2F%2Ffem.encar.com%2Fcars%2Fdetail%2F41396660%3Fpageid%3Ddc_carcompensated_l01%26listAdvType%3Dcompensate%26carid%3D41396660%26view_type%3Dnormal%26adv_attribute%3D%26wtClick_forList%3D019%22%2C%22is_frame_env%22%3Afalse%7D%2C%22device%22%3A%7B%22dnt%22%3A%22N%22%2C%22device_type%22%3A%22pc%22%2C%22is_mobile%22%3A%22N%22%2C%22browser%22%3A%22HeadlessChrome%22%2C%22browser_version%22%3A%22145.0.7632.6%22%2C%22os%22%3A%22Windows%22%2C%22os_version%22%3A%2215.0.0%22%7D%7D",
+    "contentType": ""
+  }
+]

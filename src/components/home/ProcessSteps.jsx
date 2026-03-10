@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom'
+import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
+
+const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
 
 const SearchIcon = () => (
   <svg width="22" height="22" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
@@ -84,11 +87,11 @@ const steps = [
     icon: <DollarIcon />,
     badge: 'После отправки',
     badgeType: 'orange',
-    title: 'Возврат НДС 7%',
-    desc: 'При экспорте автомобиля из Кореи вы получаете возврат 7% НДС.',
+    title: `Возврат НДС ${VAT_REFUND_PERCENT}%`,
+    desc: `При экспорте автомобиля из Кореи вы получаете возврат ${VAT_REFUND_PERCENT}% НДС от стоимости авто.`,
     items: [
       'Оформление возврата НДС',
-      'Получение 7% НДС',
+      `Получение ${VAT_REFUND_PERCENT}% НДС`,
       'Экономия на покупке',
     ],
   },

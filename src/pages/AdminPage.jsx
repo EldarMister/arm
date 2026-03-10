@@ -509,7 +509,7 @@ function PriceEditor({ car, onSave, onClose, pricingSettings }) {
 /* ── Calculator ── */
 function Calculator({ pricingSettings }) {
     const settings = pricingSettings?.delivery_profiles ? pricingSettings : PRICING_FALLBACK
-    const [v, setV] = useState({ krw: 28000000, rate: 0.00073, delivery_profile_code: settings.delivery_profiles[0]?.code || '', comm: settings.commission, delivery: settings.delivery_profiles[0]?.price ?? settings.default_delivery, loading: settings.loading, unloading: settings.unloading, storage: settings.storage, vat_pct: 6.3 })
+    const [v, setV] = useState({ krw: 28000000, rate: 0.00073, delivery_profile_code: settings.delivery_profiles[0]?.code || '', comm: settings.commission, delivery: settings.delivery_profiles[0]?.price ?? settings.default_delivery, loading: settings.loading, unloading: settings.unloading, storage: settings.storage, vat_pct: 6 })
     useEffect(() => {
         const firstProfile = settings.delivery_profiles[0] || null
         setV(prev => ({
