@@ -239,6 +239,10 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function normalizeText(value) {
+  return cleanText(value)
+}
+
 function normalizeRomanizedColorAlias(value) {
   const low = cleanText(value).toLowerCase()
   if (!low) return ''
@@ -553,6 +557,7 @@ export function getColorSwatch(value) {
   const text = normalizeColorLabel(value).toLowerCase()
   const twoToneBase = text.match(/^(.+?)\s+двухцветный$/i)?.[1]
   if (twoToneBase) return getColorSwatch(twoToneBase)
+  if (/\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(text)) return '#94a3b8'
   if (/\u0440\u043e\u0437\u043e\u0432/i.test(text)) return '#f472b6'
   if (/\u0431\u0438\u0440\u044e\u0437/i.test(text)) return '#14b8a6'
   if (/\u043d\u0435\u0431\u0435\u0441\u043d\u043e-\u0433\u043e\u043b\u0443\u0431/i.test(text)) return '#60a5fa'
@@ -560,7 +565,9 @@ export function getColorSwatch(value) {
   if (/\u0441\u0432\u0435\u0442\u043b\u043e-\u0437\u0435\u043b\u0435\u043d/i.test(text)) return '#86efac'
   if (/\u0437\u043e\u043b\u043e\u0442/i.test(text)) return '#d4a72c'
   if (/\u0436\u0435\u043c\u0447\u0443\u0436|pearl/i.test(text)) return '#e7eaef'
+  if (/\u043a\u0440\u0435\u043c|cream/i.test(text)) return '#efe4cf'
   if (/\u0430\u0439\u0432\u043e\u0440\u0438|ivory/i.test(text)) return '#f3ead8'
+  if (/\u0440\u044b\u0436|\u043a\u0430\u0440\u0430\u043c\u0435\u043b|camel|cognac|tan/i.test(text)) return '#b7793e'
   if (/\u0432\u0438\u043d\u043d|wine/i.test(text)) return '#7f1d1d'
   if (text.includes('серебристо-зелен')) return '#a8b7a1'
   if (text.includes('черн')) return '#101010'

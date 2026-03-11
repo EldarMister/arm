@@ -1087,10 +1087,10 @@ function normalizeDriveLabel(value) {
   if (!text) return ''
   const low = text.toLowerCase()
 
-  if (/(?:all[-\s]*wheel|allrad|4matic|xdrive|quattro|4motion|syncro|awd)/i.test(low)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (AWD)'
-  if (/(?:4wd|4x4|e-?4wd)/i.test(low)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (4WD)'
-  if (/(?:rear[-\s]*wheel)/i.test(low) || /\b(?:fr|rwd)\b/i.test(low) || low.includes('\u0437\u0430\u0434\u043d')) return '\u0417\u0430\u0434\u043d\u0438\u0439 (RWD)'
-  if (/(?:front[-\s]*wheel)/i.test(low) || /\b(?:ff|fwd|2wd)\b/i.test(low) || low.includes('\u043f\u0435\u0440\u0435\u0434\u043d')) return '\u041f\u0435\u0440\u0435\u0434\u043d\u0438\u0439 (FWD)'
+  if (/(?:all[-\s]*wheel|allrad|4matic\+?|xdrive|quattro|4motion|syncro|sh-awd|e-awd|e[-\s]*four|htrac|awd)/i.test(low)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (AWD)'
+  if (/(?:4wd|4x4|e-?4wd|4wd\s*system)/i.test(low)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (4WD)'
+  if (/(?:rear[-\s]*wheel(?:\s*drive)?)/i.test(low) || /\b(?:fr|rwd)\b/i.test(low) || low.includes('\u0437\u0430\u0434\u043d')) return '\u0417\u0430\u0434\u043d\u0438\u0439 (RWD)'
+  if (/(?:front[-\s]*wheel(?:\s*drive)?)/i.test(low) || /\b(?:ff|fwd)\b/i.test(low) || low.includes('\u043f\u0435\u0440\u0435\u0434\u043d')) return '\u041f\u0435\u0440\u0435\u0434\u043d\u0438\u0439 (FWD)'
 
   return ''
 }

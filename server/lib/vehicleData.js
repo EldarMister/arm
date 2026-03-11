@@ -129,22 +129,60 @@ const SUSPICIOUS_DUPLICATE_INTERIOR_COLORS = new Set([
   'Графитовый',
 ])
 
-const INTERIOR_COLOR_TEXT_MARKERS = '(?:\\uC2DC\\uD2B8|\\uB0B4\\uC7A5(?:\\s*\\uC0AC\\uC591)?|\\uC2E4\\uB0B4(?:\\s*\\uC0C9\\uC0C1|\\s*\\uCEEC\\uB7EC)?|\\uC778\\uD14C\\uB9AC\\uC5B4|seat(?:\\s*(?:color|trim))?|interior(?:\\s*color)?|upholstery|trim(?:\\s*color)?|siteu(?:\\s*(?:color|trim))?|silnae(?:\\s*(?:saeksang|keolreo))?|naejang(?:\\s*sayang)?|inteorieo|upeolseuteori)'
-const INTERIOR_COLOR_CONTEXT_MARKERS = `(?:${INTERIOR_COLOR_TEXT_MARKERS}|\\uAC00\\uC8FD|\\uBAA8\\uB178\\uD1A4|\\uD22C\\uD1A4|leather|monotone|two[-\\s]*tone)`
-const INTERIOR_COLOR_LABEL_RE = /(?:\uB0B4\uC7A5(?:\s*\uC0AC\uC591|\s*\uC0C9\uC0C1)?|\uC2E4\uB0B4(?:\s*\uC0C9\uC0C1|\s*\uCEEC\uB7EC)?|\uC2DC\uD2B8(?:\s*\uC0C9\uC0C1|\s*\uCEEC\uB7EC)?|interior(?:\s*color)?|seat(?:\s*(?:color|trim))?|trim\s*color|upholstery)/i
-const INTERIOR_COLOR_REJECT_RE = /(?:body\s*color|\uC678\uC7A5|\uC678\uC7A5\s*\uC0C9\uC0C1|\uCC28\uCCB4\s*\uC0C9\uC0C1)/i
+const INTERIOR_COLOR_TEXT_MARKERS = '(?:\\uC2DC\\uD2B8|\\uB0B4\\uC7A5(?:\\s*\\uC0AC\\uC591)?|\\uC2E4\\uB0B4(?:\\s*\\uC0C9\\uC0C1|\\s*\\uCEEC\\uB7EC)?|\\uC778\\uD14C\\uB9AC\\uC5B4|seat(?:s)?(?:\\s*(?:color|trim))?|interior(?:\\s*color)?|upholstery|trim(?:\\s*color)?|seat\\s*cover|dashboard|door\\s*trim|headliner|siteu(?:\\s*(?:color|trim))?|silnae(?:\\s*(?:saeksang|keolreo))?|naejang(?:\\s*sayang)?|inteorieo|upeolseuteori)'
+const INTERIOR_COLOR_CONTEXT_MARKERS = `(?:${INTERIOR_COLOR_TEXT_MARKERS}|\\uAC00\\uC8FD|\\uB098\\uD30C|\\uBAA8\\uB178\\uD1A4|\\uD22C\\uD1A4|\\uCEE8\\uD2B8\\uB77C\\uC2A4\\uD2B8|leather|nappa|alcantara|suede|monotone|two[-\\s]*tone|bi[-\\s]*tone|dual[-\\s]*tone|contrast|cabin|cockpit)`
+const INTERIOR_COLOR_EXPLICIT_LABEL_MARKERS = '(?:\\uB0B4\\uC7A5(?:\\s*\\uC0C9\\uC0C1|\\s*\\uC0AC\\uC591)?|\\uC2E4\\uB0B4(?:\\s*\\uC0C9\\uC0C1|\\s*\\uCEEC\\uB7EC)?|\\uC2DC\\uD2B8\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC)|interior(?:\\s*color)?|seat\\s*color|trim\\s*color|upholstery)'
+const INTERIOR_COLOR_LABEL_RE = /(?:\uB0B4\uC7A5(?:\s*\uC0AC\uC591|\s*\uC0C9\uC0C1)?|\uC2E4\uB0B4(?:\s*\uC0C9\uC0C1|\s*\uCEEC\uB7EC)?|\uC2DC\uD2B8(?:\s*\uC0C9\uC0C1|\s*\uCEEC\uB7EC)?|interior(?:\s*color)?|seat(?:s)?(?:\s*(?:color|trim))?|trim\s*color|upholstery|headliner|door\s*trim)/i
+const INTERIOR_COLOR_REJECT_RE = /(?:body\s*color|exterior|paint|outer\s*color|\uC678\uC7A5|\uC678\uC7A5\s*\uC0C9\uC0C1|\uCC28\uCCB4\s*\uC0C9\uC0C1)/i
 const INTERIOR_COLOR_SEGMENT_SPLIT_RE = /(?:\r?\n|[|,;]|\/|▶|★|◈|▪|•|\u2022)+/g
 const INTERIOR_COLOR_TEXT_PATTERNS = Object.freeze([
-  { color: 'black', source: '(?:\\uBE14\\uB799|\\uAC80\\uC815|\\uD751\\uC0C9|black|jet\\s*black|obsidian|onyx|charcoal|anthracite|ebony|beullaek|geomjeong|heuksaek)' },
-  { color: 'white', source: '(?:\\uD654\\uC774\\uD2B8|\\uD770\\uC0C9|\\uBC31\\uC0C9|white|pure\\s*white|snow\\s*white|hwaiteu|huinsaek|baegsaek)' },
-  { color: 'beige', source: '(?:\\uBCA0\\uC774\\uC9C0|\\uC0CC\\uB4DC\\s*\\uBCA0\\uC774\\uC9C0|beige|sand\\s*beige|linen|beiji|saendeu\\s*beiji)' },
-  { color: 'brown', source: '(?:\\uBE0C\\uB77C\\uC6B4|\\uCE74\\uBA5C|\\uCF54\\uB0D1|\\uD1A0\\uD504|\\uBAA8\\uCE74|\\uCEE4\\uD53C|brown|tan|camel|caramel|cognac|coffee|espresso|saddle|chestnut|nougat|konyak|kkonyak|konnyak|taupe|mocha|beuraun|galsaek|kamel|topeu|moka|mokka|choko\\s*beuraun)' },
-  { color: 'ivory', source: '(?:\\uC544\\uC774\\uBCF4\\uB9AC|\\uD06C\\uB9BC|\\uC624\\uD504\\s*\\uD654\\uC774\\uD2B8|ivory|cream|oyster|porcelain|parchment|off\\s*white|aibori|keurim|opeu\\s*hwaiteu)' },
-  { color: 'gray', source: '(?:\\uADF8\\uB808\\uC774|\\uBAA8\\uB358\\s*\\uADF8\\uB808\\uC774|\\uADF8\\uB808\\uC774\\uC9C0|\\uD68C\\uC0C9|gray|grey|greige|slate|stone|modern\\s*gray|geurei|geureiji|hoesaek|modeon\\s*geurei)' },
-  { color: 'red', source: '(?:\\uB808\\uB4DC|\\uC801\\uC0C9|\\uC640\\uC778|\\uBC84\\uAC74\\uB514|red|wine|burgundy|bordeaux|merlot|sakhir|magma\\s*red|redeu|wain|beogeondi)' },
-  { color: 'blue', source: '(?:\\uB124\\uC774\\uBE44|\\uCCAD\\uC0C9|blue|navy|marine|indigo|neibi|cheongsaek|parangsaek)' },
-  { color: 'orange', source: '(?:\\uC624\\uB80C\\uC9C0|orange|orenji|juhwangsaek)' },
-  { color: 'green', source: '(?:\\uADF8\\uB9B0|green|olive|geurin|choroksaek)' },
+  { color: 'Двухцветный', source: '(?:\\uD22C\\s*\\uD1A4|\\uD22C\\uD1A4|\\uCEE8\\uD2B8\\uB77C\\uC2A4\\uD2B8|two[-\\s]*tone|bi[-\\s]*tone|dual[-\\s]*tone|contrast)' },
+  { color: 'Кремовый', source: '(?:\\uC544\\uC774\\uBCF4\\uB9AC|\\uD06C\\uB9BC|\\uC624\\uD504\\s*\\uD654\\uC774\\uD2B8|ivory|cream|oyster|porcelain|parchment|off\\s*white|bone|vanilla|macchiato|aibori|keurim|opeu\\s*hwaiteu)' },
+  { color: 'Светло-серый', source: '(?:light\\s*(?:gray|grey)|silverstone|ash\\s*(?:gray|grey)|platinum\\s*(?:gray|grey)|\\uB77C\\uC774\\uD2B8\\s*\\uADF8\\uB808\\uC774)' },
+  { color: 'Темно-серый', source: '(?:dark\\s*(?:gray|grey)|deep\\s*(?:gray|grey)|charcoal|anthracite|graphite|slate|basalt|space\\s*(?:gray|grey)|\\uCC28\\uCF5C|\\uADF8\\uB798\\uD53C\\uD2B8)' },
+  { color: 'Рыжий / карамельный', source: '(?:\\uCE74\\uBA5C|\\uCE90\\uB7EC\\uBA5C|\\uCF54\\uB0D1|tan|camel|caramel|cognac|saddle|chestnut|nougat|whisk(?:e)?y|tobacco|ginger|peanut\\s*butter|kamel|konyak|kkonyak|konnyak)' },
+  { color: 'Бордовый', source: '(?:\\uBC84\\uAC74\\uB514|\\uC640\\uC778|burgundy|bordeaux|wine|merlot|claret|oxblood|maroon|sakhir)' },
+  { color: 'Черный', source: '(?:\\uBE14\\uB799|\\uAC80\\uC815|\\uD751\\uC0C9|black|jet\\s*black|obsidian|onyx|ebony|beullaek|geomjeong|heuksaek)' },
+  { color: 'Белый', source: '(?:\\uD654\\uC774\\uD2B8|\\uD770\\uC0C9|\\uBC31\\uC0C9|white|pure\\s*white|snow\\s*white|polar\\s*white|hwaiteu|huinsaek|baegsaek)' },
+  { color: 'Бежевый', source: '(?:\\uBCA0\\uC774\\uC9C0|\\uC0CC\\uB4DC\\s*\\uBCA0\\uC774\\uC9C0|beige|sand\\s*beige|linen|cashmere|savanna|dune|beiji|saendeu\\s*beiji)' },
+  { color: 'Коричневый', source: '(?:\\uBE0C\\uB77C\\uC6B4|\\uD1A0\\uD504|\\uBAA8\\uCE74|\\uCEE4\\uD53C|brown|taupe|mocha|mokka|coffee|espresso|walnut|chocolate|beuraun|galsaek|topeu|moka)' },
+  { color: 'Серый', source: '(?:\\uADF8\\uB808\\uC774|\\uBAA8\\uB358\\s*\\uADF8\\uB808\\uC774|\\uADF8\\uB808\\uC774\\uC9C0|\\uD68C\\uC0C9|gray|grey|greige|stone|modern\\s*gray|geurei|geureiji|hoesaek|modeon\\s*geurei)' },
+  { color: 'Красный', source: '(?:\\uB808\\uB4DC|\\uC801\\uC0C9|red|crimson|scarlet|carmine|magma\\s*red|redeu)' },
+  { color: 'Синий', source: '(?:\\uB124\\uC774\\uBE44|\\uCCAD\\uC0C9|blue|navy|marine|indigo|neibi|cheongsaek|parangsaek)' },
+  { color: 'Оранжевый', source: '(?:\\uC624\\uB80C\\uC9C0|orange|orenji|juhwangsaek)' },
+  { color: 'Зеленый', source: '(?:\\uADF8\\uB9B0|green|olive|geurin|choroksaek)' },
+])
+const INTERIOR_COLOR_CONTEXT_RE = new RegExp(INTERIOR_COLOR_CONTEXT_MARKERS, 'i')
+const INTERIOR_TWO_TONE_HINT_RE = /(?:\uD22C\s*\uD1A4|\uD22C\uD1A4|\uCEE8\uD2B8\uB77C\uC2A4\uD2B8|two[-\s]*tone|bi[-\s]*tone|dual[-\s]*tone|contrast)/i
+const INTERIOR_COLOR_SEPARATOR_RE = /(?:\/|&|\+|,|\band\b)/i
+const INTERIOR_EXPLICIT_VALUE_RES = Object.freeze([
+  new RegExp(`${INTERIOR_COLOR_EXPLICIT_LABEL_MARKERS}(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?\\s*[:=-]?\\s*([^|,;\\n]{2,80})`, 'i'),
+])
+const INTERIOR_MATERIAL_ONLY_RE = /^(?:\b(?:leather|nappa|alcantara|suede|quilted|perforated|premium|natural|seat(?:s)?|interior|trim|upholstery)\b|(?:\uAC00\uC8FD|\uB098\uD30C|\uC2DC\uD2B8|\uB0B4\uC7A5|\uC778\uD14C\uB9AC\uC5B4))(?:[\s/+,&-]+(?:\b(?:leather|nappa|alcantara|suede|quilted|perforated|premium|natural|seat(?:s)?|interior|trim|upholstery)\b|(?:\uAC00\uC8FD|\uB098\uD30C|\uC2DC\uD2B8|\uB0B4\uC7A5|\uC778\uD14C\uB9AC\uC5B4)))*$/i
+const DRIVE_AWD_RE = /\b(?:awd|all[-\s]*wheel(?:\s*drive)?|allrad|xdrive|quattro|4matic\+?|4motion|syncro|sh-awd|e-awd|e[-\s]*four|htrac)\b/i
+const DRIVE_4WD_RE = /\b(?:4wd|4x4|e-?4wd|4wd\s*system)\b/i
+const DRIVE_FWD_RE = /\b(?:fwd|ff|front[-\s]*wheel(?:\s*drive)?)\b/i
+const DRIVE_RWD_RE = /\b(?:rwd|fr|rear[-\s]*wheel(?:\s*drive)?)\b/i
+const DRIVE_AWD_HANGUL_RE = /(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uC790\uC2DD\s*AWD|\uC774-?AWD)/u
+const DRIVE_4WD_HANGUL_RE = /(?:\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\u0034WD\s*\uC2DC\uC2A4\uD15C|\uC0AC\uB95C\s*\uC2DC\uC2A4\uD15C)/u
+const DRIVE_FWD_HANGUL_RE = /(?:\uC804\uB95C(?:\s*\uAD6C\uB3D9)?)/u
+const DRIVE_RWD_HANGUL_RE = /(?:\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?)/u
+const DRIVE_LABEL_RE = /(?:drive|drivetrain|traction|wheel\s*drive|4wd\s*system|awd\s*system|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
+const KEY_INFO_SEGMENT_SPLIT_RE = /(?:\r?\n|[|;]|\/|▶|★|◈|▪|•|\u2022)+/g
+const KEY_SPARE_RE = /(?:spare\s*key|\uBCF4\uC870\s*\uD0A4)/i
+const KEY_TYPE_RULES = Object.freeze([
+  { label: 'Ключ-карта', patterns: [/\uCE74\uB4DC\s*\uD0A4/u, /\b(?:card\s*key|key\s*card)\b/i] },
+  { label: 'Электронный ключ', patterns: [/\uC804\uC790\s*\uD0A4/u, /\b(?:electronic\s*key|digital\s*key|e-?key)\b/i] },
+  { label: 'Смарт-ключ', patterns: [/\uC2A4\uB9C8\uD2B8\s*\uD0A4/u, /\b(?:smart\s*key|smartkey)\b/i] },
+  { label: 'Выкидной ключ', patterns: [/\uD3F4\uB529\s*\uD0A4|\uC811\uC774\uC2DD\s*\uD0A4/u, /\b(?:flip\s*key|switchblade\s*key|fold(?:ing)?\s*key)\b/i] },
+  { label: 'Дистанционный ключ', patterns: [/\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4/u, /\b(?:remote\s*key|distance\s*key)\b/i] },
+  { label: 'Обычный ключ', patterns: [/\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uBA54\uD0C8\s*\uD0A4/u, /\b(?:mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|normal\s*key|plain\s*key)\b/i] },
+])
+const KEY_COUNT_PATTERNS = Object.freeze([
+  /(?:\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uD0A4)\s*[:=x-]?\s*(\d{1,2})\s*(?:\uAC1C|ea|pcs?|keys?)?/i,
+  /(?:smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|e-?key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key|keys?)\s*[:=x-]?\s*(\d{1,2})\s*(?:ea|pcs?|keys?|개)?/i,
+  /(\d{1,2})\s*(?:\uAC1C|ea|pcs?|шт\.?)\s*(?:of\s*)?(?:smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|e-?key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key|keys?|\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uD0A4)/i,
+  /(\d{1,2})\s*(?:smart\s*keys?|card\s*keys?|electronic\s*keys?|digital\s*keys?|flip\s*keys?|remote\s*keys?|distance\s*keys?|mechanical\s*keys?|metal\s*keys?|regular\s*keys?|plain\s*keys?|keys?)/i,
 ])
 
 const OPTION_FEATURE_RULES = Object.freeze([
@@ -576,19 +614,53 @@ export function normalizeDrive(value) {
   const text = cleanText(value)
   if (!text) return ''
   const low = text.toLowerCase()
-  if (/\b(?:all[-\s]*wheel|allrad|4matic|xdrive|quattro|4motion|syncro|awd)\b/.test(low)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (AWD)'
-  if (/\b(?:4wd|4x4|e-?4wd)\b/.test(low) || text.includes('\uC0AC\uB96D')) return '\u041f\u043e\u043b\u043d\u044b\u0439 (4WD)'
-  if (/\b(?:rwd|fr|rear[-\s]*wheel)\b/.test(low) || text.includes('\uD6C4\uB96D')) return '\u0417\u0430\u0434\u043d\u0438\u0439 (RWD)'
-  if (/\b(?:2wd|fwd|ff|front[-\s]*wheel)\b/.test(low) || text.includes('\uC804\uB96D')) return '\u041f\u0435\u0440\u0435\u0434\u043d\u0438\u0439 (FWD)'
+  if (DRIVE_AWD_RE.test(low) || DRIVE_AWD_HANGUL_RE.test(text)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (AWD)'
+  if (DRIVE_4WD_RE.test(low) || DRIVE_4WD_HANGUL_RE.test(text)) return '\u041f\u043e\u043b\u043d\u044b\u0439 (4WD)'
+  if (DRIVE_RWD_RE.test(low) || DRIVE_RWD_HANGUL_RE.test(text)) return '\u0417\u0430\u0434\u043d\u0438\u0439 (RWD)'
+  if (DRIVE_FWD_RE.test(low) || DRIVE_FWD_HANGUL_RE.test(text)) return '\u041f\u0435\u0440\u0435\u0434\u043d\u0438\u0439 (FWD)'
   return ''
 }
 
-export function inferDrive(...values) {
+function flattenTextValues(values = []) {
+  const flattened = []
+
   for (const value of values) {
+    if (Array.isArray(value)) {
+      flattened.push(...flattenTextValues(value))
+      continue
+    }
+
+    const text = cleanText(value)
+    if (text) flattened.push(text)
+  }
+
+  return flattened
+}
+
+export function inferDrive(...values) {
+  for (const value of flattenTextValues(values)) {
     const normalized = normalizeDrive(value)
     if (normalized) return normalized
   }
   return ''
+}
+
+export function extractDriveFromPairs(pairs = []) {
+  const matches = []
+
+  for (const pair of pairs) {
+    const label = cleanText(pair?.label)
+    const value = cleanText(pair?.value)
+    if (!label && !value) continue
+
+    const combined = [label, value].filter(Boolean).join(' ')
+    if (label && !DRIVE_LABEL_RE.test(label) && !normalizeDrive(combined)) continue
+
+    const normalized = normalizeDrive(combined)
+    if (normalized && !matches.includes(normalized)) matches.push(normalized)
+  }
+
+  return matches.length === 1 ? matches[0] : ''
 }
 
 const BODY_CLASS_LABELS = new Set([
@@ -890,13 +962,52 @@ export function normalizeColorName(value) {
   )
 }
 
+function mapGenericInteriorColor(value) {
+  const normalized = cleanText(value)
+  if (!normalized) return ''
+
+  if (normalized === 'Айвори') return 'Кремовый'
+  if (normalized === 'Винный') return 'Бордовый'
+  if (normalized === 'Графитовый' || normalized === 'Мокрый асфальт') return 'Темно-серый'
+  if (normalized === 'Серебристый' || normalized === 'Серебристо-серый') return 'Светло-серый'
+  if (normalized === 'Жемчужный' || normalized === 'Жемчужно-белый' || normalized === 'Снежный белый') return 'Белый'
+
+  return normalized
+}
+
+function collectInteriorColorMatches(value) {
+  const text = cleanText(value)
+  if (!text) return []
+
+  const matches = []
+  for (const { color, source } of INTERIOR_COLOR_TEXT_PATTERNS) {
+    const pattern = new RegExp(source, 'i')
+    if (pattern.test(text) && !matches.includes(color)) matches.push(color)
+  }
+
+  return matches
+}
+
+function normalizeInteriorColorCandidate(value) {
+  const text = cleanText(value)
+  if (!text) return ''
+
+  const matches = collectInteriorColorMatches(text)
+  if (INTERIOR_TWO_TONE_HINT_RE.test(text)) return 'Двухцветный'
+  if (matches.length > 1 && INTERIOR_COLOR_SEPARATOR_RE.test(text)) return 'Двухцветный'
+  if (matches.length) return matches[0]
+  if (INTERIOR_MATERIAL_ONLY_RE.test(text)) return ''
+
+  return mapGenericInteriorColor(normalizeColorName(text))
+}
+
 export function normalizeInteriorColorName(value, bodyValue = '') {
   const options = arguments[2] && typeof arguments[2] === 'object' ? arguments[2] : {}
   const rawInterior = cleanText(value)
   if (!rawInterior) return ''
 
-  const normalizedInterior = normalizeColorName(rawInterior)
-  const normalizedBody = normalizeColorName(bodyValue)
+  const normalizedInterior = normalizeInteriorColorCandidate(rawInterior)
+  const normalizedBody = mapGenericInteriorColor(normalizeColorName(bodyValue))
 
   if (
     rawInterior &&
@@ -923,20 +1034,15 @@ function extractInteriorColorFromSegment(value, bodyValue = '') {
   const text = cleanText(value)
   if (!text) return ''
 
-  for (const { color, source } of INTERIOR_COLOR_TEXT_PATTERNS) {
-    const beforeMarker = new RegExp(`${source}\\s*(?:\\/|&|-|:)?\\s*(?:${INTERIOR_COLOR_CONTEXT_MARKERS})`, 'i')
-    const afterMarker = new RegExp(`(?:${INTERIOR_COLOR_CONTEXT_MARKERS})(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?\\s*(?:\\/|&|-|:)?\\s*${source}`, 'i')
-    const tightAroundMarker = new RegExp(`${source}[\\s\\S]{0,24}${INTERIOR_COLOR_CONTEXT_MARKERS}|${INTERIOR_COLOR_CONTEXT_MARKERS}[\\s\\S]{0,24}${source}`, 'i')
-    const compoundMarker = new RegExp(`${source}(?:\\s*(?:nappa|napa|premium|natural|perforated|quilted))?[\\s\\S]{0,16}(?:leather\\s*)?(?:seat(?:s)?|trim|interior|upholstery)`, 'i')
-    if (beforeMarker.test(text) || afterMarker.test(text) || tightAroundMarker.test(text)) {
-      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
-    }
-    if (compoundMarker.test(text)) {
-      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
-    }
+  for (const pattern of INTERIOR_EXPLICIT_VALUE_RES) {
+    const explicitMatch = text.match(pattern)
+    const explicitValue = cleanText(explicitMatch?.[1] || '')
+    const normalizedExplicit = normalizeInteriorColorName(explicitValue, bodyValue, { allowBodyDuplicate: true })
+    if (normalizedExplicit) return normalizedExplicit
   }
 
-  return ''
+  if (!INTERIOR_COLOR_CONTEXT_RE.test(text) || INTERIOR_COLOR_REJECT_RE.test(text)) return ''
+  return normalizeInteriorColorName(text, bodyValue, { allowBodyDuplicate: true })
 }
 
 export function extractInteriorColorFromText(value, bodyValue = '') {
@@ -948,17 +1054,7 @@ export function extractInteriorColorFromText(value, bodyValue = '') {
     if (segmentedMatch) return segmentedMatch
   }
 
-  for (const { color, source } of INTERIOR_COLOR_TEXT_PATTERNS) {
-    const beforeMarker = new RegExp(`${source}[\\s\\S]{0,28}${INTERIOR_COLOR_CONTEXT_MARKERS}`, 'i')
-    const afterMarker = new RegExp(`${INTERIOR_COLOR_CONTEXT_MARKERS}(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?[\\s\\S]{0,28}${source}`, 'i')
-    const compactMarker = new RegExp(`${source}\\s*(?:\\/|&|-|:)?\\s*(?:${INTERIOR_COLOR_CONTEXT_MARKERS})`, 'i')
-    const compoundMarker = new RegExp(`${source}(?:\\s*(?:nappa|napa|premium|natural|perforated|quilted))?[\\s\\S]{0,20}(?:leather\\s*)?(?:seat(?:s)?|trim|interior|upholstery)`, 'i')
-    if (beforeMarker.test(text) || afterMarker.test(text) || compactMarker.test(text) || compoundMarker.test(text)) {
-      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
-    }
-  }
-
-  return ''
+  return extractInteriorColorFromSegment(text, bodyValue)
 }
 
 export function extractInteriorColorFromPairs(pairs = [], bodyValue = '') {
@@ -982,27 +1078,65 @@ export function isGenericColorLabel(value) {
   return GENERIC_COLOR_LABELS.has(cleanText(value))
 }
 
-export function extractKeyInfo({ contentsText, inspectionRows = [] } = {}) {
-  const text = [
+function splitKeyInfoSegments(value) {
+  return String(value || '')
+    .split(KEY_INFO_SEGMENT_SPLIT_RE)
+    .map((segment) => cleanText(segment))
+    .filter(Boolean)
+}
+
+function normalizeKeyCount(value) {
+  const numeric = Number.parseInt(String(value || '').trim(), 10)
+  return Number.isFinite(numeric) && numeric > 0 ? String(numeric) : ''
+}
+
+function detectKeyType(value) {
+  const text = cleanText(value)
+  if (!text || KEY_SPARE_RE.test(text)) return ''
+
+  for (const rule of KEY_TYPE_RULES) {
+    if (rule.patterns.some((pattern) => pattern.test(text))) return rule.label
+  }
+
+  return ''
+}
+
+function collectKeyCounts(sources = []) {
+  const counts = []
+
+  for (const source of sources) {
+    if (!source || KEY_SPARE_RE.test(source)) continue
+
+    for (const pattern of KEY_COUNT_PATTERNS) {
+      const match = source.match(pattern)
+      const count = normalizeKeyCount(match?.[1] || '')
+      if (count && !counts.includes(count)) counts.push(count)
+    }
+  }
+
+  return counts
+}
+
+export function extractKeyInfo({ contentsText, texts = [], pairs = [], inspectionRows = [] } = {}) {
+  const sources = [
     cleanText(contentsText),
+    ...texts.map((value) => cleanText(value)),
+    ...pairs.map((pair) => cleanText([pair?.label, pair?.value].filter(Boolean).join(' '))),
     ...inspectionRows.map((row) => cleanText([row?.label, row?.detail, row?.note, ...(row?.states || [])].join(' '))),
   ]
+    .flatMap(splitKeyInfoSegments)
     .filter(Boolean)
-    .join(' ')
 
-  if (!text) return ''
+  if (!sources.length) return ''
 
-  let match = text.match(/스마트키\s*(\d+)\s*개/i) || text.match(/smart\s*key\s*(\d+)/i) || text.match(/(\d+)\s*smart\s*keys?/i)
-  if (match) return `Смарт-ключ: ${match[1]} шт.`
+  const keyTypes = [...new Set(sources.map(detectKeyType).filter(Boolean))]
+  const keyCounts = collectKeyCounts(sources)
+  const keyType = keyTypes.length === 1 ? keyTypes[0] : ''
+  const keyCount = keyCounts.length === 1 ? keyCounts[0] : ''
 
-  match = text.match(/리모컨키\s*(\d+)\s*개/i) || text.match(/remote\s*key\s*(\d+)/i) || text.match(/(\d+)\s*keys?/i)
-  if (match) return `Ключи: ${match[1]} шт.`
-
-  if (/카드키|card\s*key/i.test(text)) return 'Карта-ключ'
-  if (/보조키|spare\s*key/i.test(text)) return 'Есть запасной ключ'
-  if (/스마트키|smart\s*key/i.test(text)) return 'Смарт-ключ'
-  if (/리모컨키|remote\s*key/i.test(text)) return 'Пульт-ключ'
-  if (/열쇠|키\b|keys?\b/i.test(text)) return 'Ключи есть'
+  if (keyType && keyCount) return `${keyType}: ${keyCount} шт.`
+  if (keyType) return keyType
+  if (keyCount) return `Ключи: ${keyCount} шт.`
 
   return ''
 }

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { parseEncarHistoryHtml, parseEncarHistoryRecord } from '../server/lib/encarHistory.js'
-import { extractInteriorColorFromPairs, extractInteriorColorFromText } from '../server/lib/vehicleData.js'
+import {
+  extractDriveFromPairs,
+  extractInteriorColorFromPairs,
+  extractInteriorColorFromText,
+  extractKeyInfo,
+  normalizeDrive,
+  normalizeInteriorColorName,
+} from '../server/lib/vehicleData.js'
 import { extractWarrantyInfo } from '../server/lib/encarVehicle.js'
 
 const cardFixture = `
@@ -147,6 +154,35 @@ function run() {
 
   const distantLeatherInterior = extractInteriorColorFromText('brown nappa leather premium seats with memory package', '\u0411\u0435\u043B\u044B\u0439')
   assert.equal(distantLeatherInterior, '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439')
+
+  assert.equal(normalizeInteriorColorName('ivory'), '\u041A\u0440\u0435\u043C\u043E\u0432\u044B\u0439')
+  assert.equal(normalizeInteriorColorName('camel brown'), '\u0420\u044B\u0436\u0438\u0439 / \u043A\u0430\u0440\u0430\u043C\u0435\u043B\u044C\u043D\u044B\u0439')
+  assert.equal(normalizeInteriorColorName('burgundy'), '\u0411\u043E\u0440\u0434\u043E\u0432\u044B\u0439')
+  assert.equal(normalizeInteriorColorName('dark gray'), '\u0422\u0435\u043C\u043D\u043E-\u0441\u0435\u0440\u044B\u0439')
+  assert.equal(normalizeInteriorColorName('light gray'), '\u0421\u0432\u0435\u0442\u043B\u043E-\u0441\u0435\u0440\u044B\u0439')
+  assert.equal(
+    extractInteriorColorFromText('Two-tone interior / black and beige leather seats', ''),
+    '\u0414\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439',
+  )
+
+  assert.equal(extractKeyInfo({ contentsText: 'smart key 2' }), '\u0421\u043c\u0430\u0440\u0442-\u043a\u043b\u044e\u0447: 2 \u0448\u0442.')
+  assert.equal(extractKeyInfo({ contentsText: 'card key available' }), '\u041a\u043b\u044e\u0447-\u043a\u0430\u0440\u0442\u0430')
+  assert.equal(extractKeyInfo({ contentsText: 'electronic key' }), '\u042d\u043b\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447')
+  assert.equal(extractKeyInfo({ contentsText: 'flip key 1 ea' }), '\u0412\u044B\u043A\u0438\u0434\u043D\u043E\u0439 \u043A\u043B\u044E\u0447: 1 \u0448\u0442.')
+  assert.equal(extractKeyInfo({ contentsText: '2 keys' }), '\u041A\u043B\u044E\u0447\u0438: 2 \u0448\u0442.')
+  assert.equal(extractKeyInfo({ contentsText: 'spare key included' }), '')
+
+  assert.equal(normalizeDrive('BMW xDrive 40i'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('Mercedes-Benz 4MATIC+'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('e-AWD'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('4WD system'), '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)')
+  assert.equal(normalizeDrive('\uC804\uB95C\uAD6C\uB3D9'), '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
+  assert.equal(normalizeDrive('\uD6C4\uB95C\uAD6C\uB3D9'), '\u0417\u0430\u0434\u043D\u0438\u0439 (RWD)')
+  assert.equal(normalizeDrive('2WD'), '')
+  assert.equal(
+    extractDriveFromPairs([{ label: '\uAD6C\uB3D9\uBC29\uC2DD', value: '\uC0AC\uB95C\uAD6C\uB3D9' }]),
+    '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)',
+  )
 
   const warranty = extractWarrantyInfo({
     warranty: {

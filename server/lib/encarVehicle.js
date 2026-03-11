@@ -6,6 +6,7 @@ import {
   appendTitleTrimSuffix,
   PARKING_ADDRESS_EN,
   PARKING_ADDRESS_KO,
+  extractDriveFromPairs,
   extractKeyInfo,
   extractInteriorColorFromPairs,
   extractInteriorColorFromText,
@@ -307,6 +308,31 @@ function buildInspectionPairs(inspection) {
   return [...basicPairs, ...summaryPairs, ...detailPairs, ...historyPairs]
 }
 
+function collectObjectValuesByKeyPattern(input = {}, keyPattern = /.*/) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return []
+
+  const values = []
+  for (const [key, value] of Object.entries(input)) {
+    if (!keyPattern.test(key)) continue
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      const text = cleanText(value)
+      if (text) values.push(text)
+      continue
+    }
+
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+
+    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      if (!keyPattern.test(`${key}.${nestedKey}`)) continue
+      const text = cleanText(nestedValue)
+      if (text) values.push(text)
+    }
+  }
+
+  return values
+}
+
 function resolveInteriorColorWithMeta(spec = {}, bodyColor = '', { pairs = [], texts = [] } = {}) {
   const specRawValue = extractInteriorColorFromSpec(spec)
   const specValue = normalizeInteriorColorName(specRawValue, bodyColor, { allowBodyDuplicate: true })
@@ -444,23 +470,6 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     ad.title,
     ad.subTitle,
   )
-  const driveType = inferDrive(driveRaw, name, model)
-  const fees = resolveVehicleFees({
-    name,
-    model,
-    body_type: bodyType,
-    trim_level: trimLevel,
-    drive_type: driveType,
-    pricing_locked: false,
-  }, pricingSettings)
-  const pricing = computePricing({
-    priceKrw: priceKRW,
-    commission: fees.commission,
-    delivery: fees.delivery,
-    loading: fees.loading,
-    unloading: fees.unloading,
-    storage: fees.storage,
-  }, exchangeSnapshot)
 
   const photos = Array.isArray(data?.photos) ? data.photos : []
   const normalizedPhotos = photos
@@ -506,9 +515,47 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     ]
     : []
   const inspectionPairs = buildInspectionPairs(inspection)
+  const driveType = extractDriveFromPairs(inspectionPairs) || inferDrive(
+    collectObjectValuesByKeyPattern(spec, /(?:drive|drivetrain|traction|wheel)/i),
+    driveRaw,
+    name,
+    model,
+    trimLevel,
+    contents.text,
+    optionTexts,
+    inspectionTexts,
+  )
+  const fees = resolveVehicleFees({
+    name,
+    model,
+    body_type: bodyType,
+    trim_level: trimLevel,
+    drive_type: driveType,
+    pricing_locked: false,
+  }, pricingSettings)
+  const pricing = computePricing({
+    priceKrw: priceKRW,
+    commission: fees.commission,
+    delivery: fees.delivery,
+    loading: fees.loading,
+    unloading: fees.unloading,
+    storage: fees.storage,
+  }, exchangeSnapshot)
   const keyInfo = extractKeyInfo({
     contentsText: contents.text,
-    inspectionRows: inspection?.detailStatus || [],
+    texts: [
+      ad.memo,
+      ad.title,
+      ad.subTitle,
+      ad.oneLineText,
+      optionTexts,
+      inspectionTexts,
+    ],
+    pairs: inspectionPairs,
+    inspectionRows: [
+      ...(inspection?.summary || []),
+      ...(inspection?.detailStatus || []),
+    ],
   })
   const optionFeatures = extractOptionFeatures({
     contentsText: contents.text,
@@ -697,6 +744,15 @@ export async function fetchEncarVehicleEnrichment(encarId) {
   )
   const warrantyInfo = extractWarrantyInfo(category)
   const optionTexts = await resolveEncarOptionTexts(options)
+  const driveType = inferDrive(
+    collectObjectValuesByKeyPattern(spec, /(?:drive|drivetrain|traction|wheel)/i),
+    driveRaw,
+    name,
+    model,
+    trimLevel,
+    contents?.text,
+    optionTexts,
+  )
   const optionFeatures = extractOptionFeatures({
     contentsText: contents?.text,
     memoText: ad.memo,
@@ -730,7 +786,7 @@ export async function fetchEncarVehicleEnrichment(encarId) {
     price_krw: (Number(ad.price) || 0) * 10000,
     fuel_type: normalizeFuel(spec.fuelName),
     transmission: normalizeTransmission(spec.transmissionName),
-    drive_type: inferDrive(driveRaw, name, model),
+    drive_type: driveType,
     body_color: bodyColor,
     interior_color: interiorColorResult.value,
     interior_color_source: interiorColorResult.source,
