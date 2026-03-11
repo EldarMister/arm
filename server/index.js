@@ -9,7 +9,6 @@ import imagesRouter from './routes/images.js'
 import encarRouter from './routes/encar.js'
 import adminRouter from './routes/admin.js'
 import scraperRouter from './routes/scraper.js'
-import authRouter from './routes/auth.js'
 import { startScheduler } from './scraper/scheduler.js'
 import { state as scraperState } from './scraper/state.js'
 import {
@@ -30,12 +29,7 @@ const API_RATE_LIMIT_MAX = 60
 
 function getPublicRuntimeConfig() {
   return {
-    VITE_FIREBASE_API_KEY: String(ENV.VITE_FIREBASE_API_KEY || ''),
-    VITE_FIREBASE_AUTH_DOMAIN: String(ENV.VITE_FIREBASE_AUTH_DOMAIN || ''),
-    VITE_FIREBASE_PROJECT_ID: String(ENV.VITE_FIREBASE_PROJECT_ID || ''),
-    VITE_FIREBASE_APP_ID: String(ENV.VITE_FIREBASE_APP_ID || ''),
-    VITE_FIREBASE_MESSAGING_SENDER_ID: String(ENV.VITE_FIREBASE_MESSAGING_SENDER_ID || ''),
-    VITE_FIREBASE_STORAGE_BUCKET: String(ENV.VITE_FIREBASE_STORAGE_BUCKET || ''),
+    VITE_CLERK_PUBLISHABLE_KEY: String(ENV.VITE_CLERK_PUBLISHABLE_KEY || ''),
   }
 }
 
@@ -63,7 +57,6 @@ app.use('/api/cars', imagesRouter)
 app.use('/api/encar', encarRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/scraper', scraperRouter)
-app.use('/api/auth', authRouter)
 app.delete('/api/images/:id', (req, res, next) => {
   req.url = `/${req.params.id}`
   imagesRouter(req, res, next)

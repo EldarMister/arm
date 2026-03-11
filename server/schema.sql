@@ -159,26 +159,6 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS users (
-  id         SERIAL PRIMARY KEY,
-  phone      VARCHAR(20) NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  last_login_at TIMESTAMPTZ
-);
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
-
-CREATE TABLE IF NOT EXISTS sms_codes (
-  id         SERIAL PRIMARY KEY,
-  phone      VARCHAR(20) NOT NULL,
-  code       VARCHAR(6)  NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  used_at    TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS admin_login_attempts (
   identifier      VARCHAR(120) PRIMARY KEY,
   failed_attempts INTEGER NOT NULL DEFAULT 0,
@@ -189,7 +169,4 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
-CREATE INDEX IF NOT EXISTS idx_sms_codes_phone_created_at ON sms_codes(phone, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sms_codes_expires_at ON sms_codes(expires_at);
 CREATE INDEX IF NOT EXISTS idx_admin_login_attempts_blocked_until ON admin_login_attempts(blocked_until);

@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  SignInButton,
+  UserButton,
+  useClerk,
+  useUser,
+} from '@clerk/clerk-react'
 import { useTheme } from '../../hooks/useTheme'
-import { useAuth } from '../../context/AuthContext'
-import { formatPhoneForDisplay } from '../../lib/authClient'
+import { getClerkUserLabel, isClerkConfigured } from '../../lib/clerk'
 import logoImg from '../../assets/logo.png'
 
 const SearchIcon = () => (
@@ -63,6 +68,82 @@ const navLinks = [
   { label: 'Контакты', to: '/contacts' },
 ]
 
+function AuthButtonContent({ label }) {
+  return (
+    <>
+      <UserIcon />
+      {label}
+    </>
+  )
+}
+
+function DisabledAuthButton({ mobile = false }) {
+  const className = mobile ? 'mobile-login-btn' : 'header-login'
+
+  return (
+    <button
+      className={className}
+      disabled
+      title="Добавь VITE_CLERK_PUBLISHABLE_KEY для Clerk"
+      type="button"
+    >
+      <AuthButtonContent label="Войти" />
+    </button>
+  )
+}
+
+function ClerkAuthControl({ mobile = false, onAction }) {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const { openUserProfile } = useClerk()
+  const buttonClassName = mobile ? 'mobile-login-btn' : 'header-login'
+
+  if (!isLoaded) {
+    return (
+      <button className={buttonClassName} disabled type="button">
+        <AuthButtonContent label="..." />
+      </button>
+    )
+  }
+
+  if (!isSignedIn || !user) {
+    return (
+      <SignInButton mode="modal">
+        <button
+          className={buttonClassName}
+          onClick={() => onAction?.()}
+          title="Войти"
+          type="button"
+        >
+          <AuthButtonContent label="Войти" />
+        </button>
+      </SignInButton>
+    )
+  }
+
+  const label = getClerkUserLabel(user)
+  const authenticatedClassName = `${buttonClassName} ${mobile ? 'mobile-login-btn-authenticated' : 'header-login-authenticated'}`
+  const rowClassName = mobile ? 'mobile-auth-row' : 'header-auth-row'
+
+  return (
+    <div className={rowClassName}>
+      <button
+        className={authenticatedClassName}
+        onClick={() => {
+          onAction?.()
+          openUserProfile()
+        }}
+        title={label}
+        type="button"
+      >
+        <AuthButtonContent label={label} />
+      </button>
+      <div className="clerk-user-button-wrap">
+        <UserButton afterSignOutUrl="/" />
+      </div>
+    </div>
+  )
+}
+
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -71,7 +152,7 @@ export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
-  const { user, loading: authLoading, openAuthModal } = useAuth()
+  const clerkConfigured = isClerkConfigured()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -126,8 +207,6 @@ export default function Header() {
     setSearchDirty(true)
   }
 
-  const authButtonLabel = authLoading ? '...' : user ? formatPhoneForDisplay(user.phone) : 'Войти'
-
   return (
     <header className={`site-header${scrolled ? ' site-header-scrolled' : ''}`}>
       <div className="header-row">
@@ -166,15 +245,9 @@ export default function Header() {
           {theme === 'light' ? <MoonIcon /> : <SunIcon />}
         </button>
 
-        <button
-          className={`header-login${user ? ' header-login-authenticated' : ''}`}
-          onClick={openAuthModal}
-          type="button"
-          title={user?.phone || 'Войти по номеру телефона'}
-        >
-          <UserIcon />
-          {authButtonLabel}
-        </button>
+        {clerkConfigured
+          ? <ClerkAuthControl />
+          : <DisabledAuthButton />}
 
         <div className="header-mobile-controls">
           <button
@@ -225,17 +298,14 @@ export default function Header() {
               {label}
             </Link>
           ))}
-          <button
-            className={`mobile-login-btn${user ? ' mobile-login-btn-authenticated' : ''}`}
-            type="button"
-            onClick={() => {
-              openAuthModal()
-              setMobileOpen(false)
-            }}
-          >
-            <UserIcon />
-            {authButtonLabel}
-          </button>
+          {clerkConfigured
+            ? (
+                <ClerkAuthControl
+                  mobile
+                  onAction={() => setMobileOpen(false)}
+                />
+              )
+            : <DisabledAuthButton mobile />}
         </div>
       )}
     </header>
