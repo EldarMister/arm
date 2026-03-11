@@ -5,7 +5,7 @@ import {
   UserButton,
   useClerk,
   useUser,
-} from '@clerk/clerk-react'
+} from '@clerk/react'
 import { useTheme } from '../../hooks/useTheme'
 import { getClerkUserLabel, isClerkConfigured } from '../../lib/clerk'
 import logoImg from '../../assets/logo.png'
