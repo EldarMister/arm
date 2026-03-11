@@ -111,6 +111,7 @@ export default function AuthModal({
   const [expiresAt, setExpiresAt] = useState('')
   const [now, setNow] = useState(Date.now())
   const [recaptchaReady, setRecaptchaReady] = useState(false)
+  const [recaptchaVerified, setRecaptchaVerified] = useState(IS_FIREBASE_TEST_MODE)
   const [recaptchaVersion, setRecaptchaVersion] = useState(0)
   const recaptchaContainerRef = useRef(null)
   const recaptchaVerifierRef = useRef(null)
@@ -134,10 +135,15 @@ export default function AuthModal({
     && !submittingRequest
     && resendSeconds === 0
     && recaptchaReady
+    && (IS_FIREBASE_TEST_MODE || recaptchaVerified)
   )
   const codeDigitsLength = code.trim().length
   const canVerifyCode = hasRequestedCode && codeDigitsLength >= 4 && codeDigitsLength <= 6 && !submittingVerify
-  const canResendCode = hasRequestedCode && resendSeconds === 0 && !submittingRequest && recaptchaReady
+  const canResendCode = hasRequestedCode
+    && resendSeconds === 0
+    && !submittingRequest
+    && recaptchaReady
+    && (IS_FIREBASE_TEST_MODE || recaptchaVerified)
   const resendButtonLabel = submittingRequest
     ? 'Отправка...'
     : 'Отправить код снова'
@@ -152,6 +158,8 @@ export default function AuthModal({
       recaptchaVerifierRef.current = null
     }
 
+    setRecaptchaVerified(IS_FIREBASE_TEST_MODE)
+
     if (recaptchaContainerRef.current) {
       recaptchaContainerRef.current.innerHTML = ''
     }
@@ -160,6 +168,7 @@ export default function AuthModal({
   function refreshRecaptcha() {
     clearRecaptcha()
     setRecaptchaReady(false)
+    setRecaptchaVerified(IS_FIREBASE_TEST_MODE)
     setRecaptchaVersion((version) => version + 1)
   }
 
@@ -174,6 +183,7 @@ export default function AuthModal({
     }
     setCooldownUntil(0)
     setNow(Date.now())
+    setRecaptchaVerified(IS_FIREBASE_TEST_MODE)
     confirmationResultRef.current = null
   }
 
@@ -231,18 +241,30 @@ export default function AuthModal({
     if (!open || !shouldShowRecaptcha || !firebaseAuth || !recaptchaContainerRef.current) {
       clearRecaptcha()
       setRecaptchaReady(false)
+      setRecaptchaVerified(IS_FIREBASE_TEST_MODE)
       return undefined
     }
 
     let cancelled = false
     clearRecaptcha()
     setRecaptchaReady(false)
+    setRecaptchaVerified(IS_FIREBASE_TEST_MODE)
     setError('')
 
     firebaseAuth.settings.appVerificationDisabledForTesting = IS_FIREBASE_TEST_MODE
 
     const verifier = new RecaptchaVerifier(firebaseAuth, recaptchaContainerRef.current, {
       size: IS_FIREBASE_TEST_MODE ? 'invisible' : 'normal',
+      callback: () => {
+        setRecaptchaVerified(true)
+        setError('')
+      },
+      'expired-callback': () => {
+        setRecaptchaVerified(false)
+      },
+      'error-callback': () => {
+        setRecaptchaVerified(false)
+      },
     })
 
     recaptchaVerifierRef.current = verifier
@@ -314,6 +336,11 @@ export default function AuthModal({
 
     if (!IS_FIREBASE_TEST_MODE && !recaptchaVerifierRef.current) {
       setError('reCAPTCHA еще не готова. Обновите страницу и попробуйте снова')
+      return
+    }
+
+    if (!IS_FIREBASE_TEST_MODE && !recaptchaVerified) {
+      setError('Сначала завершите reCAPTCHA, затем запрашивайте SMS-код')
       return
     }
 
