@@ -518,12 +518,6 @@ export default function AuthModal({
                   </div>
                 </label>
 
-                {shouldShowRecaptcha && (
-                  <div className="auth-recaptcha-wrap">
-                    <div ref={recaptchaContainerRef} className="auth-recaptcha" />
-                  </div>
-                )}
-
                 <button type="submit" className="auth-primary-btn" disabled={!canRequestCode}>
                   {submittingRequest ? 'Отправка...' : 'Получить код'}
                 </button>
@@ -558,12 +552,6 @@ export default function AuthModal({
                   </span>
                 </div>
 
-                {resendSeconds === 0 && shouldShowRecaptcha && (
-                  <div className="auth-recaptcha-wrap">
-                    <div ref={recaptchaContainerRef} className="auth-recaptcha" />
-                  </div>
-                )}
-
                 <div className="auth-modal-actions">
                   {resendSeconds === 0 && (
                     <button
@@ -580,6 +568,12 @@ export default function AuthModal({
                   </button>
                 </div>
               </form>
+            )}
+
+            {shouldShowRecaptcha && (
+              <div className="auth-recaptcha-wrap">
+                <div ref={recaptchaContainerRef} className="auth-recaptcha" />
+              </div>
             )}
 
             {status && <p className="auth-status auth-status-info">{status}</p>}

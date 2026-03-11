@@ -7,6 +7,7 @@ import {
   appendDisplayTrimSuffix,
   extractTrimLabelFromTitle,
   VAT_REFUND_RATE,
+  VEHICLE_ORIGIN_LABELS,
   getShortLocationLabel,
   isWeakBodyTypeLabel,
   isWeakColorValue,
@@ -371,6 +372,28 @@ function carMatchesSearch(car, query) {
     .every((token) => haystack.includes(token) || compactHaystack.includes(token.replace(/\s+/g, '')))
 }
 
+function normalizeOriginFilterValues(value) {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : []
+
+  return values
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter(Boolean)
+    .map((item) => {
+      if (item === VEHICLE_ORIGIN_LABELS.imported.toLowerCase() || item.includes('imported') || item.includes('foreign')) {
+        return 'imported'
+      }
+      if (item === VEHICLE_ORIGIN_LABELS.korean.toLowerCase() || item.includes('korean') || item.includes('domestic')) {
+        return 'korean'
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
 function buildCarUpdatePatch(prevCar, nextCar) {
   const patch = {}
 
@@ -636,6 +659,26 @@ export default function CatalogPage() {
   const location = useLocation()
   const searchQuery = new URLSearchParams(location.search).get('q')?.trim() || ''
   const activeSortOption = SORT_OPTIONS.find((option) => option.value === sort) || SORT_OPTIONS[0]
+  const normalizedOriginFilters = normalizeOriginFilterValues(filters.origin)
+  const hasImportedOriginFilter = normalizedOriginFilters.includes('imported')
+  const hasKoreanOriginFilter = normalizedOriginFilters.includes('korean')
+  const isImportedQuickFilterActive = hasImportedOriginFilter && !hasKoreanOriginFilter
+  const isAllCarsQuickFilterActive = normalizedOriginFilters.length === 0 || (hasImportedOriginFilter && hasKoreanOriginFilter)
+
+  const applyQuickOriginFilter = useCallback((mode) => {
+    setFilters((prev) => {
+      const next = { ...prev }
+
+      if (mode === 'imported') {
+        next.origin = [VEHICLE_ORIGIN_LABELS.imported]
+        return next
+      }
+
+      delete next.origin
+      return next
+    })
+    setPage(1)
+  }, [])
 
   const fetchCarsFallback = useCallback(async () => {
     const params = new URLSearchParams({ sort, page: 1, limit: 1000, ...filters })
@@ -832,9 +875,28 @@ export default function CatalogPage() {
         {sidebarOpen && <div className="cat-sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
         <main className="cat-main">
-          <button className="cat-filter-btn" onClick={() => setSidebarOpen(true)}>
+          <div className="cat-filter-toolbar">
+            <button className="cat-filter-btn" onClick={() => setSidebarOpen(true)}>
             <FilterIcon /> Фильтры
-          </button>
+            </button>
+            <div className="cat-quick-filter-group" aria-label="Быстрые фильтры каталога">
+              <button
+                type="button"
+                className={`cat-quick-filter-btn${isAllCarsQuickFilterActive ? ' is-active' : ''}`}
+                onClick={() => applyQuickOriginFilter('all')}
+              >
+                Все машины
+              </button>
+              <button
+                type="button"
+                className={`cat-quick-filter-btn${isImportedQuickFilterActive ? ' is-active is-clearable' : ''}`}
+                onClick={() => applyQuickOriginFilter(isImportedQuickFilterActive ? 'all' : 'imported')}
+              >
+                <span>Импортные машины</span>
+                {isImportedQuickFilterActive ? <span className="cat-quick-filter-clear" aria-hidden="true">❌</span> : null}
+              </button>
+            </div>
+          </div>
 
           <div className="cat-top-btns">
             <a href="https://www.encar.com" target="_blank" rel="noreferrer" className="btn-encar">
