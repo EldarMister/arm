@@ -98,6 +98,12 @@ const CogSmallIcon = () => (
   </svg>
 )
 
+const ShieldSmallIcon = () => (
+  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M12 3.5 5 6.5v5.9c0 4.2 2.9 8 7 9.1 4.1-1.1 7-4.9 7-9.1V6.5l-7-3z" strokeWidth={2} strokeLinejoin="round" />
+  </svg>
+)
+
 function parseYear(value) {
   const m = String(value || '').match(/\d{4}/)
   return m ? Number(m[0]) : new Date().getFullYear()
@@ -1167,6 +1173,42 @@ function normalizeOptionFeatures(value) {
   return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 16)
 }
 
+function normalizeWarrantyTerm(label, monthsValue, mileageValue) {
+  const months = Number(monthsValue) > 0 ? Number(monthsValue) : null
+  const mileage = Number(mileageValue) > 0 ? Number(mileageValue) : null
+  if (!months && !mileage) return null
+
+  return {
+    key: String(label || '').toLowerCase(),
+    label,
+    months,
+    mileage,
+  }
+}
+
+function mapWarranty(value = {}) {
+  const provider = String(value?.warranty_company || value?.warranty?.provider || '').trim()
+  const body = normalizeWarrantyTerm('Кузов', value?.warranty_body_months ?? value?.warranty?.body?.months, value?.warranty_body_km ?? value?.warranty?.body?.mileage)
+  const transmission = normalizeWarrantyTerm('Трансмиссия', value?.warranty_transmission_months ?? value?.warranty?.transmission?.months, value?.warranty_transmission_km ?? value?.warranty?.transmission?.mileage)
+  const items = [body, transmission].filter(Boolean)
+
+  if (!items.length) return null
+
+  return {
+    provider,
+    items,
+  }
+}
+
+function formatWarrantyTerm(item) {
+  if (!item) return '-'
+
+  const parts = []
+  if (item.months) parts.push(`${item.months} мес.`)
+  if (item.mileage) parts.push(`${item.mileage.toLocaleString('ru-RU')} км`)
+  return parts.join(' / ') || '-'
+}
+
 function mapCar(c) {
   const priceUSD = Number(c.price_usd) || 0
   const commission = Number(c.commission ?? 200) || 200
@@ -1194,7 +1236,7 @@ function mapCar(c) {
     trimLevel,
     keyInfo: normalizeKeyInfoLabel(c.key_info || ''),
     bodyColor: normalizeColorLabel(c.body_color || '-'),
-    interiorColor: normalizeInteriorColorLabel(c.interior_color || '', c.body_color || ''),
+    interiorColor: normalizeInteriorColorLabel(c.interior_color || '', c.body_color || '', { allowBodyDuplicate: true }),
     location: normalizedLocation || 'Корея',
     vin: c.vin || c.vehicle_no || '-',
     tags,
@@ -1229,6 +1271,7 @@ function mapCar(c) {
     seatCount: null,
     displacement: 0,
     optionFeatures: normalizeOptionFeatures(c.option_features),
+    warranty: mapWarranty(c),
     vehicleNo: '-',
     detailFlags: {},
     detailCondition: {},
@@ -1278,7 +1321,7 @@ function mergeCarWithEncar(baseCar, detail) {
     keyInfo: baseCar.keyInfo || normalizeKeyInfoLabel(detail?.key_info || ''),
     bodyColor: shouldReplaceColor(baseCar.bodyColor) ? normalizeColorLabel(detail?.body_color || baseCar.bodyColor || '-') : baseCar.bodyColor,
     interiorColor: shouldReplaceColor(baseCar.interiorColor)
-      ? (normalizeInteriorColorLabel(detail?.interior_color || '', detail?.body_color || baseCar.bodyColor || '') || baseCar.interiorColor || '')
+      ? (normalizeInteriorColorLabel(detail?.interior_color || '', detail?.body_color || baseCar.bodyColor || '', { allowBodyDuplicate: true }) || baseCar.interiorColor || '')
       : baseCar.interiorColor,
     location: getShortLocationLabel(detail?.location_short || detail?.location || baseCar.location || 'Корея'),
     vin: baseCar.vin === '-' ? (detail?.vin || detail?.vehicle_no || '-') : baseCar.vin,
@@ -1303,6 +1346,7 @@ function mergeCarWithEncar(baseCar, detail) {
     seatCount: Number(detail?.seat_count) || baseCar.seatCount || null,
     displacement: Number(detail?.displacement) || baseCar.displacement || 0,
     optionFeatures: normalizeOptionFeatures(detail?.option_features?.length ? detail.option_features : baseCar.optionFeatures),
+    warranty: mapWarranty(detail) || baseCar.warranty || null,
     vehicleNo: detail?.vehicle_no || baseCar.vehicleNo || '-',
     detailFlags: detail?.flags || {},
     detailCondition: detail?.condition || {},
@@ -1619,6 +1663,28 @@ export default function CarDetailsPage() {
                 <div className="car-details-spec-item"><span>Обновлено на Encar</span><strong>{formatDate(car.detailManage?.modifyDateTime || car.updatedAt)}</strong></div>
               </div>
             </div>
+
+            {!!car.warranty?.items?.length && (
+              <div className="car-details-card car-details-warranty-card">
+                <div className="car-details-warranty-head">
+                  <div className="car-details-warranty-icon">
+                    <ShieldSmallIcon />
+                  </div>
+                  <div className="car-details-warranty-copy">
+                    <h3 className="car-details-card-title">Гарантия</h3>
+                    {car.warranty.provider && <p className="car-details-warranty-provider">{car.warranty.provider}</p>}
+                  </div>
+                </div>
+                <div className="car-details-warranty-grid">
+                  {car.warranty.items.map((item) => (
+                    <div key={item.key} className="car-details-warranty-item">
+                      <span>{item.label}</span>
+                      <strong>{formatWarrantyTerm(item)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {!!car.optionFeatures?.length && (
               <div className="car-details-card">

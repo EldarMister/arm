@@ -128,15 +128,16 @@ const INTERIOR_COLOR_LABEL_RE = /(?:\uB0B4\uC7A5(?:\s*\uC0AC\uC591|\s*\uC0C9\uC0
 const INTERIOR_COLOR_REJECT_RE = /(?:body\s*color|\uC678\uC7A5|\uC678\uC7A5\s*\uC0C9\uC0C1|\uCC28\uCCB4\s*\uC0C9\uC0C1)/i
 const INTERIOR_COLOR_SEGMENT_SPLIT_RE = /(?:\r?\n|[|,;]|\/|▶|★|◈|▪|•|\u2022)+/g
 const INTERIOR_COLOR_TEXT_PATTERNS = Object.freeze([
-  { color: 'black', source: '(?:\\uBE14\\uB799|\\uAC80\\uC815|\\uD751\\uC0C9|black|charcoal|ebony|beullaek|geomjeong|heuksaek)' },
-  { color: 'beige', source: '(?:\\uBCA0\\uC774\\uC9C0|\\uC0CC\\uB4DC\\s*\\uBCA0\\uC774\\uC9C0|beige|sand\\s*beige|beiji|saendeu\\s*beiji)' },
-  { color: 'brown', source: '(?:\\uBE0C\\uB77C\\uC6B4|\\uCE74\\uBA5C|\\uCF54\\uB0D1|\\uD1A0\\uD504|\\uBAA8\\uCE74|brown|tan|camel|cognac|konyak|kkonyak|konnyak|taupe|mocha|beuraun|galsaek|kamel|topeu|moka|mokka|choko\\s*beuraun)' },
-  { color: 'ivory', source: '(?:\\uC544\\uC774\\uBCF4\\uB9AC|\\uD06C\\uB9BC|\\uC624\\uD504\\s*\\uD654\\uC774\\uD2B8|ivory|cream|off\\s*white|aibori|keurim|opeu\\s*hwaiteu)' },
-  { color: 'gray', source: '(?:\\uADF8\\uB808\\uC774|\\uBAA8\\uB358\\s*\\uADF8\\uB808\\uC774|\\uADF8\\uB808\\uC774\\uC9C0|\\uD68C\\uC0C9|gray|grey|greige|modern\\s*gray|geurei|geureiji|hoesaek|modeon\\s*geurei)' },
-  { color: 'red', source: '(?:\\uB808\\uB4DC|\\uC801\\uC0C9|\\uC640\\uC778|\\uBC84\\uAC74\\uB514|red|wine|burgundy|redeu|wain|beogeondi)' },
-  { color: 'blue', source: '(?:\\uB124\\uC774\\uBE44|\\uCCAD\\uC0C9|blue|navy|neibi|cheongsaek|parangsaek)' },
+  { color: 'black', source: '(?:\\uBE14\\uB799|\\uAC80\\uC815|\\uD751\\uC0C9|black|jet\\s*black|obsidian|onyx|charcoal|anthracite|ebony|beullaek|geomjeong|heuksaek)' },
+  { color: 'white', source: '(?:\\uD654\\uC774\\uD2B8|\\uD770\\uC0C9|\\uBC31\\uC0C9|white|pure\\s*white|snow\\s*white|hwaiteu|huinsaek|baegsaek)' },
+  { color: 'beige', source: '(?:\\uBCA0\\uC774\\uC9C0|\\uC0CC\\uB4DC\\s*\\uBCA0\\uC774\\uC9C0|beige|sand\\s*beige|linen|beiji|saendeu\\s*beiji)' },
+  { color: 'brown', source: '(?:\\uBE0C\\uB77C\\uC6B4|\\uCE74\\uBA5C|\\uCF54\\uB0D1|\\uD1A0\\uD504|\\uBAA8\\uCE74|\\uCEE4\\uD53C|brown|tan|camel|caramel|cognac|coffee|espresso|saddle|chestnut|nougat|konyak|kkonyak|konnyak|taupe|mocha|beuraun|galsaek|kamel|topeu|moka|mokka|choko\\s*beuraun)' },
+  { color: 'ivory', source: '(?:\\uC544\\uC774\\uBCF4\\uB9AC|\\uD06C\\uB9BC|\\uC624\\uD504\\s*\\uD654\\uC774\\uD2B8|ivory|cream|oyster|porcelain|parchment|off\\s*white|aibori|keurim|opeu\\s*hwaiteu)' },
+  { color: 'gray', source: '(?:\\uADF8\\uB808\\uC774|\\uBAA8\\uB358\\s*\\uADF8\\uB808\\uC774|\\uADF8\\uB808\\uC774\\uC9C0|\\uD68C\\uC0C9|gray|grey|greige|slate|stone|modern\\s*gray|geurei|geureiji|hoesaek|modeon\\s*geurei)' },
+  { color: 'red', source: '(?:\\uB808\\uB4DC|\\uC801\\uC0C9|\\uC640\\uC778|\\uBC84\\uAC74\\uB514|red|wine|burgundy|bordeaux|merlot|sakhir|magma\\s*red|redeu|wain|beogeondi)' },
+  { color: 'blue', source: '(?:\\uB124\\uC774\\uBE44|\\uCCAD\\uC0C9|blue|navy|marine|indigo|neibi|cheongsaek|parangsaek)' },
   { color: 'orange', source: '(?:\\uC624\\uB80C\\uC9C0|orange|orenji|juhwangsaek)' },
-  { color: 'green', source: '(?:\\uADF8\\uB9B0|green|geurin|choroksaek)' },
+  { color: 'green', source: '(?:\\uADF8\\uB9B0|green|olive|geurin|choroksaek)' },
 ])
 
 const OPTION_FEATURE_RULES = Object.freeze([
@@ -906,6 +907,7 @@ export function normalizeColorName(value) {
 }
 
 export function normalizeInteriorColorName(value, bodyValue = '') {
+  const options = arguments[2] && typeof arguments[2] === 'object' ? arguments[2] : {}
   const rawInterior = cleanText(value)
   if (!rawInterior) return ''
 
@@ -917,7 +919,8 @@ export function normalizeInteriorColorName(value, bodyValue = '') {
     bodyValue &&
     rawInterior.toLowerCase() === cleanText(bodyValue).toLowerCase() &&
     normalizedInterior === normalizedBody &&
-    SUSPICIOUS_DUPLICATE_INTERIOR_COLORS.has(normalizedInterior)
+    SUSPICIOUS_DUPLICATE_INTERIOR_COLORS.has(normalizedInterior) &&
+    !options.allowBodyDuplicate
   ) {
     return ''
   }
@@ -939,9 +942,13 @@ function extractInteriorColorFromSegment(value, bodyValue = '') {
   for (const { color, source } of INTERIOR_COLOR_TEXT_PATTERNS) {
     const beforeMarker = new RegExp(`${source}\\s*(?:\\/|&|-|:)?\\s*(?:${INTERIOR_COLOR_CONTEXT_MARKERS})`, 'i')
     const afterMarker = new RegExp(`(?:${INTERIOR_COLOR_CONTEXT_MARKERS})(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?\\s*(?:\\/|&|-|:)?\\s*${source}`, 'i')
-    const tightAroundMarker = new RegExp(`${source}[\\s\\S]{0,8}${INTERIOR_COLOR_CONTEXT_MARKERS}|${INTERIOR_COLOR_CONTEXT_MARKERS}[\\s\\S]{0,8}${source}`, 'i')
+    const tightAroundMarker = new RegExp(`${source}[\\s\\S]{0,24}${INTERIOR_COLOR_CONTEXT_MARKERS}|${INTERIOR_COLOR_CONTEXT_MARKERS}[\\s\\S]{0,24}${source}`, 'i')
+    const compoundMarker = new RegExp(`${source}(?:\\s*(?:nappa|napa|premium|natural|perforated|quilted))?[\\s\\S]{0,16}(?:leather\\s*)?(?:seat(?:s)?|trim|interior|upholstery)`, 'i')
     if (beforeMarker.test(text) || afterMarker.test(text) || tightAroundMarker.test(text)) {
-      return normalizeInteriorColorName(color, bodyValue)
+      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
+    }
+    if (compoundMarker.test(text)) {
+      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
     }
   }
 
@@ -958,11 +965,12 @@ export function extractInteriorColorFromText(value, bodyValue = '') {
   }
 
   for (const { color, source } of INTERIOR_COLOR_TEXT_PATTERNS) {
-    const beforeMarker = new RegExp(`${source}[\\s\\S]{0,12}${INTERIOR_COLOR_CONTEXT_MARKERS}`, 'i')
-    const afterMarker = new RegExp(`${INTERIOR_COLOR_CONTEXT_MARKERS}(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?[\\s\\S]{0,12}${source}`, 'i')
+    const beforeMarker = new RegExp(`${source}[\\s\\S]{0,28}${INTERIOR_COLOR_CONTEXT_MARKERS}`, 'i')
+    const afterMarker = new RegExp(`${INTERIOR_COLOR_CONTEXT_MARKERS}(?:\\s*(?:\\uC0C9\\uC0C1|\\uCEEC\\uB7EC|color|trim))?[\\s\\S]{0,28}${source}`, 'i')
     const compactMarker = new RegExp(`${source}\\s*(?:\\/|&|-|:)?\\s*(?:${INTERIOR_COLOR_CONTEXT_MARKERS})`, 'i')
-    if (beforeMarker.test(text) || afterMarker.test(text) || compactMarker.test(text)) {
-      return normalizeInteriorColorName(color, bodyValue)
+    const compoundMarker = new RegExp(`${source}(?:\\s*(?:nappa|napa|premium|natural|perforated|quilted))?[\\s\\S]{0,20}(?:leather\\s*)?(?:seat(?:s)?|trim|interior|upholstery)`, 'i')
+    if (beforeMarker.test(text) || afterMarker.test(text) || compactMarker.test(text) || compoundMarker.test(text)) {
+      return normalizeInteriorColorName(color, bodyValue, { allowBodyDuplicate: true })
     }
   }
 
@@ -976,7 +984,7 @@ export function extractInteriorColorFromPairs(pairs = [], bodyValue = '') {
     if (!label || !value) continue
     if (!INTERIOR_COLOR_LABEL_RE.test(label) || INTERIOR_COLOR_REJECT_RE.test(label)) continue
 
-    const direct = normalizeInteriorColorName(value, bodyValue)
+    const direct = normalizeInteriorColorName(value, bodyValue, { allowBodyDuplicate: true })
     if (direct) return direct
 
     const contextual = extractInteriorColorFromText(`${label} ${value}`, bodyValue)

@@ -542,6 +542,7 @@ export function normalizeKeyInfoLabel(value) {
 }
 
 export function normalizeInteriorColorLabel(interiorValue, bodyValue = '') {
+  const options = arguments[2] && typeof arguments[2] === 'object' ? arguments[2] : {}
   const interiorRaw = cleanText(interiorValue)
   if (!interiorRaw) return ''
 
@@ -553,7 +554,8 @@ export function normalizeInteriorColorLabel(interiorValue, bodyValue = '') {
     bodyValue &&
     interiorRaw.toLowerCase() === cleanText(bodyValue).toLowerCase() &&
     normalizedInterior === normalizedBody &&
-    SUSPICIOUS_DUPLICATE_INTERIOR_COLORS.has(normalizedInterior)
+    SUSPICIOUS_DUPLICATE_INTERIOR_COLORS.has(normalizedInterior) &&
+    !options.allowBodyDuplicate
   ) {
     return ''
   }

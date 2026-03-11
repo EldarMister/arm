@@ -241,6 +241,43 @@ function extractInteriorColorFromSpec(spec = {}) {
   )
 }
 
+function normalizeWarrantyMetric(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function buildWarrantyTerm(monthValue, mileageValue) {
+  const months = normalizeWarrantyMetric(monthValue)
+  const mileage = normalizeWarrantyMetric(mileageValue)
+  if (!months && !mileage) return null
+
+  return {
+    months,
+    mileage,
+  }
+}
+
+export function extractWarrantyInfo(category = {}) {
+  const warranty = category?.warranty
+  if (!warranty || typeof warranty !== 'object' || Array.isArray(warranty)) {
+    return null
+  }
+
+  const body = buildWarrantyTerm(warranty.bodyMonth, warranty.bodyMileage)
+  const transmission = buildWarrantyTerm(warranty.transmissionMonth, warranty.transmissionMileage)
+  if (!body && !transmission) {
+    return null
+  }
+
+  return {
+    provider: cleanText(warranty.companyName || ''),
+    userDefined: Boolean(warranty.userDefined),
+    body,
+    transmission,
+    source: 'category.warranty',
+  }
+}
+
 function buildInspectionPairs(inspection) {
   if (!inspection) return []
 
@@ -271,7 +308,7 @@ function buildInspectionPairs(inspection) {
 
 function resolveInteriorColorWithMeta(spec = {}, bodyColor = '', { pairs = [], texts = [] } = {}) {
   const specRawValue = extractInteriorColorFromSpec(spec)
-  const specValue = normalizeInteriorColorName(specRawValue, bodyColor)
+  const specValue = normalizeInteriorColorName(specRawValue, bodyColor, { allowBodyDuplicate: true })
   if (specValue) {
     return {
       value: specValue,
@@ -445,6 +482,7 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
 
   const locationRaw = String(contact.address || '').trim()
   const bodyColor = normalizeColorName(spec.colorName)
+  const warrantyInfo = extractWarrantyInfo(category)
   const optionTexts = await resolveEncarOptionTexts(options)
   const inspectionTexts = inspection
     ? [
@@ -477,6 +515,11 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
       ad.title,
       ad.subTitle,
       ad.oneLineText,
+      category.gradeName,
+      category.gradeEnglishName,
+      category.gradeDetailName,
+      category.gradeDetailEnglishName,
+      typeof spec?.customColor === 'string' ? spec.customColor : '',
       optionTexts.join(' '),
       ...inspectionTexts,
     ],
@@ -494,6 +537,12 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     interior_color: interiorColorResult.value,
     interior_color_source: interiorColorResult.source,
     interior_color_diagnostics: interiorColorResult.diagnostics,
+    warranty: warrantyInfo,
+    warranty_company: warrantyInfo?.provider || '',
+    warranty_body_months: warrantyInfo?.body?.months || null,
+    warranty_body_km: warrantyInfo?.body?.mileage || null,
+    warranty_transmission_months: warrantyInfo?.transmission?.months || null,
+    warranty_transmission_km: warrantyInfo?.transmission?.mileage || null,
     location: locationRaw,
     location_short: extractShortLocation(locationRaw),
     vin: data?.vin || '',
@@ -613,6 +662,7 @@ export async function fetchEncarVehicleEnrichment(encarId) {
   )
 
   const bodyColor = normalizeColorName(spec.colorName)
+  const warrantyInfo = extractWarrantyInfo(category)
   const optionTexts = await resolveEncarOptionTexts(options)
   const optionFeatures = extractOptionFeatures({
     contentsText: contents?.text,
@@ -629,6 +679,11 @@ export async function fetchEncarVehicleEnrichment(encarId) {
       ad.title,
       ad.subTitle,
       ad.oneLineText,
+      category.gradeName,
+      category.gradeEnglishName,
+      category.gradeDetailName,
+      category.gradeDetailEnglishName,
+      typeof spec?.customColor === 'string' ? spec.customColor : '',
       optionTexts.join(' '),
     ],
   })
@@ -646,6 +701,12 @@ export async function fetchEncarVehicleEnrichment(encarId) {
     body_color: bodyColor,
     interior_color: interiorColorResult.value,
     interior_color_source: interiorColorResult.source,
+    warranty: warrantyInfo,
+    warranty_company: warrantyInfo?.provider || '',
+    warranty_body_months: warrantyInfo?.body?.months || null,
+    warranty_body_km: warrantyInfo?.body?.mileage || null,
+    warranty_transmission_months: warrantyInfo?.transmission?.months || null,
+    warranty_transmission_km: warrantyInfo?.transmission?.mileage || null,
     option_features: optionFeatures,
     image_urls: Array.isArray(data?.photos)
       ? data.photos

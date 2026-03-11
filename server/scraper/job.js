@@ -400,6 +400,11 @@ function mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings) 
     trim_level: enrichment.trim_level || car.trim_level,
     body_color: enrichment.body_color || car.body_color,
     interior_color: enrichment.interior_color || car.interior_color,
+    warranty_company: enrichment.warranty_company || car.warranty_company || null,
+    warranty_body_months: enrichment.warranty_body_months ?? car.warranty_body_months ?? null,
+    warranty_body_km: enrichment.warranty_body_km ?? car.warranty_body_km ?? null,
+    warranty_transmission_months: enrichment.warranty_transmission_months ?? car.warranty_transmission_months ?? null,
+    warranty_transmission_km: enrichment.warranty_transmission_km ?? car.warranty_transmission_km ?? null,
     option_features: Array.isArray(enrichment.option_features) && enrichment.option_features.length
       ? enrichment.option_features
       : car.option_features,
@@ -450,17 +455,19 @@ async function insertCar(car, photoUrls) {
     const res = await client.query(
       `INSERT INTO cars
          (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission, drive_type,
-          body_type, trim_level, key_info, body_color, interior_color, option_features, location, vin, encar_url, encar_id,
+          body_type, trim_level, key_info, body_color, interior_color, warranty_company, warranty_body_months, warranty_body_km,
+          warranty_transmission_months, warranty_transmission_km, option_features, location, vin, encar_url, encar_id,
           tags, can_negotiate, commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
        RETURNING id`,
       [
         car.name, car.model, car.year, car.mileage,
         car.price_krw, car.price_usd, car.fuel_type, car.transmission, car.drive_type,
         car.body_type || null, car.trim_level || null, car.key_info || null,
-        car.body_color, car.interior_color, car.option_features || [], car.location, car.vin, car.encar_url, car.encar_id,
-        car.tags, car.can_negotiate, car.commission, car.delivery, car.delivery_profile_code || null, car.loading, car.unloading,
-        car.storage, car.pricing_locked || false, car.vat_refund, car.total,
+        car.body_color, car.interior_color, car.warranty_company || null, car.warranty_body_months ?? null, car.warranty_body_km ?? null,
+        car.warranty_transmission_months ?? null, car.warranty_transmission_km ?? null, car.option_features || [], car.location, car.vin,
+        car.encar_url, car.encar_id, car.tags, car.can_negotiate, car.commission, car.delivery, car.delivery_profile_code || null,
+        car.loading, car.unloading, car.storage, car.pricing_locked || false, car.vat_refund, car.total,
       ],
     )
     const carId = res.rows[0].id

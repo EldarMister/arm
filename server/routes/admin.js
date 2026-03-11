@@ -247,11 +247,34 @@ function shouldRefreshOptionFeatures(value) {
   return !value.some((item) => cleanText(item))
 }
 
+function parseCatalogYear(value) {
+  const matched = String(value || '').match(/\d{4}/)
+  if (!matched) return 0
+  const year = Number.parseInt(matched[0], 10)
+  return Number.isFinite(year) ? year : 0
+}
+
+function hasWarrantyData(car = {}) {
+  return Boolean(
+    cleanText(car.warranty_company) ||
+    Number(car.warranty_body_months) > 0 ||
+    Number(car.warranty_body_km) > 0 ||
+    Number(car.warranty_transmission_months) > 0 ||
+    Number(car.warranty_transmission_km) > 0
+  )
+}
+
+function shouldRefreshWarranty(car = {}) {
+  if (hasWarrantyData(car)) return false
+  return parseCatalogYear(car.year) >= 2020
+}
+
 function shouldEnrichCar(car) {
   return (
     shouldRefreshVin(car.vin) ||
     shouldRefreshBodyColor(car.body_color) ||
     shouldRefreshInteriorColor(car.interior_color, car.body_color) ||
+    shouldRefreshWarranty(car) ||
     shouldRefreshOptionFeatures(car.option_features) ||
     isWeakBodyTypeForEnrichment(car.body_type) ||
     shouldRefreshTrim(car.trim_level)
@@ -263,9 +286,10 @@ function getEnrichCandidatePriority(car) {
   if (shouldRefreshTrim(car.trim_level)) return 1
   if (isWeakBodyTypeForEnrichment(car.body_type)) return 2
   if (shouldRefreshBodyColor(car.body_color)) return 3
-  if (shouldRefreshOptionFeatures(car.option_features)) return 4
-  if (shouldRefreshInteriorColor(car.interior_color, car.body_color)) return 5
-  return 6
+  if (shouldRefreshWarranty(car)) return 4
+  if (shouldRefreshOptionFeatures(car.option_features)) return 5
+  if (shouldRefreshInteriorColor(car.interior_color, car.body_color)) return 6
+  return 7
 }
 
 async function updateCarFields(id, patch, meta = {}) {
@@ -318,6 +342,14 @@ async function enrichCar(car) {
 
     if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color) && cleanText(detail.interior_color)) {
       patch.interior_color = detail.interior_color
+    }
+
+    if (shouldRefreshWarranty(car)) {
+      if (cleanText(detail.warranty_company)) patch.warranty_company = detail.warranty_company
+      if (Number(detail.warranty_body_months) > 0) patch.warranty_body_months = detail.warranty_body_months
+      if (Number(detail.warranty_body_km) > 0) patch.warranty_body_km = detail.warranty_body_km
+      if (Number(detail.warranty_transmission_months) > 0) patch.warranty_transmission_months = detail.warranty_transmission_months
+      if (Number(detail.warranty_transmission_km) > 0) patch.warranty_transmission_km = detail.warranty_transmission_km
     }
 
     if (shouldRefreshOptionFeatures(car.option_features) && Array.isArray(detail.option_features) && detail.option_features.length) {
@@ -468,7 +500,8 @@ async function runEmptyFieldEnrichment(options = {}) {
     const candidateWhereSql = getEnrichCandidateWhereSql()
     const result = scope === ENRICH_SCOPE_LATEST
       ? await pool.query(`
-        SELECT id, encar_id, name, model, vin, body_type, trim_level, body_color, interior_color, option_features,
+        SELECT id, encar_id, name, model, year, vin, body_type, trim_level, body_color, interior_color,
+               warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km, option_features,
                enrich_checked_at, enrich_last_status, enrich_last_error, enrich_last_encar_id
         FROM cars
         WHERE ${candidateWhereSql}
@@ -476,7 +509,8 @@ async function runEmptyFieldEnrichment(options = {}) {
         LIMIT $1
       `, [latestLimit])
       : await pool.query(`
-        SELECT id, encar_id, name, model, vin, body_type, trim_level, body_color, interior_color, option_features,
+        SELECT id, encar_id, name, model, year, vin, body_type, trim_level, body_color, interior_color,
+               warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km, option_features,
                enrich_checked_at, enrich_last_status, enrich_last_error, enrich_last_encar_id
         FROM cars
         WHERE ${candidateWhereSql}

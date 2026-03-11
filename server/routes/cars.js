@@ -349,7 +349,7 @@ function decorateCarRow(row, exchangeSnapshot, pricingSettings) {
     name: normalizedName,
     model: normalizedModel,
     body_color: normalizedBodyColor,
-    interior_color: normalizedText.interior_color ?? normalizeInteriorColorName(row.interior_color || '', normalizedBodyColor || ''),
+    interior_color: normalizedText.interior_color || normalizeInteriorColorName(row.interior_color || '', normalizedBodyColor || '', { allowBodyDuplicate: true }),
     option_features: normalizeOptionFeatures(row.option_features),
     trim_level: normalizedText.trim_level || normalizeTrimLevel(row.trim_level || '') || extractTrimLevelFromTitle(normalizedName || '', normalizedModel || ''),
     key_info: String(row.key_info || '').trim(),
@@ -646,7 +646,9 @@ router.post('/', async (req, res) => {
       name, model, mileage,
       fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement,
       body_color, body_color_dots,
-      interior_color, interior_color_dots, option_features,
+      interior_color, interior_color_dots,
+      warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km,
+      option_features,
       location, vin,
       price_krw, price_usd,
       commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total,
@@ -674,19 +676,21 @@ router.post('/', async (req, res) => {
       `INSERT INTO cars
         (name, model, year, mileage,
          fuel_type, transmission, drive_type, body_type, trim_level, key_info, displacement,
-         body_color, body_color_dots, interior_color, interior_color_dots, option_features,
+         body_color, body_color_dots, interior_color, interior_color_dots,
+         warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km, option_features,
          location, vin, price_krw, price_usd,
          commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total,
          encar_url, encar_id, can_negotiate, tags)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
        RETURNING *`,
       [
         normalizedText.name ?? name, normalizedText.model ?? model, normalizedYear, mileage || 0,
         fuel_type, transmission, drive_type, body_type, normalizedText.trim_level ?? trim_level, key_info, displacement || 0,
-        normalizedText.body_color ?? body_color, body_color_dots || [], normalizedText.interior_color ?? interior_color, interior_color_dots || [], normalizeOptionFeatures(option_features),
-        normalizedText.location || location, normalizedVin || null, price_krw || 0, price_usd || 0,
-        commission ?? DEFAULT_FEES.commission, delivery ?? 0, delivery_profile_code || null, loading ?? DEFAULT_FEES.loading, unloading ?? DEFAULT_FEES.unloading,
-        storage ?? DEFAULT_FEES.storage, pricing_locked || false, vat_refund || 0, total || 0,
+        normalizedText.body_color ?? body_color, body_color_dots || [], normalizedText.interior_color ?? interior_color, interior_color_dots || [],
+        warranty_company || null, warranty_body_months ?? null, warranty_body_km ?? null, warranty_transmission_months ?? null, warranty_transmission_km ?? null,
+        normalizeOptionFeatures(option_features), normalizedText.location || location, normalizedVin || null, price_krw || 0, price_usd || 0,
+        commission ?? DEFAULT_FEES.commission, delivery ?? 0, delivery_profile_code || null, loading ?? DEFAULT_FEES.loading,
+        unloading ?? DEFAULT_FEES.unloading, storage ?? DEFAULT_FEES.storage, pricing_locked || false, vat_refund || 0, total || 0,
         encar_url, encar_id, can_negotiate || false, tags || [],
       ]
     )
@@ -731,7 +735,9 @@ router.put('/:id', async (req, res) => {
     const fields = [
       'name', 'model', 'year', 'mileage',
       'fuel_type', 'transmission', 'drive_type', 'body_type', 'trim_level', 'key_info', 'displacement',
-      'body_color', 'body_color_dots', 'interior_color', 'interior_color_dots', 'option_features',
+      'body_color', 'body_color_dots', 'interior_color', 'interior_color_dots',
+      'warranty_company', 'warranty_body_months', 'warranty_body_km', 'warranty_transmission_months', 'warranty_transmission_km',
+      'option_features',
       'location', 'vin', 'price_krw', 'price_usd',
       'commission', 'delivery', 'delivery_profile_code', 'loading', 'unloading', 'storage', 'pricing_locked', 'vat_refund', 'total',
       'encar_url', 'encar_id', 'can_negotiate', 'tags',

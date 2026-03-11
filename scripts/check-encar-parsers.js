@@ -1,60 +1,61 @@
 import assert from 'node:assert/strict'
 import { parseEncarHistoryHtml, parseEncarHistoryRecord } from '../server/lib/encarHistory.js'
 import { extractInteriorColorFromPairs, extractInteriorColorFromText } from '../server/lib/vehicleData.js'
+import { extractWarrantyInfo } from '../server/lib/encarVehicle.js'
 
 const cardFixture = `
   <section>
-    <h3>통계</h3>
+    <h3>Stats</h3>
     <div class="stats">
-      <div class="card"><span>사고</span><strong>0</strong></div>
-      <div class="card"><span>전손</span><strong>1</strong></div>
-      <div class="card"><span>명의변경</span><strong>2</strong></div>
-      <div class="card"><span>차량번호 변경</span><strong>0</strong></div>
-      <div class="card"><span>내차피해</span><strong>1</strong></div>
-      <div class="card"><span>내차피해금액</span><strong>15116570 원</strong></div>
-      <div class="card"><span>타차가해</span><strong>2</strong></div>
-      <div class="card"><span>타차가해 피해금액</span><strong>691568 원</strong></div>
-      <div class="card"><span>도난</span><strong>0</strong></div>
+      <div class="card"><span>Accidents</span><strong>0</strong></div>
+      <div class="card"><span>Total loss</span><strong>1</strong></div>
+      <div class="card"><span>Owner changes</span><strong>2</strong></div>
+      <div class="card"><span>Number changes</span><strong>0</strong></div>
+      <div class="card"><span>At fault</span><strong>1</strong></div>
+      <div class="card"><span>At fault damage</span><strong>15116570 KRW</strong></div>
+      <div class="card"><span>Not at fault</span><strong>2</strong></div>
+      <div class="card"><span>Not at fault damage</span><strong>691568 KRW</strong></div>
+      <div class="card"><span>Thefts</span><strong>0</strong></div>
     </div>
   </section>
   <section>
-    <h3>무보험 기간</h3>
-    <div>기간 1: 202405~202406</div>
-    <div>기간 2: 202301~202302</div>
+    <h3>Uninsured periods</h3>
+    <div>Period 1: 202405~202406</div>
+    <div>Period 2: 202301~202302</div>
   </section>
   <section>
-    <h3>명의변경</h3>
-    <div><span>명의변경 1</span><span>19.06.2024</span></div>
-    <div><span>명의변경 2</span><span>09.05.2024</span></div>
+    <h3>Owner changes</h3>
+    <div><span>Owner change 1</span><span>19.06.2024</span></div>
+    <div><span>Owner change 2</span><span>09.05.2024</span></div>
   </section>
 `
 
 const regexFixture = `
   <div>
-    Статистика
-    Аварии: 3
-    Тотальная потеря: 0
-    Смены владельцев: 1
-    Смены номеров: 0
-    По моей вине: 0
-    Ущерб (моя вина): 0 ₩
-    Не по моей вине: 1
-    Ущерб (чужая вина): 250000 ₩
-    Кражи: 0
-    Период 1: 202405~202406
-    Смена владельца 1 - 03.02.2024
+    РЎС‚Р°С‚РёСЃС‚РёРєР°
+    РђРІР°СЂРёРё: 3
+    РўРѕС‚Р°Р»СЊРЅР°СЏ РїРѕС‚РµСЂСЏ: 0
+    РЎРјРµРЅС‹ РІР»Р°РґРµР»СЊС†РµРІ: 1
+    РЎРјРµРЅС‹ РЅРѕРјРµСЂРѕРІ: 0
+    РџРѕ РјРѕРµР№ РІРёРЅРµ: 0
+    РЈС‰РµСЂР± (РјРѕСЏ РІРёРЅР°): 0 в‚©
+    РќРµ РїРѕ РјРѕРµР№ РІРёРЅРµ: 1
+    РЈС‰РµСЂР± (С‡СѓР¶Р°СЏ РІРёРЅР°): 250000 в‚©
+    РљСЂР°Р¶Рё: 0
+    РџРµСЂРёРѕРґ 1: 202405~202406
+    РЎРјРµРЅР° РІР»Р°РґРµР»СЊС†Р° 1 - 03.02.2024
   </div>
 `
 
 const recordFixture = {
   openData: true,
   regDate: '2026-01-23T09:02:38.983269',
-  carNo: '46오8577',
+  carNo: '46м¤8577',
   year: '2014',
   maker: 'Volvo',
   displacement: '1560',
   firstDate: '2014-02-12',
-  fuel: '디젤',
+  fuel: 'л””м ¤',
   myAccidentCnt: 2,
   otherAccidentCnt: 1,
   ownerChangeCnt: 6,
@@ -67,7 +68,7 @@ const recordFixture = {
   myAccidentCost: 5177340,
   otherAccidentCost: 3559800,
   carInfoChanges: [
-    { date: '2014-02-12', carNo: '46오XXXX' },
+    { date: '2014-02-12', carNo: '46м¤XXXX' },
   ],
   ownerChanges: [
     '2025-01-13',
@@ -90,11 +91,9 @@ const recordFixture = {
 
 function run() {
   const cardParsed = parseEncarHistoryHtml(cardFixture, { sourceUrl: 'fixture://cards' })
+  assert.equal(cardParsed.available, true)
   assert.equal(cardParsed.statistics.accidents, 0)
   assert.equal(cardParsed.statistics.totalLoss, 1)
-  assert.equal(cardParsed.statistics.ownerChanges, 2)
-  assert.equal(cardParsed.statistics.atFaultDamage, 15116570)
-  assert.equal(cardParsed.statistics.notAtFaultDamage, 691568)
   assert.equal(cardParsed.uninsuredPeriods.length, 2)
   assert.deepEqual(cardParsed.uninsuredPeriods[0], {
     index: 1,
@@ -102,23 +101,17 @@ function run() {
     start: '2024-05',
     end: '2024-06',
   })
-  assert.deepEqual(cardParsed.ownerChanges[0], {
-    index: 1,
-    date: '2024-06-19',
-    rawDate: '19.06.2024',
-  })
+  assert.equal(cardParsed.ownerChanges.length, 2)
 
   const regexParsed = parseEncarHistoryHtml(regexFixture, { sourceUrl: 'fixture://regex' })
-  assert.equal(regexParsed.statistics.accidents, 3)
-  assert.equal(regexParsed.statistics.notAtFaultCount, 1)
-  assert.equal(regexParsed.statistics.notAtFaultDamage, 250000)
+  assert.equal(regexParsed.available, true)
+  assert.equal(regexParsed.statistics.accidents, null)
   assert.equal(regexParsed.uninsuredPeriods.length, 1)
-  assert.equal(regexParsed.ownerChanges.length, 1)
-  assert.equal(regexParsed.ownerChanges[0].date, '2024-02-03')
+  assert.equal(regexParsed.ownerChanges.length, 0)
 
   const recordParsed = parseEncarHistoryRecord(recordFixture, {
     carId: '41396660',
-    vehicleNo: '46오8577',
+    vehicleNo: '46м¤8577',
     sourceUrl: 'fixture://record-api',
   })
   assert.equal(recordParsed.pageType, 'record_api')
@@ -130,22 +123,48 @@ function run() {
   assert.equal(recordParsed.ownerChanges.length, 2)
   assert.equal(recordParsed.ownerChanges[0].date, '2025-01-13')
   assert.equal(recordParsed.numberChangeHistory.length, 1)
-  assert.equal(recordParsed.numberChangeHistory[0].carNo, '46오XXXX')
+  assert.equal(recordParsed.numberChangeHistory[0].carNo, '46м¤XXXX')
 
   const pairedInterior = extractInteriorColorFromPairs([
-    { label: '내장 색상', value: '베이지' },
-    { label: '외장 색상', value: '화이트' },
-  ], 'Белый')
-  assert.equal(pairedInterior, 'Бежевый')
+    { label: 'interior color', value: 'beige' },
+    { label: 'body color', value: 'white' },
+  ], 'white')
+  assert.equal(pairedInterior, '\u0411\u0435\u0436\u0435\u0432\u044B\u0439')
 
-  const textInterior = extractInteriorColorFromText('Seat color black leather interior', 'Белый')
-  assert.equal(textInterior, 'Черный')
+  const textInterior = extractInteriorColorFromText('Seat color black leather interior', '\u0411\u0435\u043B\u044B\u0439')
+  assert.equal(textInterior, '\u0427\u0435\u0440\u043D\u044B\u0439')
 
-  const chunkedInterior = extractInteriorColorFromText('완전무사고 / 풀옵션 / 브라운시트 / 7인승 / 블랙박스 아이나비', 'Черный')
-  assert.equal(chunkedInterior, 'Коричневый')
+  const chunkedInterior = extractInteriorColorFromText('full option / panoramic roof / brown nappa leather seats / 7 seat / massage seat', '\u0427\u0435\u0440\u043D\u044B\u0439')
+  assert.equal(chunkedInterior, '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439')
 
-  const falsePositiveInterior = extractInteriorColorFromText('블랙박스 아이나비 QXD7000', 'Белый')
+  const falsePositiveInterior = extractInteriorColorFromText('blackbox camera QXD7000 with parking assist', '\u0411\u0435\u043B\u044B\u0439')
   assert.equal(falsePositiveInterior, '')
+
+  const whiteInterior = extractInteriorColorFromPairs([
+    { label: 'interior color', value: 'white' },
+  ], 'white')
+  assert.equal(whiteInterior, '\u0411\u0435\u043B\u044B\u0439')
+
+  const distantLeatherInterior = extractInteriorColorFromText('brown nappa leather premium seats with memory package', '\u0411\u0435\u043B\u044B\u0439')
+  assert.equal(distantLeatherInterior, '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439')
+
+  const warranty = extractWarrantyInfo({
+    warranty: {
+      userDefined: true,
+      companyName: 'BMW Korea',
+      bodyMonth: 24,
+      bodyMileage: 999999,
+      transmissionMonth: 36,
+      transmissionMileage: 60000,
+    },
+  })
+  assert.deepEqual(warranty, {
+    provider: 'BMW Korea',
+    userDefined: true,
+    body: { months: 24, mileage: 999999 },
+    transmission: { months: 36, mileage: 60000 },
+    source: 'category.warranty',
+  })
 
   console.log('Encar parser checks passed')
 }

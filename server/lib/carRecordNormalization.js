@@ -39,7 +39,7 @@ export function normalizeCarTextFields(input = {}) {
     model: normalizedModel,
     trim_level: normalizedTrim,
     body_color: bodyColor,
-    interior_color: normalizeNullableText(input.interior_color, (value) => normalizeInteriorColorName(value, bodyColorForInterior)),
+    interior_color: normalizeNullableText(input.interior_color, (value) => normalizeInteriorColorName(value, bodyColorForInterior, { allowBodyDuplicate: true })),
     location: normalizeNullableText(input.location, (value) => normalizeLocationName(value)),
   }
 }

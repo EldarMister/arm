@@ -8,7 +8,7 @@ const DEFAULT_CONCURRENCY = (() => {
   if (!Number.isFinite(raw)) return 2
   return Math.min(Math.max(raw, 1), 8)
 })()
-const DEFAULT_TARGETS = ['interior', 'vin', 'trim', 'options']
+const DEFAULT_TARGETS = ['interior', 'vin', 'trim', 'options', 'warranty']
 const BACKFILL_TARGETS = (() => {
   const raw = String(globalThis.process?.env?.BACKFILL_TARGETS || DEFAULT_TARGETS.join(','))
     .split(',')
@@ -58,6 +58,11 @@ async function getExistingCarIdByVin(vin, excludeId = null) {
 
 async function ensureSchema() {
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS option_features TEXT[] DEFAULT '{}'`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_company VARCHAR(120)`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_months INTEGER`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_km BIGINT`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_transmission_months INTEGER`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_transmission_km BIGINT`)
 }
 
 function hasTarget(name) {
@@ -70,11 +75,20 @@ async function fetchCandidates() {
   if (hasTarget('vin')) whereChecks.push(`COALESCE(BTRIM(vin), '') = ''`)
   if (hasTarget('trim')) whereChecks.push(`COALESCE(BTRIM(trim_level), '') = ''`)
   if (hasTarget('options')) whereChecks.push(`COALESCE(array_length(option_features, 1), 0) = 0`)
+  if (hasTarget('warranty')) whereChecks.push(`(
+    COALESCE(BTRIM(warranty_company), '') = ''
+    AND COALESCE(warranty_body_months, 0) = 0
+    AND COALESCE(warranty_body_km, 0) = 0
+    AND COALESCE(warranty_transmission_months, 0) = 0
+    AND COALESCE(warranty_transmission_km, 0) = 0
+    AND COALESCE(NULLIF(SUBSTRING(year FROM 1 FOR 4), ''), '0')::int >= 2020
+  )`)
   if (!whereChecks.length) return []
 
   const params = []
   let sql = `
-    SELECT id, encar_id, name, body_color, interior_color, vin, trim_level, option_features
+    SELECT id, encar_id, name, year, body_color, interior_color, vin, trim_level, option_features,
+           warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km
     FROM cars
     WHERE encar_id IS NOT NULL
       AND encar_id != ''
@@ -84,6 +98,12 @@ async function fetchCandidates() {
     ORDER BY
       CASE WHEN COALESCE(BTRIM(vin), '') = '' THEN 0 ELSE 1 END,
       CASE WHEN COALESCE(BTRIM(trim_level), '') = '' THEN 0 ELSE 1 END,
+      CASE WHEN COALESCE(BTRIM(warranty_company), '') = ''
+             AND COALESCE(warranty_body_months, 0) = 0
+             AND COALESCE(warranty_body_km, 0) = 0
+             AND COALESCE(warranty_transmission_months, 0) = 0
+             AND COALESCE(warranty_transmission_km, 0) = 0
+             AND COALESCE(NULLIF(SUBSTRING(year FROM 1 FOR 4), ''), '0')::int >= 2020 THEN 0 ELSE 1 END,
       CASE WHEN COALESCE(array_length(option_features, 1), 0) = 0 THEN 0 ELSE 1 END,
       CASE WHEN COALESCE(BTRIM(interior_color), '') = '' THEN 0 ELSE 1 END,
       updated_at ASC NULLS FIRST,
@@ -134,6 +154,7 @@ async function main() {
     vin_filled: 0,
     trim_filled: 0,
     option_features_filled: 0,
+    warranty_filled: 0,
   }
 
   console.log(`Backfill targets: ${BACKFILL_TARGETS.join(', ')}`)
@@ -180,6 +201,30 @@ async function main() {
           if (nextFeatures.length) {
             patch.option_features = nextFeatures
             stats.option_features_filled += 1
+          }
+        }
+
+        if (
+          hasTarget('warranty') &&
+          !cleanText(row.warranty_company) &&
+          Number(row.warranty_body_months || 0) <= 0 &&
+          Number(row.warranty_body_km || 0) <= 0 &&
+          Number(row.warranty_transmission_months || 0) <= 0 &&
+          Number(row.warranty_transmission_km || 0) <= 0
+        ) {
+          if (cleanText(detail.warranty_company)) patch.warranty_company = cleanText(detail.warranty_company)
+          if (Number(detail.warranty_body_months) > 0) patch.warranty_body_months = detail.warranty_body_months
+          if (Number(detail.warranty_body_km) > 0) patch.warranty_body_km = detail.warranty_body_km
+          if (Number(detail.warranty_transmission_months) > 0) patch.warranty_transmission_months = detail.warranty_transmission_months
+          if (Number(detail.warranty_transmission_km) > 0) patch.warranty_transmission_km = detail.warranty_transmission_km
+          if (
+            patch.warranty_company !== undefined ||
+            patch.warranty_body_months !== undefined ||
+            patch.warranty_body_km !== undefined ||
+            patch.warranty_transmission_months !== undefined ||
+            patch.warranty_transmission_km !== undefined
+          ) {
+            stats.warranty_filled += 1
           }
         }
 

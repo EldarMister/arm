@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS cars (
   body_color_dots  TEXT[]  DEFAULT '{}',
   interior_color   VARCHAR(100),
   interior_color_dots TEXT[] DEFAULT '{}',
+  warranty_company VARCHAR(120),
+  warranty_body_months INTEGER,
+  warranty_body_km BIGINT,
+  warranty_transmission_months INTEGER,
+  warranty_transmission_km BIGINT,
   option_features  TEXT[]  DEFAULT '{}',
   location         VARCHAR(100),
   vin              VARCHAR(50),
@@ -55,6 +60,11 @@ ALTER TABLE cars ADD COLUMN IF NOT EXISTS body_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS trim_level VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS key_info VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS displacement INTEGER DEFAULT 0;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_company VARCHAR(120);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_months INTEGER;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_km BIGINT;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_transmission_months INTEGER;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_transmission_km BIGINT;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS delivery_profile_code VARCHAR(60);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS pricing_locked BOOLEAN DEFAULT false;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS option_features TEXT[] DEFAULT '{}';
