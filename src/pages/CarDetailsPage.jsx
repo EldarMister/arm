@@ -767,6 +767,55 @@ function buildRepairHistoryItems(car) {
     .filter((item) => item.label && item.label !== '-' && item.value && item.value !== '-')
 }
 
+function getInspectionStatusTone(value) {
+  const text = normalizeInspectionValue(translateInspectionText(value || '') || String(value || ''))
+    .toLowerCase()
+    .trim()
+
+  if (!text || text === '-') return 'neutral'
+  if (/неисправ|опас|высок|ошиб|корроз/.test(text)) return 'danger'
+  if (/замен|замена|ремонт|восстанов|окрас|покрас|перекрас|есть запись|есть\b/.test(text)) return 'info'
+  if (/течь|утеч|незнач|залог|арест|огранич|колич|под отзыв|особая история/.test(text)) return 'warn'
+  if (/нормал|исправ|без\b|нет\b|доступн|выполнен|разрешен|нейтрал|цветной|не применяется/.test(text)) return 'good'
+  return 'neutral'
+}
+
+function buildExteriorInspectionRows(section) {
+  return (section?.ranks || []).flatMap((rank, rankIndex) => {
+    const status = translateInspectionText(rank?.rank || '-') || '-'
+    const items = Array.isArray(rank?.items) && rank.items.length ? rank.items : []
+
+    return items
+      .map((item, itemIndex) => ({
+        key: `${section?.title || 'section'}-${rankIndex}-${itemIndex}`,
+        label: translateInspectionText(item || '-'),
+        value: status,
+      }))
+      .filter((row) => row.label && row.label !== '-')
+  })
+}
+
+function InspectionStatusRow({ label, value, metaLines = [] }) {
+  const tone = getInspectionStatusTone(value)
+  const details = Array.isArray(metaLines) ? metaLines.filter(Boolean) : []
+
+  return (
+    <div className="car-inspection-status-row">
+      <div className="car-inspection-status-main">
+        <div className="car-inspection-status-label">{label || '-'}</div>
+        {!!details.length && (
+          <div className="car-inspection-status-meta">
+            {details.map((line) => (
+              <small key={line}>{line}</small>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className={`car-inspection-status-value car-inspection-status-value-${tone}`}>{value || '-'}</div>
+    </div>
+  )
+}
+
 function translateInspectionText(value) {
   const text = String(value || '').trim()
   if (!text) return ''
@@ -1641,34 +1690,34 @@ export default function CarDetailsPage() {
               {!!inspectionSummary.length && (
                 <div className="car-inspection-block">
                   <h4 className="car-inspection-title">{translateInspectionText('Overall condition')}</h4>
-                  <div className="car-inspection-grid">
+                  <div className="car-inspection-status-list">
                     {inspectionSummary.map((item, index) => {
                       const primaryValue = (item.states?.map(translateInspectionText).join(', ')) || translateInspectionText(item.detail) || '-'
                       const metaLines = buildInspectionMetaLines(item, primaryValue)
 
                       return (
-                        <div key={`${item.label}-${index}`} className="car-inspection-item">
-                          <span>{translateInspectionText(item.label)}</span>
-                          <strong>{primaryValue}</strong>
-                          {metaLines.map((line) => (
-                            <small key={line}>{line}</small>
-                          ))}
-                        </div>
+                        <InspectionStatusRow
+                          key={`${item.label}-${index}`}
+                          label={translateInspectionText(item.label)}
+                          value={primaryValue}
+                          metaLines={metaLines}
+                        />
                       )
                     })}
                   </div>
                 </div>
               )}
 
-              {inspectionOpen && !!car.inspection.repairHistory?.length && (
+              {inspectionOpen && !!repairHistoryItems.length && (
                 <div className="car-inspection-block">
                   <h4 className="car-inspection-title">{translateInspectionText('Repair history')}</h4>
-                  <div className="car-inspection-grid">
-                    {car.inspection.repairHistory.map((item, index) => (
-                      <div key={`${item.label}-${index}`} className="car-inspection-item">
-                        <span>{translateInspectionText(item.label)}</span>
-                        <strong>{translateInspectionText(item.value || '-')}</strong>
-                      </div>
+                  <div className="car-inspection-status-list">
+                    {repairHistoryItems.map((item, index) => (
+                      <InspectionStatusRow
+                        key={`${item.label}-${index}`}
+                        label={item.label}
+                        value={item.value}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1687,21 +1736,26 @@ export default function CarDetailsPage() {
                     </div>
                   )}
                   <div className="car-inspection-groups">
-                    {car.inspection.exteriorStatus.sections.map((section) => (
-                      <div key={section.title} className="car-inspection-group">
-                        <h5>{translateInspectionText(section.title)}</h5>
-                        <div className="car-inspection-group-list">
-                          {section.ranks.map((rank) => (
-                            <div key={`${section.title}-${rank.rank}`} className="car-inspection-line">
-                              <div>
-                                <span>{translateInspectionText(rank.rank)}</span>
-                              </div>
-                              <strong>{rank.items?.map(translateInspectionText).join(', ') || '-'}</strong>
-                            </div>
-                          ))}
+                    {car.inspection.exteriorStatus.sections.map((section) => {
+                      const sectionRows = buildExteriorInspectionRows(section)
+
+                      if (!sectionRows.length) return null
+
+                      return (
+                        <div key={section.title} className="car-inspection-group">
+                          <h5>{translateInspectionText(section.title)}</h5>
+                          <div className="car-inspection-status-list">
+                            {sectionRows.map((row) => (
+                              <InspectionStatusRow
+                                key={row.key}
+                                label={row.label}
+                                value={row.value}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -1713,21 +1767,18 @@ export default function CarDetailsPage() {
                     {inspectionGroups.map((group) => (
                       <div key={group.title} className="car-inspection-group">
                         <h5>{translateInspectionText(group.title)}</h5>
-                        <div className="car-inspection-group-list">
+                        <div className="car-inspection-status-list">
                           {group.items.map((item, index) => {
                             const primaryValue = (item.states?.map(translateInspectionText).join(', ')) || translateInspectionText(item.detail) || '-'
                             const metaLines = buildInspectionMetaLines(item, primaryValue)
 
                             return (
-                              <div key={`${group.title}-${item.label}-${index}`} className="car-inspection-line">
-                                <div>
-                                  <span>{translateInspectionText(item.label)}</span>
-                                  {metaLines.map((line) => (
-                                    <small key={line}>{line}</small>
-                                  ))}
-                                </div>
-                                <strong>{primaryValue}</strong>
-                              </div>
+                              <InspectionStatusRow
+                                key={`${group.title}-${item.label}-${index}`}
+                                label={translateInspectionText(item.label)}
+                                value={primaryValue}
+                                metaLines={metaLines}
+                              />
                             )
                           })}
                         </div>
