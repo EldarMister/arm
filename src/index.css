@@ -3336,7 +3336,7 @@ body {
   gap: 5px;
 }
 
-.car-details-customs-choice-field {
+.car-details-customs-select-field {
   gap: 8px !important;
 }
 
@@ -3379,67 +3379,30 @@ body {
   box-shadow: 0 0 0 2px rgba(217, 154, 43, 0.18);
 }
 
-.car-details-customs-choice {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.car-details-customs-select-wrap {
+  position: relative;
 }
 
-.car-details-customs-choice-country {
-  grid-template-columns: 1fr;
+.car-details-customs-select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23915f2d' viewBox='0 0 24 24'%3E%3Cpolyline points='6 9 12 15 18 9' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-.car-details-customs-choice-item {
-  border: 1px solid #edc987;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fffaf1 0%, #fff 100%);
-  min-height: 42px;
-  padding: 10px 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: #6f4518;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
+.car-details-customs-select {
+  appearance: none;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.car-details-customs-choice-item:hover {
-  border-color: #d99a2b;
-  transform: translateY(-1px);
-}
-
-.car-details-customs-choice-item:focus-visible {
-  outline: none;
-  border-color: #d99a2b;
-  box-shadow: 0 0 0 2px rgba(217, 154, 43, 0.18);
-}
-
-.car-details-customs-choice-item.is-active {
-  border-color: #d99a2b;
-  background: linear-gradient(180deg, #fff0cd 0%, #ffe4ac 100%);
-  box-shadow: 0 8px 20px rgba(217, 154, 43, 0.18);
-  color: #7a4310;
-}
-
-.car-details-customs-choice-flag {
-  font-size: 17px;
-  line-height: 1;
-}
-
-.car-details-customs-choice-text {
-  color: inherit !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  line-height: 1.25;
+  padding-right: 36px !important;
+  font-weight: 600;
+  background: linear-gradient(180deg, #fffaf1 0%, #fff 100%);
 }
 
 .car-details-customs-result {
@@ -6358,26 +6321,12 @@ body {
   color: #f4e3c4;
 }
 
-[data-theme="dark"] .car-details-customs-choice-item {
+[data-theme="dark"] .car-details-customs-select {
   background: linear-gradient(180deg, #241d12 0%, #17130e 100%);
-  border-color: #6a5322;
-  color: #f4e3c4;
 }
 
-[data-theme="dark"] .car-details-customs-choice-item:hover,
-[data-theme="dark"] .car-details-customs-choice-item:focus-visible {
-  border-color: #f59e0b;
-}
-
-[data-theme="dark"] .car-details-customs-choice-item:focus-visible {
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
-}
-
-[data-theme="dark"] .car-details-customs-choice-item.is-active {
-  background: linear-gradient(180deg, #4a3511 0%, #32230a 100%);
-  border-color: #f59e0b;
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
-  color: #fff0cf;
+[data-theme="dark"] .car-details-customs-select-wrap::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23d6b37c' viewBox='0 0 24 24'%3E%3Cpolyline points='6 9 12 15 18 9' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 [data-theme="dark"] .car-details-customs-result {

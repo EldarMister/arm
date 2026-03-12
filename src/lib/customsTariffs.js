@@ -98,7 +98,6 @@ export const CUSTOMS_FUEL_OPTIONS = [
   { value: 'lpg', label: FUEL_LABELS.lpg },
   { value: 'diesel', label: FUEL_LABELS.diesel },
   { value: 'hybrid', label: FUEL_LABELS.hybrid },
-  { value: 'electric', label: 'Электро / другое' },
 ]
 
 export function getCustomsFuelLabel(value) {

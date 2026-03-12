@@ -145,6 +145,10 @@ function detectFuel(car) {
   return 'gasoline'
 }
 
+function normalizeCustomsFuel(value) {
+  return CUSTOMS_FUEL_OPTIONS.some((option) => option.value === value) ? value : 'gasoline'
+}
+
 const DEFAULT_CALC_YEAR = new Date().getFullYear()
 const DEFAULT_CALC_ENGINE = 2.0
 
@@ -1423,7 +1427,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
         if (!active) return
 
         const mapped = mapCarWithNormalizedSpecs(data)
-        const fuel = detectFuel(data)
+        const fuel = normalizeCustomsFuel(detectFuel(data))
         const inferredDirection = inferImportDirection(data, mapped)
         setCar(mapped)
         setImgIdx(0)
@@ -1467,7 +1471,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
               setCalc({
                 year: formatCalcYearInput(nextCalcDefaults.year),
                 engine: formatCalcEngineInput(nextCalcDefaults.engine),
-                fuel: detectFuel({ fuel_type: detail?.fuel_type || mapped.fuelType, tags: mapped.tags }),
+                fuel: normalizeCustomsFuel(detectFuel({ fuel_type: detail?.fuel_type || mapped.fuelType, tags: mapped.tags })),
                 direction: inferredDetailDirection,
                 isPremium: isPremiumVehicle(detail) || isPremiumVehicle(mapped),
               })
@@ -1663,41 +1667,32 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                     onChange={(e) => updateCalc({ engine: sanitizeEngineInput(e.target.value) })}
                   />
                 </label>
-                <label className="car-details-customs-choice-field">
+                <label className="car-details-customs-select-field">
                   <span>Тип двигателя</span>
-                  <div className="car-details-customs-choice" role="radiogroup" aria-label="Тип двигателя">
+                  <div className="car-details-customs-select-wrap">
+                    <select
+                      className="car-details-customs-select"
+                      value={calc.fuel}
+                      onChange={(e) => updateCalc({ fuel: e.target.value })}
+                    >
                     {CUSTOMS_FUEL_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`car-details-customs-choice-item${calc.fuel === option.value ? ' is-active' : ''}`}
-                        onClick={() => updateCalc({ fuel: option.value })}
-                        aria-pressed={calc.fuel === option.value}
-                      >
-                        <span className="car-details-customs-choice-text">{option.label}</span>
-                      </button>
+                        <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
+                    </select>
                   </div>
                 </label>
-                <label className="car-details-customs-choice-field">
+                <label className="car-details-customs-select-field">
                   <span>Направление ввоза</span>
-                  <div
-                    className="car-details-customs-choice car-details-customs-choice-country"
-                    role="radiogroup"
-                    aria-label="Направление ввоза"
-                  >
+                  <div className="car-details-customs-select-wrap">
+                    <select
+                      className="car-details-customs-select"
+                      value={calc.direction}
+                      onChange={(e) => updateCalc({ direction: e.target.value })}
+                    >
                     {CUSTOMS_DIRECTION_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`car-details-customs-choice-item${calc.direction === option.value ? ' is-active' : ''}`}
-                        onClick={() => updateCalc({ direction: option.value })}
-                        aria-pressed={calc.direction === option.value}
-                      >
-                        <span className="car-details-customs-choice-flag" aria-hidden="true">{option.flag}</span>
-                        <span className="car-details-customs-choice-text">{option.label}</span>
-                      </button>
+                        <option key={option.value} value={option.value}>{`${option.flag} ${option.label}`}</option>
                     ))}
+                    </select>
                   </div>
                 </label>
                 <label className="car-details-customs-toggle">
