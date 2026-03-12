@@ -3320,7 +3320,7 @@ body {
 .car-details-customs-grid {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
 }
 
@@ -3340,6 +3340,21 @@ body {
   color: #915f2d;
   font-size: 11px;
   font-weight: 600;
+}
+
+.car-details-customs-toggle {
+  grid-column: 1 / -1;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 38px;
+  padding: 0 2px;
+}
+
+.car-details-customs-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #d99a2b;
 }
 
 .car-details-customs-grid input,
@@ -3382,6 +3397,10 @@ body {
   font-weight: 800;
 }
 
+.car-details-customs-result strong.is-manual {
+  font-size: 18px;
+}
+
 .car-details-customs-meta {
   margin-top: 6px;
   display: flex;
@@ -3400,6 +3419,12 @@ body {
   color: #8b5a1f;
   font-size: 11px;
   line-height: 1.45;
+}
+
+.car-details-customs-note.is-warning {
+  border-color: #f3c2a5;
+  background: #fff1e6;
+  color: #9a3412;
 }
 
 .car-details-specs-card {
@@ -6255,6 +6280,10 @@ body {
   color: #d6b37c;
 }
 
+[data-theme="dark"] .car-details-customs-toggle input {
+  accent-color: #f59e0b;
+}
+
 [data-theme="dark"] .car-details-customs-grid input,
 [data-theme="dark"] .car-details-customs-grid select {
   background: #121212;
@@ -6274,10 +6303,20 @@ body {
   color: #f59e0b;
 }
 
+[data-theme="dark"] .car-details-customs-result strong.is-manual {
+  color: #f7d8a8;
+}
+
 [data-theme="dark"] .car-details-customs-note {
   border-color: #6a5322;
   background: #332a19;
   color: #f7d8a8;
+}
+
+[data-theme="dark"] .car-details-customs-note.is-warning {
+  border-color: #7c4a20;
+  background: #3b2418;
+  color: #ffd4b8;
 }
 
 /* Contacts page */

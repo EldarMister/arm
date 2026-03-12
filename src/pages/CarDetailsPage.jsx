@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { applyVehicleTitleFixes } from '../../shared/vehicleTextFixes.js'
 import { sanitizeVin } from '../../shared/vin.js'
@@ -17,6 +17,13 @@ import {
   resolveVehicleClassLabelForDisplay,
   stripTrailingTrimLabel,
 } from '../lib/vehicleDisplay'
+import {
+  CUSTOMS_DIRECTION_OPTIONS,
+  CUSTOMS_FUEL_OPTIONS,
+  CUSTOMS_MONTH_OPTIONS,
+  getCustomsFuelLabel,
+  resolveCustomsCalculation,
+} from '../lib/customsTariffs.js'
 import { CAR_SECTION_CONFIG } from '../lib/catalogSections.js'
 
 const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
@@ -131,41 +138,11 @@ function detectFuel(car) {
   const explicit = String(car.fuel_type || '').toLowerCase()
   const tags = Array.isArray(car.tags) ? car.tags.join(' ').toLowerCase() : ''
   const mixed = `${explicit} ${tags}`
+  if (mixed.includes('гибрид') || mixed.includes('hybrid') || mixed.includes('hev') || mixed.includes('phev') || mixed.includes('하이브리드')) return 'hybrid'
   if (mixed.includes('дизел') || mixed.includes('diesel') || mixed.includes('디젤')) return 'diesel'
   if (mixed.includes('электро') || mixed.includes('electric') || mixed.includes('전기')) return 'electric'
   if (mixed.includes('газ') || mixed.includes('lpg')) return 'lpg'
   return 'gasoline'
-}
-
-function fuelLabel(type) {
-  if (type === 'diesel') return 'Дизель'
-  if (type === 'electric') return 'Электро'
-  if (type === 'lpg') return 'Газ'
-  return 'Бензин'
-}
-
-function estimateCustomsDuty({ year, engine, fuel }) {
-  const age = Math.max(0, new Date().getFullYear() - Number(year || new Date().getFullYear()))
-  const liters = Math.max(0.8, Number(engine || 2))
-  let usd
-
-  if (fuel === 'electric') {
-    usd = liters * 450
-  } else if (age <= 3) {
-    usd = liters * 850
-  } else if (age <= 5) {
-    usd = liters * 1150
-  } else if (liters > 3) {
-    usd = liters * 1500
-  } else if (liters > 2) {
-    usd = liters * 1300
-  } else {
-    usd = liters * 900
-  }
-
-  if (fuel === 'diesel') usd *= 1.12
-  if (fuel === 'lpg') usd *= 0.95
-  return Math.round(usd)
 }
 
 const DEFAULT_CALC_YEAR = new Date().getFullYear()
@@ -180,6 +157,11 @@ function formatCalcEngineInput(value) {
   const engine = Number(value)
   if (!Number.isFinite(engine) || engine <= 0) return String(DEFAULT_CALC_ENGINE)
   return String(engine).replace(/\.0$/, '')
+}
+
+function formatCalcMonthInput(value) {
+  const month = Number(value)
+  return Number.isInteger(month) && month >= 1 && month <= 12 ? String(month) : ''
 }
 
 function sanitizeYearInput(value) {
@@ -222,6 +204,52 @@ function parseCalcEngineInput(value, fallback = DEFAULT_CALC_ENGINE) {
 
   const engine = Number(normalized)
   return Number.isFinite(engine) && engine > 0 ? engine : fallback
+}
+
+function parseCalcMonthInput(value, fallback = null) {
+  const month = Number(value)
+  return Number.isInteger(month) && month >= 1 && month <= 12 ? month : fallback
+}
+
+function extractMonthNumber(...values) {
+  for (const value of values) {
+    if (!value) continue
+
+    const raw = String(value).trim()
+    if (!raw) continue
+
+    const direct = new Date(raw)
+    if (!Number.isNaN(direct.getTime())) return direct.getMonth() + 1
+
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (iso) return Number(iso[2])
+
+    const ru = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+    if (ru) return Number(ru[2])
+  }
+
+  return null
+}
+
+function inferCalcMonth(source) {
+  return extractMonthNumber(
+    source?.inspection?.vehicleHistory?.overview?.firstRegistration,
+    source?.inspection?.vehicleHistory?.overview?.registrationDate,
+    source?.vehicleHistory?.overview?.firstRegistration,
+    source?.vehicleHistory?.overview?.registrationDate,
+    source?.inspection?.overview?.firstRegistration,
+    source?.inspection?.overview?.registrationDate,
+  )
+}
+
+function isPremiumVehicle(source) {
+  return /premium|прем/i.test(String(source?.vehicleClass || source?.vehicle_class || ''))
+}
+
+function resolveDefaultCalcEngineValue({ displacement, name, model }) {
+  const cc = Number(displacement) || 0
+  if (cc >= 600) return Math.round(cc)
+  return resolveEngineLiters({ displacement, name, model }) || DEFAULT_CALC_ENGINE
 }
 
 function formatDate(value) {
@@ -1389,10 +1417,13 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
   const [inspectionOpen, setInspectionOpen] = useState(false)
   const [calc, setCalc] = useState({
     year: String(DEFAULT_CALC_YEAR),
+    month: '',
     engine: formatCalcEngineInput(DEFAULT_CALC_ENGINE),
     fuel: 'gasoline',
+    direction: '',
+    isPremium: false,
   })
-  const [calcDefaults, setCalcDefaults] = useState({ year: DEFAULT_CALC_YEAR, engine: DEFAULT_CALC_ENGINE })
+  const [calcDefaults, setCalcDefaults] = useState({ year: DEFAULT_CALC_YEAR, month: null, engine: DEFAULT_CALC_ENGINE })
 
   useEffect(() => {
     let active = true
@@ -1414,13 +1445,17 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
         setError('')
         const nextCalcDefaults = {
           year: mapped.yearNum || DEFAULT_CALC_YEAR,
-          engine: resolveEngineLiters({ displacement: mapped.displacement, name: mapped.name, model: mapped.model }) || DEFAULT_CALC_ENGINE,
+          month: inferCalcMonth(mapped),
+          engine: resolveDefaultCalcEngineValue({ displacement: mapped.displacement, name: mapped.name, model: mapped.model }),
         }
         setCalcDefaults(nextCalcDefaults)
         setCalc({
           year: formatCalcYearInput(nextCalcDefaults.year),
+          month: formatCalcMonthInput(nextCalcDefaults.month),
           engine: formatCalcEngineInput(nextCalcDefaults.engine),
           fuel,
+          direction: '',
+          isPremium: isPremiumVehicle(mapped),
         })
 
         if (mapped.encarId && mapped.encarId !== '-') {
@@ -1434,17 +1469,21 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
             setImgIdx(0)
             const nextCalcDefaults = {
               year: parseYear(detail?.year || mapped.year),
-              engine: resolveEngineLiters({
+              month: inferCalcMonth(detail) || inferCalcMonth(mapped),
+              engine: resolveDefaultCalcEngineValue({
                 displacement: detail?.displacement || mapped.displacement,
                 name: detail?.name || mapped.name,
                 model: detail?.model || mapped.model,
-              }) || DEFAULT_CALC_ENGINE,
+              }),
             }
             setCalcDefaults(nextCalcDefaults)
             setCalc({
               year: formatCalcYearInput(nextCalcDefaults.year),
+              month: formatCalcMonthInput(nextCalcDefaults.month),
               engine: formatCalcEngineInput(nextCalcDefaults.engine),
               fuel: detectFuel({ fuel_type: detail?.fuel_type || mapped.fuelType, tags: mapped.tags }),
+              direction: '',
+              isPremium: isPremiumVehicle(detail) || isPremiumVehicle(mapped),
             })
           } catch {
             // Ignore detail enrichment errors, base card remains available.
@@ -1481,19 +1520,19 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
   const inspectionSummary = Array.isArray(car?.inspection?.summary) ? car.inspection.summary : []
 
   const calcYearValue = useMemo(() => parseCalcYearInput(calc.year, calcDefaults.year), [calc.year, calcDefaults.year])
+  const calcMonthValue = useMemo(() => parseCalcMonthInput(calc.month, calcDefaults.month), [calc.month, calcDefaults.month])
   const calcEngineValue = useMemo(() => parseCalcEngineInput(calc.engine, calcDefaults.engine), [calc.engine, calcDefaults.engine])
-  const customsDuty = useMemo(
-    () => estimateCustomsDuty({ year: calcYearValue, engine: calcEngineValue, fuel: calc.fuel }),
-    [calc.fuel, calcEngineValue, calcYearValue]
+  const customsResult = useMemo(
+    () => resolveCustomsCalculation({
+      year: calcYearValue,
+      month: calcMonthValue,
+      engine: calcEngineValue,
+      fuel: calc.fuel,
+      direction: calc.direction,
+      isPremium: calc.isPremium,
+    }),
+    [calc.direction, calc.fuel, calc.isPremium, calcEngineValue, calcMonthValue, calcYearValue]
   )
-
-  const customsNote = useMemo(() => {
-    const age = Math.max(0, new Date().getFullYear() - calcYearValue)
-    if (calc.fuel === 'electric') return 'Электромобили считаются по отдельной льготной сетке.'
-    if (age > 5 && calcEngineValue > 2) return 'Автомобили старше 5 лет с объемом > 2.0 обычно считают по повышенной ставке.'
-    if (age <= 3) return 'Для авто до 3 лет применяется базовая ставка.'
-    return 'Расчет оценочный. Точную сумму подтвердит брокер.'
-  }, [calc.fuel, calcEngineValue, calcYearValue])
 
   if (loading) {
     return (
@@ -1631,7 +1670,16 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                   />
                 </label>
                 <label>
-                  <span>Объем двигателя (л)</span>
+                  <span>Месяц выпуска</span>
+                  <select value={calc.month} onChange={(e) => setCalc((p) => ({ ...p, month: e.target.value }))}>
+                    <option value="">Не указан</option>
+                    {CUSTOMS_MONTH_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Объём двигателя (л или cc)</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -1640,28 +1688,49 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                   />
                 </label>
                 <label>
-                  <span>Тип топлива</span>
+                  <span>Тип двигателя</span>
                   <select value={calc.fuel} onChange={(e) => setCalc((p) => ({ ...p, fuel: e.target.value }))}>
-                    <option value="gasoline">Бензин</option>
-                    <option value="diesel">Дизель</option>
-                    <option value="lpg">Газ</option>
-                    <option value="electric">Электро</option>
+                    {CUSTOMS_FUEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </label>
+                <label>
+                  <span>Направление ввоза</span>
+                  <select value={calc.direction} onChange={(e) => setCalc((p) => ({ ...p, direction: e.target.value }))}>
+                    <option value="">Не выбрано</option>
+                    {CUSTOMS_DIRECTION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="car-details-customs-toggle">
+                  <input
+                    type="checkbox"
+                    checked={calc.isPremium}
+                    onChange={(e) => setCalc((p) => ({ ...p, isPremium: e.target.checked }))}
+                  />
+                  <span>Премиум-класс</span>
+                </label>
               </div>
-              <div className="car-details-customs-result"><span>Пошлина по сетке (оценка)</span><strong>${customsDuty.toLocaleString()}</strong></div>
+              <div className="car-details-customs-result">
+                <span>{customsResult.status === 'success' ? 'Итог по таблице' : 'Нужен ручной расчёт'}</span>
+                <strong className={customsResult.status === 'success' ? '' : 'is-manual'}>
+                  {customsResult.status === 'success' ? `$${customsResult.amount.toLocaleString('en-US')}` : 'Уточнение'}
+                </strong>
+              </div>
               <div className="car-details-customs-meta">
-                <span>Год: {calcYearValue}</span>
-                <span>Объем: {calcEngineValue.toFixed(1)} л</span>
-                <span>Топливо: {fuelLabel(calc.fuel)}</span>
+                {customsResult.meta.map((item) => (
+                  <span key={`${item.label}-${item.value}`}>{item.label}: {item.value}</span>
+                ))}
               </div>
-              <p className="car-details-customs-note">{customsNote}</p>
+              <p className={`car-details-customs-note${customsResult.status === 'success' ? '' : ' is-warning'}`}>{customsResult.message}</p>
             </div>
 
             <div className="car-details-card car-details-specs-card">
               <h3 className="car-details-card-title">Основные характеристики</h3>
               <div className="car-details-specs-grid">
-                <div className="car-details-spec-item"><span>Топливо</span><strong>{car.fuelType || fuelLabel(calc.fuel)}</strong></div>
+                <div className="car-details-spec-item"><span>Топливо</span><strong>{car.fuelType || getCustomsFuelLabel(calc.fuel)}</strong></div>
                 <div className="car-details-spec-item"><span>Трансмиссия</span><strong>{car.transmission || '-'}</strong></div>
                 <div className="car-details-spec-item"><span>Привод</span><strong>{car.driveType || '-'}</strong></div>
                 <div className="car-details-spec-item"><span>Комплектация</span><strong>{car.trimLevel || '-'}</strong></div>
