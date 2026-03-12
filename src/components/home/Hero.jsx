@@ -117,7 +117,7 @@ export default function Hero() {
   return (
     <section>
       <div className="hero-video-section">
-        <video src="/hero.mp4" autoPlay muted loop playsInline className="hero-video-banner" />
+        <video src="/hero1.mp4" autoPlay muted loop playsInline className="hero-video-banner" />
       </div>
 
       <div className="hero-section">
@@ -204,4 +204,3 @@ export default function Hero() {
     </section>
   )
 }
-

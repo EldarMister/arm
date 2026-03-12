@@ -61,6 +61,12 @@ const ADMIN_SECTION_OPTIONS = [
     { id: SECTION_PARTS, label: 'Запчасти' },
 ]
 
+const CAR_PLACEMENT_OPTIONS = [
+    { value: SECTION_CATALOG, icon: '🚗', label: 'Основной каталог', description: 'Обычное объявление в общем каталоге.' },
+    { value: SECTION_URGENT, icon: '🔥', label: 'Срочная продажа', description: 'Выделенное быстрое предложение.' },
+    { value: SECTION_DAMAGED, icon: '🛠️', label: 'Битое авто', description: 'Авто для раздела битых машин.' },
+]
+
 function readAdminSessionToken() {
     if (typeof window === 'undefined') return ''
     return String(window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '')
@@ -351,8 +357,22 @@ const BLANK = {
     model: '',
     year: '',
     mileage: '',
+    fuel_type: '',
+    transmission: '',
+    drive_type: '',
+    body_type: '',
+    vehicle_class: '',
+    trim_level: '',
+    key_info: '',
+    displacement: '',
     body_color: '',
     interior_color: '',
+    warranty_company: '',
+    warranty_body_months: '',
+    warranty_body_km: '',
+    warranty_transmission_months: '',
+    warranty_transmission_km: '',
+    option_features: [],
     location: '',
     vin: '',
     price_krw: '',
@@ -377,6 +397,15 @@ function recalc(f) {
     return { ...f, total: Math.round(n('price_usd') + n('commission') + n('delivery') + n('loading') + n('unloading') + n('storage') - n('vat_refund')) }
 }
 
+function parseOptionFeaturesInput(value) {
+    return [...new Set(
+        String(value || '')
+            .split(/\r?\n|,/)
+            .map(item => item.trim())
+            .filter(Boolean)
+    )].slice(0, 16)
+}
+
 function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
     const [f, setF] = useState({ ...BLANK, ...init, tags: init.tags || [] })
     const [tagInp, setTagInp] = useState('')
@@ -384,6 +413,7 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
     const [encarErr, setEncarErr] = useState('')
     const effectivePricing = buildEffectivePricingClient(f, pricingSettings)
     const deliveryProfiles = normalizePricingSettingsClient(pricingSettings).delivery_profiles
+    const optionFeaturesText = Array.isArray(f.option_features) ? f.option_features.join('\n') : ''
 
     const set = (k, v) => setF(prev => recalc({ ...prev, [k]: v }))
     const addTag = () => { const t = tagInp.trim(); if (t && !f.tags.includes(t)) setF(p => ({ ...p, tags: [...p.tags, t] })); setTagInp('') }
@@ -400,8 +430,22 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
                 model: d.model || p.model,
                 year: d.year || p.year,
                 mileage: d.mileage || p.mileage,
+                fuel_type: d.fuel_type || p.fuel_type,
+                transmission: d.transmission || p.transmission,
+                drive_type: d.drive_type || p.drive_type,
+                body_type: d.body_type || p.body_type,
+                vehicle_class: d.vehicle_class || p.vehicle_class,
+                trim_level: d.trim_level || p.trim_level,
+                key_info: d.key_info || p.key_info,
+                displacement: d.displacement || p.displacement,
                 body_color: d.body_color || p.body_color,
                 interior_color: d.interior_color || p.interior_color,
+                warranty_company: d.warranty_company || p.warranty_company,
+                warranty_body_months: d.warranty_body_months ?? p.warranty_body_months,
+                warranty_body_km: d.warranty_body_km ?? p.warranty_body_km,
+                warranty_transmission_months: d.warranty_transmission_months ?? p.warranty_transmission_months,
+                warranty_transmission_km: d.warranty_transmission_km ?? p.warranty_transmission_km,
+                option_features: Array.isArray(d.option_features) && d.option_features.length ? d.option_features : p.option_features,
                 location: d.location || p.location,
                 vin: d.vin || p.vin,
                 price_krw: d.price_krw || p.price_krw,
@@ -425,8 +469,14 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
         onSave({
             ...f,
             mileage: +f.mileage || 0,
+            displacement: +f.displacement || 0,
             price_krw: +f.price_krw || 0,
             price_usd: effectivePricing.price_usd,
+            warranty_body_months: +f.warranty_body_months || 0,
+            warranty_body_km: +f.warranty_body_km || 0,
+            warranty_transmission_months: +f.warranty_transmission_months || 0,
+            warranty_transmission_km: +f.warranty_transmission_km || 0,
+            option_features: Array.isArray(f.option_features) ? f.option_features : [],
             commission: effectivePricing.commission,
             delivery: effectivePricing.delivery,
             loading: effectivePricing.loading,
@@ -439,10 +489,10 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
     }
 
     const Row = ({ kids }) => <div className="adm-fields-row">{kids}</div>
-    const F = ({ label, k, type = 'text', ph, full, disabled = false, valueOverride }) => (
+    const F = ({ label, k, type = 'text', ph, full, disabled = false, valueOverride, ...inputProps }) => (
         <div className={`adm-field${full ? ' adm-field-full' : ''}`}>
             <label className="adm-label">{label}</label>
-            <input className="adm-input" type={type} placeholder={ph} value={valueOverride ?? f[k] ?? ''} onChange={e => set(k, e.target.value)} disabled={disabled} />
+            <input className="adm-input" type={type} placeholder={ph} value={valueOverride ?? f[k] ?? ''} onChange={e => set(k, e.target.value)} disabled={disabled} {...inputProps} />
         </div>
     )
 
@@ -457,24 +507,55 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
             </div>
             {encarErr && <div className="adm-err">{encarErr}</div>}
 
-            <div className="adm-field" style={{ marginBottom: 12 }}>
+            <div className="adm-placement-picker">
                 <label className="adm-label">Раздел размещения</label>
-                <select className="adm-select" value={f.listing_type || SECTION_CATALOG} onChange={e => set('listing_type', e.target.value)}>
-                    <option value={SECTION_CATALOG}>Основной каталог</option>
-                    <option value={SECTION_URGENT}>Срочная продажа</option>
-                    <option value={SECTION_DAMAGED}>Битое авто</option>
-                </select>
+                <div className="adm-placement-grid">
+                    {CAR_PLACEMENT_OPTIONS.map(option => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            className={`adm-placement-card${(f.listing_type || SECTION_CATALOG) === option.value ? ' is-active' : ''}`}
+                            onClick={() => set('listing_type', option.value)}
+                        >
+                            <span className="adm-placement-icon">{option.icon}</span>
+                            <span className="adm-placement-title">{option.label}</span>
+                            <span className="adm-placement-copy">{option.description}</span>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="adm-sec-title">📋 Информация</div>
             <Row kids={[<F key="n" label="Марка" k="name" ph="Hyundai" />, <F key="m" label="Модель" k="model" ph="Sonata" />]} />
-            <Row kids={[<F key="y" label="Год" k="year" ph="2023" />, <F key="mi" label="Пробег (км)" k="mileage" type="number" ph="45000" />]} />
+            <Row kids={[<F key="y" label="Год" k="year" ph="2023" />, <F key="mi" label="Пробег (км)" k="mileage" type="number" ph="45000" min="0" />]} />
             <Row kids={[<F key="bc" label="Цвет кузова" k="body_color" ph="Белый" />, <F key="ic" label="Цвет салона" k="interior_color" ph="Чёрный" />]} />
             <Row kids={[<F key="loc" label="Регион" k="location" ph="Сеул" />, <F key="v" label="VIN" k="vin" ph="KMHXX..." />]} />
             <F label="Ссылка Encar" k="encar_url" ph="https://www.encar.com/..." full />
 
+            <div className="adm-sec-title">⚙️ Характеристики</div>
+            <Row kids={[<F key="fuel" label="Топливо" k="fuel_type" ph="Бензин / Дизель / Гибрид" />, <F key="gear" label="Коробка" k="transmission" ph="Автомат / CVT / Робот" />]} />
+            <Row kids={[<F key="drive" label="Привод" k="drive_type" ph="Передний / AWD / 4WD" />, <F key="body" label="Тип кузова" k="body_type" ph="Седан / SUV / Минивэн" />]} />
+            <Row kids={[<F key="class" label="Класс авто" k="vehicle_class" ph="Средний класс / SUV" />, <F key="trim" label="Комплектация" k="trim_level" ph="Prestige / Exclusive" />]} />
+            <Row kids={[<F key="keys" label="Ключи" k="key_info" ph="2 ключа / Smart key" />, <F key="disp" label="Объем двигателя, cc" k="displacement" type="number" ph="1999" min="0" />]} />
+            <div className="adm-field adm-field-full">
+                <label className="adm-label">Опции и особенности</label>
+                <textarea
+                    className="adm-input adm-textarea"
+                    rows={5}
+                    placeholder={'Люк\nКамера 360\nПодогрев сидений'}
+                    value={optionFeaturesText}
+                    onChange={e => set('option_features', parseOptionFeaturesInput(e.target.value))}
+                />
+                <div className="adm-car-sub">Можно указывать по одной опции на строку или через запятую.</div>
+            </div>
+
+            <div className="adm-sec-title">🛡️ Гарантия и сервис</div>
+            <Row kids={[<F key="wc" label="Гарантийная компания" k="warranty_company" ph="Hyundai Certified" />, <F key="wbm" label="Гарантия кузова, мес." k="warranty_body_months" type="number" ph="12" min="0" />]} />
+            <Row kids={[<F key="wbk" label="Гарантия кузова, км" k="warranty_body_km" type="number" ph="20000" min="0" />, <F key="wtm" label="Гарантия трансмиссии, мес." k="warranty_transmission_months" type="number" ph="12" min="0" />]} />
+            <Row kids={[<F key="wtk" label="Гарантия трансмиссии, км" k="warranty_transmission_km" type="number" ph="20000" min="0" />, <div key="service-space" className="adm-field" aria-hidden="true" />]} />
+
             <div className="adm-sec-title">💰 Цены и расходы</div>
-            <Row kids={[<F key="pk" label="Цена KRW" k="price_krw" type="number" ph="15000000" />, <F key="pu" label="Цена USD" k="price_usd" type="number" ph="11000" />]} />
+            <Row kids={[<F key="pk" label="Цена KRW" k="price_krw" type="number" ph="15000000" min="0" />, <F key="pu" label="Цена USD" k="price_usd" type="number" ph="11000" min="0" />]} />
             <div className="adm-field" style={{ marginBottom: 12 }}>
                 <label className="adm-label">Тариф доставки по типу машины</label>
                 <select className="adm-select" value={f.delivery_profile_code || ''} onChange={e => set('delivery_profile_code', e.target.value)}>
