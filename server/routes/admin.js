@@ -27,6 +27,8 @@ const MAX_LATEST_ENRICH_LIMIT = 50000
 const DEFAULT_CATALOG_EXPORT_LIMIT = 5000
 const MAX_CATALOG_EXPORT_LIMIT = 50000
 const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
+const CANONICAL_DRIVE_TYPES = new Set(['Передний (FWD)', 'Задний (RWD)', 'Полный (AWD)', 'Полный (4WD)'])
+const WEAK_KEY_INFO_VALUES = new Set(['Ключи есть', 'Есть запасной ключ', 'Пульт-ключ', 'Карта-ключ', 'Ключ-карта'])
 const enrichState = {
   running: false,
   total: 0,
@@ -268,6 +270,37 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function getResolverReason(diagnostics = []) {
+  if (!Array.isArray(diagnostics)) return ''
+  return cleanText(
+    diagnostics.find((entry) => entry?.source === 'resolver')?.reason
+    || diagnostics.find((entry) => entry && entry.found === false)?.reason
+    || '',
+  )
+}
+
+function buildEnrichParseNotes(detail, car) {
+  const notes = []
+
+  if (shouldRefreshVin(car?.vin) && !sanitizeVin(detail?.vin)) {
+    notes.push(`vin:${getResolverReason(detail?.vin_diagnostics) || 'value_not_found'}`)
+  }
+
+  if (shouldRefreshDriveType(car?.drive_type) && !cleanText(detail?.drive_type)) {
+    notes.push(`drive_type:${getResolverReason(detail?.drive_type_diagnostics) || 'value_not_found'}`)
+  }
+
+  if (shouldRefreshKeyInfo(car?.key_info) && !cleanText(detail?.key_info)) {
+    notes.push(`key_info:${getResolverReason(detail?.key_info_diagnostics) || 'value_not_found'}`)
+  }
+
+  if (shouldRefreshInteriorColor(car?.interior_color, car?.body_color) && !cleanText(detail?.interior_color)) {
+    notes.push(`interior_color:${getResolverReason(detail?.interior_color_diagnostics) || 'value_not_found'}`)
+  }
+
+  return notes
+}
+
 function isVinConstraintError(error) {
   return error?.code === '23505' && error?.constraint === 'idx_cars_vin_unique'
 }
@@ -371,6 +404,21 @@ function shouldRefreshInteriorColor(interiorValue, bodyValue = '') {
   return !normalized || normalized !== raw
 }
 
+function shouldRefreshDriveType(value) {
+  const raw = cleanText(value)
+  if (!raw) return true
+  const normalized = normalizeDriveLabel(raw)
+  if (!normalized) return true
+  return normalized !== raw
+}
+
+function shouldRefreshKeyInfo(value) {
+  const raw = cleanText(value)
+  if (!raw) return true
+  if (WEAK_KEY_INFO_VALUES.has(raw)) return true
+  return /^Ключи:\s*\d+\s*шт\.$/i.test(raw)
+}
+
 function shouldRefreshOptionFeatures(value) {
   if (!Array.isArray(value)) return true
   return !value.some((item) => cleanText(item))
@@ -401,6 +449,8 @@ function shouldRefreshWarranty(car = {}) {
 function shouldEnrichCar(car) {
   return (
     shouldRefreshVin(car.vin) ||
+    shouldRefreshDriveType(car.drive_type) ||
+    shouldRefreshKeyInfo(car.key_info) ||
     shouldRefreshBodyColor(car.body_color) ||
     shouldRefreshInteriorColor(car.interior_color, car.body_color) ||
     shouldRefreshWarranty(car) ||
@@ -412,13 +462,15 @@ function shouldEnrichCar(car) {
 
 function getEnrichCandidatePriority(car) {
   if (shouldRefreshVin(car.vin)) return 0
-  if (shouldRefreshTrim(car.trim_level)) return 1
-  if (isWeakBodyTypeForEnrichment(car.body_type)) return 2
-  if (shouldRefreshBodyColor(car.body_color)) return 3
-  if (shouldRefreshWarranty(car)) return 4
-  if (shouldRefreshOptionFeatures(car.option_features)) return 5
-  if (shouldRefreshInteriorColor(car.interior_color, car.body_color)) return 6
-  return 7
+  if (shouldRefreshDriveType(car.drive_type)) return 1
+  if (shouldRefreshKeyInfo(car.key_info)) return 2
+  if (shouldRefreshTrim(car.trim_level)) return 3
+  if (isWeakBodyTypeForEnrichment(car.body_type)) return 4
+  if (shouldRefreshBodyColor(car.body_color)) return 5
+  if (shouldRefreshWarranty(car)) return 6
+  if (shouldRefreshOptionFeatures(car.option_features)) return 7
+  if (shouldRefreshInteriorColor(car.interior_color, car.body_color)) return 8
+  return 9
 }
 
 async function updateCarFields(id, patch, meta = {}) {
@@ -463,7 +515,16 @@ async function enrichCar(car) {
 
   try {
     const detail = await fetchEncarVehicleEnrichment(car.encar_id)
+    const parseNotes = buildEnrichParseNotes(detail, car)
     const patch = {}
+
+    if (shouldRefreshDriveType(car.drive_type) && cleanText(detail.drive_type)) {
+      patch.drive_type = detail.drive_type
+    }
+
+    if (shouldRefreshKeyInfo(car.key_info) && cleanText(detail.key_info)) {
+      patch.key_info = detail.key_info
+    }
 
     if (shouldRefreshBodyColor(car.body_color) && cleanText(detail.body_color)) {
       patch.body_color = detail.body_color
@@ -516,6 +577,7 @@ async function enrichCar(car) {
       try {
         await updateCarFields(car.id, appliedPatch, {
           status: 'updated',
+          error: parseNotes.length ? parseNotes.join(' | ') : null,
           encarId: getCurrentEnrichEncarId(car),
         })
       } catch (updateError) {
@@ -544,7 +606,9 @@ async function enrichCar(car) {
 
         await updateCarFields(car.id, appliedPatch, {
           status: 'updated',
-          error: `VIN duplicate skipped: existing ID ${duplicateVinId || '-'}`,
+          error: [parseNotes.join(' | '), `VIN duplicate skipped: existing ID ${duplicateVinId || '-'}`]
+            .filter(Boolean)
+            .join(' | '),
           encarId: getCurrentEnrichEncarId(car),
         })
       }
@@ -562,15 +626,28 @@ async function enrichCar(car) {
         encar_id: car.encar_id,
         name: car.name || car.model || '',
         changes,
+        ...(parseNotes.length ? { parse_notes: parseNotes } : {}),
         ...(duplicateVinId ? { error: `VIN already exists at ID ${duplicateVinId}` } : {}),
         finished_at: new Date().toISOString(),
       })
     } else {
       await updateCarFields(car.id, {}, {
         status: 'checked',
+        error: parseNotes.length ? parseNotes.join(' | ') : null,
         encarId: getCurrentEnrichEncarId(car),
       })
       enrichState.skipped += 1
+      if (parseNotes.length) {
+        console.warn(`ENRICH_PARSE_NOTES | id=${car.id} | encar_id=${car.encar_id} | ${parseNotes.join(' | ')}`)
+      }
+      pushEnrichReportItem({
+        status: 'checked',
+        id: car.id,
+        encar_id: car.encar_id,
+        name: car.name || car.model || '',
+        ...(parseNotes.length ? { parse_notes: parseNotes } : {}),
+        finished_at: new Date().toISOString(),
+      })
     }
   } catch (err) {
     const statusCode = Number(err?.response?.status) || 0

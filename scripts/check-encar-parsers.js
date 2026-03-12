@@ -8,7 +8,13 @@ import {
   normalizeDrive,
   normalizeInteriorColorName,
 } from '../server/lib/vehicleData.js'
-import { extractWarrantyInfo } from '../server/lib/encarVehicle.js'
+import {
+  extractWarrantyInfo,
+  resolveDriveTypeEvidence,
+  resolveInteriorColorEvidence,
+  resolveKeyInfoEvidence,
+  resolveVinEvidence,
+} from '../server/lib/encarVehicle.js'
 
 const cardFixture = `
   <section>
@@ -97,6 +103,28 @@ const recordFixture = {
 }
 
 function run() {
+  const createResolverContext = (overrides = {}) => ({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    supplementalPayload: null,
+    structuredEntries: [],
+    structuredPairs: [],
+    htmlPairs: [],
+    textSources: [],
+    optionTexts: [],
+    inspection: null,
+    diagnostics: [],
+    bodyColor: '',
+    vehicleNo: '',
+    vehicleId: '',
+    queryCarId: '',
+    encarId: '',
+    ...overrides,
+  })
+
   const cardParsed = parseEncarHistoryHtml(cardFixture, { sourceUrl: 'fixture://cards' })
   assert.equal(cardParsed.available, true)
   assert.equal(cardParsed.statistics.accidents, 0)
@@ -186,12 +214,115 @@ function run() {
     '\u0414\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439',
   )
 
+  const apiVin = resolveVinEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: { vin: ' yv1mv845be2126012 ' },
+      spec: {},
+    },
+  }))
+  assert.equal(apiVin.value, 'YV1MV845BE2126012')
+  assert.equal(apiVin.source, 'official-structured')
+
+  const invalidInspectionVin = resolveVinEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: { vin: '' },
+      spec: {},
+    },
+    structuredPairs: [
+      { source: 'inspection-report', label: 'VIN', value: 'M17558', path_or_label: 'VIN' },
+    ],
+  }))
+  assert.equal(invalidInspectionVin.value, '')
+  assert.equal(invalidInspectionVin.diagnostics.some((entry) => entry.reason === 'invalid_length'), true)
+
+  const conflictingVin = resolveVinEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: { vin: '' },
+      spec: {},
+    },
+    structuredPairs: [
+      { source: 'inspection-report', label: 'VIN', value: 'YV1MV845BE2126012', path_or_label: 'VIN basic' },
+      { source: 'inspection-report', label: 'VIN', value: 'WBAFR9C57BC271234', path_or_label: 'VIN detail' },
+    ],
+  }))
+  assert.equal(conflictingVin.value, '')
+  assert.equal(conflictingVin.diagnostics.some((entry) => entry.reason === 'conflicting_same_priority_no_decision'), true)
+
+  const textFalsePositiveVin = resolveVinEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: { vin: '' },
+      spec: {},
+    },
+    textSources: [
+      { source: 'text-fallback', path_or_label: 'html', text: 'vehicle identification number transferagencyfee' },
+    ],
+  }))
+  assert.equal(textFalsePositiveVin.value, '')
+  assert.equal(textFalsePositiveVin.diagnostics.some((entry) => entry.reason === 'looks_like_text'), true)
+
+  const specInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: { interiorColorName: 'ivory' },
+    },
+    bodyColor: '\u0411\u0435\u043B\u044B\u0439',
+  }))
+  assert.equal(specInterior.value, '\u041A\u0440\u0435\u043C\u043E\u0432\u044B\u0439')
+  assert.equal(specInterior.source, 'official-spec')
+
+  const pairInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    bodyColor: '\u0411\u0435\u043B\u044B\u0439',
+    structuredPairs: [
+      { source: 'inspection-report', label: 'interior color', value: 'beige leather', path_or_label: 'interior color' },
+    ],
+  }))
+  assert.equal(pairInterior.value, '\u0411\u0435\u0436\u0435\u0432\u044B\u0439')
+
+  const textFallbackInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    textSources: [
+      { source: 'option-dictionary', path_or_label: 'option[0]', text: 'black leather interior with premium audio' },
+    ],
+  }))
+  assert.equal(textFallbackInterior.value, '\u0427\u0435\u0440\u043D\u044B\u0439')
+
+  const rejectedBodyColorInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    bodyColor: '\u0411\u0435\u043B\u044B\u0439',
+    textSources: [
+      { source: 'text-fallback', path_or_label: 'description', text: 'white pearl exterior color' },
+    ],
+  }))
+  assert.equal(rejectedBodyColorInterior.value, '')
+  assert.equal(rejectedBodyColorInterior.diagnostics.some((entry) => entry.reason === 'no_interior_context'), true)
+
   assert.equal(extractKeyInfo({ contentsText: 'smart key 2' }), '\u0421\u043c\u0430\u0440\u0442-\u043a\u043b\u044e\u0447: 2 \u0448\u0442.')
   assert.equal(extractKeyInfo({ contentsText: 'card key available' }), '\u041a\u043b\u044e\u0447-\u043a\u0430\u0440\u0442\u0430')
   assert.equal(extractKeyInfo({ contentsText: 'electronic key' }), '\u042d\u043b\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447')
   assert.equal(extractKeyInfo({ contentsText: 'flip key 1 ea' }), '\u0412\u044B\u043A\u0438\u0434\u043D\u043E\u0439 \u043A\u043B\u044E\u0447: 1 \u0448\u0442.')
   assert.equal(extractKeyInfo({ contentsText: '2 keys' }), '\u041A\u043B\u044E\u0447\u0438: 2 \u0448\u0442.')
   assert.equal(extractKeyInfo({ contentsText: 'spare key included' }), '')
+  assert.equal(extractKeyInfo({ contentsText: '\uC2A4\uB9C8\uD2B8\uD0A4 \uC5C6\uC74C' }), '')
+  assert.equal(extractKeyInfo({ contentsText: '\uCC28\uB7C9 \uD0A4 \uAC1C\uC218 2\uAC1C' }), '\u041A\u043B\u044E\u0447\u0438: 2 \u0448\u0442.')
+  assert.equal(extractKeyInfo({ contentsText: '\uC2A4\uB9C8\uD2B8\uD0A4 2EA' }), '\u0421\u043C\u0430\u0440\u0442-\u043A\u043B\u044E\u0447: 2 \u0448\u0442.')
 
   assert.equal(normalizeDrive('BMW xDrive 40i'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('Mercedes-Benz 4MATIC+'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
@@ -204,6 +335,64 @@ function run() {
     extractDriveFromPairs([{ label: '\uAD6C\uB3D9\uBC29\uC2DD', value: '\uC0AC\uB95C\uAD6C\uB3D9' }]),
     '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)',
   )
+
+  const officialKeyCount = resolveKeyInfoEvidence(createResolverContext({
+    structuredEntries: [
+      { source: 'official-api.data', path: 'data.smartKeyCount', pathSignal: 'data smart key count', value: '2' },
+    ],
+  }))
+  assert.equal(officialKeyCount.value, '\u041A\u043B\u044E\u0447\u0438: 2 \u0448\u0442.')
+  assert.equal(officialKeyCount.source, 'official-structured-key')
+
+  const htmlSmartKey = resolveKeyInfoEvidence(createResolverContext({
+    htmlPairs: [
+      { source: 'official-api.html-structured', label: '\uC2A4\uB9C8\uD2B8\uD0A4', value: '\uC788\uC74C', path_or_label: '\uC2A4\uB9C8\uD2B8\uD0A4' },
+      { source: 'official-api.html-structured', label: '\uCC28\uB7C9 \uD0A4 \uAC1C\uC218', value: '2\uAC1C', path_or_label: '\uCC28\uB7C9 \uD0A4 \uAC1C\uC218' },
+    ],
+  }))
+  assert.equal(htmlSmartKey.value, '\u0421\u043C\u0430\u0440\u0442-\u043A\u043B\u044E\u0447: 2 \u0448\u0442.')
+  assert.equal(htmlSmartKey.diagnostics.some((entry) => entry.reason === 'selected_merged'), true)
+
+  const conflictingKeyCounts = resolveKeyInfoEvidence(createResolverContext({
+    htmlPairs: [
+      { source: 'official-api.html-structured', label: '\uC2A4\uB9C8\uD2B8\uD0A4', value: '1\uAC1C', path_or_label: 'smart key 1' },
+      { source: 'official-api.html-structured', label: '\uC2A4\uB9C8\uD2B8\uD0A4', value: '2\uAC1C', path_or_label: 'smart key 2' },
+    ],
+  }))
+  assert.equal(conflictingKeyCounts.value, '\u0421\u043C\u0430\u0440\u0442-\u043A\u043B\u044E\u0447')
+  assert.equal(conflictingKeyCounts.diagnostics.some((entry) => entry.reason === 'selected_type_only_due_to_conflicting_counts'), true)
+
+  const explicitDrive = resolveDriveTypeEvidence(createResolverContext({
+    structuredPairs: [
+      { source: 'inspection-report', label: '\uAD6C\uB3D9\uBC29\uC2DD', value: '\uC804\uB95C\uAD6C\uB3D9', path_or_label: '\uAD6C\uB3D9\uBC29\uC2DD' },
+    ],
+  }))
+  assert.equal(explicitDrive.value, '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
+  assert.equal(explicitDrive.source, 'inspection-report')
+
+  const titleDrive = resolveDriveTypeEvidence(createResolverContext({
+    structuredPairs: [
+      { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: '\uC62C \uB274 \uB809\uC2A4\uD134 \uB514\uC824 2.2 4WD', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
+    ],
+  }))
+  assert.equal(titleDrive.value, '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)')
+
+  const ambiguous2wd = resolveDriveTypeEvidence(createResolverContext({
+    structuredPairs: [
+      { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: '\uC3CF\uB80C\uD1A0 1.6 2WD', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
+    ],
+  }))
+  assert.equal(ambiguous2wd.value, '')
+  assert.equal(ambiguous2wd.diagnostics.some((entry) => entry.reason === 'ambiguous_2wd'), true)
+
+  const conflictingDrive = resolveDriveTypeEvidence(createResolverContext({
+    structuredPairs: [
+      { source: 'inspection-report', label: '\uAD6C\uB3D9\uBC29\uC2DD', value: '\uC804\uB95C\uAD6C\uB3D9', path_or_label: 'drive fwd' },
+      { source: 'inspection-report', label: '\uAD6C\uB3D9\uBC29\uC2DD', value: '\uD6C4\uB95C\uAD6C\uB3D9', path_or_label: 'drive rwd' },
+    ],
+  }))
+  assert.equal(conflictingDrive.value, '')
+  assert.equal(conflictingDrive.diagnostics.some((entry) => entry.reason === 'conflicting_same_priority_no_decision'), true)
 
   const warranty = extractWarrantyInfo({
     warranty: {

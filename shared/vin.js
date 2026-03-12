@@ -4,6 +4,7 @@ export function normalizeVin(value) {
   return String(value || '')
     .trim()
     .toUpperCase()
+    .replace(/[\s:/_-]+/g, '')
 }
 
 export function isStandardVin(value) {

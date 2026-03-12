@@ -192,6 +192,9 @@ const DRIVE_RWD_HANGUL_RE = /(?:\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?)/u
 const DRIVE_LABEL_RE = /(?:drive|drivetrain|traction|wheel\s*drive|4wd\s*system|awd\s*system|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
 const KEY_INFO_SEGMENT_SPLIT_RE = /(?:\r?\n|[|;]|\/|▶|★|◈|▪|•|\u2022)+/g
 const KEY_SPARE_RE = /(?:spare\s*key|\uBCF4\uC870\s*\uD0A4)/i
+const KEY_CONTEXT_RE = /(?:\b(?:key(?:\s*count)?|smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key)\b|\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9)|\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uCC28\uD0A4)/i
+const KEY_POSITIVE_RE = /(?:\b(?:available|included|provided|present|equipped|yes)\b|\uC788\uC74C|\uD3EC\uD568|\uC81C\uACF5|\uC7A5\uCC29)/i
+const KEY_NEGATIVE_RE = /(?:\b(?:none|without|absent|missing|not\s*(?:available|included|provided|equipped))\b|\uC5C6\uC74C|\uBBF8\uD3EC\uD568|\uBBF8\uC81C\uACF5|\uBBF8\uC801\uC6A9)/i
 const KEY_TYPE_RULES = Object.freeze([
   { label: 'Ключ-карта', patterns: [/\uCE74\uB4DC\s*\uD0A4/u, /\b(?:card\s*key|key\s*card)\b/i] },
   { label: 'Электронный ключ', patterns: [/\uC804\uC790\s*\uD0A4/u, /\b(?:electronic\s*key|digital\s*key|e-?key)\b/i] },
@@ -201,6 +204,8 @@ const KEY_TYPE_RULES = Object.freeze([
   { label: 'Обычный ключ', patterns: [/\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uBA54\uD0C8\s*\uD0A4/u, /\b(?:mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|normal\s*key|plain\s*key)\b/i] },
 ])
 const KEY_COUNT_PATTERNS = Object.freeze([
+  /(?:\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9)|number\s*of\s*keys|key\s*count)\s*[:=x-]?\s*(\d{1,2})\s*(?:\uAC1C|ea|pcs?|шт\.?)?/i,
+  /(?:\uCC28\uD0A4|\uD0A4)\s*[:=x-]?\s*(\d{1,2})\s*(?:\uAC1C|ea|pcs?)\b/i,
   /(?:\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uD0A4)\s*[:=x-]?\s*(\d{1,2})\s*(?:\uAC1C|ea|pcs?|keys?)?/i,
   /(?:smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|e-?key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key|keys?)\s*[:=x-]?\s*(\d{1,2})\s*(?:ea|pcs?|keys?|개)?/i,
   /(\d{1,2})\s*(?:\uAC1C|ea|pcs?|шт\.?)\s*(?:of\s*)?(?:smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|e-?key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key|keys?|\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uD0A4)/i,
@@ -721,7 +726,7 @@ export function normalizeBodyType(value) {
   return normalizeBodyTypeLabel(normalizeText(value))
 }
 
-function inferPassengerBodyTypeFromText(...values) {
+function UNUSED_inferPassengerBodyTypeFromText(...values) {
   const text = values
     .map((value) => cleanText(value))
     .filter(Boolean)
@@ -1063,7 +1068,7 @@ function collectInteriorColorEvidence(value) {
   return matches
 }
 
-function collectInteriorColorMatches(value) {
+function UNUSED_collectInteriorColorMatches(value) {
   return [...new Set(collectInteriorColorEvidence(value).map((item) => item.color).filter(Boolean))]
 }
 
@@ -1162,6 +1167,20 @@ export function normalizeInteriorColorName(value, bodyValue = '') {
   return normalizedInterior
 }
 
+export function isInteriorColorLabel(value) {
+  const text = cleanText(value)
+  if (!text) return false
+  return INTERIOR_COLOR_LABEL_RE.test(text) && !INTERIOR_COLOR_REJECT_RE.test(text)
+}
+
+export function isInteriorColorRejectLabel(value) {
+  return INTERIOR_COLOR_REJECT_RE.test(cleanText(value))
+}
+
+export function hasInteriorColorContext(value) {
+  return INTERIOR_COLOR_CONTEXT_RE.test(cleanText(value))
+}
+
 function splitInteriorTextSegments(value) {
   return String(value || '')
     .split(INTERIOR_COLOR_SEGMENT_SPLIT_RE)
@@ -1234,12 +1253,26 @@ function splitKeyInfoSegments(value) {
 
 function normalizeKeyCount(value) {
   const numeric = Number.parseInt(String(value || '').trim(), 10)
-  return Number.isFinite(numeric) && numeric > 0 ? String(numeric) : ''
+  return Number.isFinite(numeric) && numeric > 0 && numeric <= 9 ? String(numeric) : ''
 }
 
-function detectKeyType(value) {
+export function hasKeyContext(value) {
+  return KEY_CONTEXT_RE.test(cleanText(value))
+}
+
+export function hasPositiveKeyContext(value) {
   const text = cleanText(value)
-  if (!text || KEY_SPARE_RE.test(text)) return ''
+  return hasKeyContext(text) && KEY_POSITIVE_RE.test(text)
+}
+
+export function hasNegativeKeyContext(value) {
+  const text = cleanText(value)
+  return hasKeyContext(text) && KEY_NEGATIVE_RE.test(text)
+}
+
+export function detectKeyType(value) {
+  const text = cleanText(value)
+  if (!text || KEY_SPARE_RE.test(text) || hasNegativeKeyContext(text)) return ''
 
   for (const rule of KEY_TYPE_RULES) {
     if (rule.patterns.some((pattern) => pattern.test(text))) return rule.label
@@ -1248,11 +1281,11 @@ function detectKeyType(value) {
   return ''
 }
 
-function collectKeyCounts(sources = []) {
+export function collectKeyCounts(sources = []) {
   const counts = []
 
   for (const source of sources) {
-    if (!source || KEY_SPARE_RE.test(source)) continue
+    if (!source || KEY_SPARE_RE.test(source) || hasNegativeKeyContext(source)) continue
 
     for (const pattern of KEY_COUNT_PATTERNS) {
       const match = source.match(pattern)
