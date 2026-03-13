@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
+import shoringImage from '../../assets/shoring.jpg'
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
 const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
@@ -113,6 +114,8 @@ const whyReasons = [
   'Доставка в любую точку мира',
 ]
 
+const logisticsFlags = ['🇰🇬', '🇰🇿', '🇷🇺', '🇺🇿', '🇹🇯', '🇧🇾', '🇦🇿', '🇺🇦', '🇬🇪']
+
 export default function Hero() {
   return (
     <section>
@@ -189,6 +192,17 @@ export default function Hero() {
               </li>
             ))}
           </ul>
+
+          <div
+            className="why-logistics-card"
+            style={{ backgroundImage: `url(${shoringImage})` }}
+          >
+            <div className="why-logistics-flags" aria-label="SHORING logistics countries">
+              {logisticsFlags.map((flag) => (
+                <span key={flag} className="why-logistics-flag">{flag}</span>
+              ))}
+            </div>
+          </div>
 
           <div className="advantages-grid">
             {advantages.map(({ icon, value, label, labelCls }) => (
