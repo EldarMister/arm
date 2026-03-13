@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
-import shoringImage from '../../assets/shoring.jpg'
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
 const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
@@ -193,10 +192,8 @@ export default function Hero() {
             ))}
           </ul>
 
-          <div
-            className="why-logistics-card"
-            style={{ backgroundImage: `url(${shoringImage})` }}
-          >
+          <div className="why-logistics-card">
+            <div className="why-logistics-title">SHORING-LOGISTICS</div>
             <div className="why-logistics-flags" aria-label="SHORING logistics countries">
               {logisticsFlags.map((flag) => (
                 <span key={flag} className="why-logistics-flag">{flag}</span>
