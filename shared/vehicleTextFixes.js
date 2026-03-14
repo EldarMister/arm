@@ -335,6 +335,7 @@ export function normalizeRequestedRomanizedColorAlias(value) {
   if (/^eunsaektuton$/.test(compact)) return '\u0421\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
   if (/^galsaektuton$/.test(compact)) return '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
   if (/^(huinseaktuton|huinsaektuton)$/.test(compact)) return '\u0411\u0435\u043B\u044B\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
+  if (/^geumsaektuton$/.test(compact)) return '\u0417\u043E\u043B\u043E\u0442\u043E\u0439 \u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439'
   if (/^haneulsaek$/.test(compact)) return '\u041D\u0435\u0431\u0435\u0441\u043D\u043E-\u0433\u043E\u043B\u0443\u0431\u043E\u0439'
   if (/^jajusaek$/.test(compact)) return '\u0411\u043E\u0440\u0434\u043E\u0432\u044B\u0439'
   if (/^(damnoksaek|damnogsaek|dampoksaek)$/.test(compact)) return '\u0421\u0432\u0435\u0442\u043B\u043E-\u0437\u0435\u043B\u0435\u043D\u044B\u0439'

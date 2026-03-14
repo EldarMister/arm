@@ -503,6 +503,7 @@ function normalizeTwoToneColorCandidate(value) {
   if (/^(geomjeongtuton|geomeunsaektuton)$/.test(compact) || /(black|geomeunsaek|geomjeongsaek|heugsaek)/.test(low) || /검정|흑색/u.test(raw)) return 'Черный двухцветный'
   if (/^eunsaektuton$/.test(compact) || /(silver|eunsaek)/.test(low) || /은색/u.test(raw)) return 'Серебристый двухцветный'
   if (/^galsaektuton$/.test(compact) || /(brown|galsaek)/.test(low) || /갈색/u.test(raw)) return 'Коричневый двухцветный'
+  if (/^geumsaektuton$/.test(compact) || /(gold|geumsaek)/.test(low) || /금색/u.test(raw)) return 'Золотой двухцветный'
   if (/(beige|beijisaek)/.test(low) || /베이지/u.test(raw)) return 'Бежевый двухцветный'
   if (/(gray|grey|hoesaek)/.test(low) || /회색/u.test(raw)) return 'Серый двухцветный'
 

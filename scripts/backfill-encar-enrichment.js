@@ -40,6 +40,12 @@ const INTERIOR_BACKFILL_MODE = (() => {
   const raw = String(globalThis.process?.env?.BACKFILL_INTERIOR_MODE || 'missing').trim().toLowerCase()
   return ['missing', 'invalid', 'missing_or_invalid'].includes(raw) ? raw : 'missing'
 })()
+const SERVICE_ONLY_FIELDS = new Set([
+  'drive_type_source',
+  'drive_type_diagnostics',
+  'interior_color_source',
+  'interior_color_diagnostics',
+])
 
 function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -317,6 +323,11 @@ function formatChangedFields(patch) {
     .join(', ')
 }
 
+function getMeaningfulChangedFields(patch) {
+  return Object.keys(patch)
+    .filter((field) => field !== 'updated_at' && !SERVICE_ONLY_FIELDS.has(field))
+}
+
 async function main() {
   await ensureSchema()
 
@@ -325,6 +336,7 @@ async function main() {
     checked: candidates.length,
     processed: 0,
     updated: 0,
+    metadata_updated: 0,
     skipped: 0,
     errors: 0,
     interior_filled: 0,
@@ -448,11 +460,17 @@ async function main() {
         let appliedPatch = { ...patch }
         try {
           if (await updateCar(row.id, appliedPatch)) {
-            stats.updated += 1
-            console.log(`Изменено ID ${row.id} / Encar ${row.encar_id}: ${formatChangedFields(appliedPatch) || 'без видимых полей'}`)
+            const meaningfulFields = getMeaningfulChangedFields(appliedPatch)
+            if (meaningfulFields.length) {
+              stats.updated += 1
+              console.log(`Changed ID ${row.id} / Encar ${row.encar_id}: ${meaningfulFields.join(', ')}`)
+            } else {
+              stats.metadata_updated += 1
+              console.log(`Metadata-only ID ${row.id} / Encar ${row.encar_id}`)
+            }
           } else {
             stats.skipped += 1
-            console.log(`Пропущено ID ${row.id} / Encar ${row.encar_id}: нет изменений`)
+            console.log(`????????? ID ${row.id} / Encar ${row.encar_id}: ??? ?????????`)
           }
         } catch (updateError) {
           if (!isVinConstraintError(updateError) || !appliedPatch.vin) throw updateError
@@ -468,12 +486,18 @@ async function main() {
           stats.vin_filled = Math.max(stats.vin_filled - 1, 0)
 
           if (await updateCar(row.id, appliedPatch)) {
-            stats.updated += 1
-            console.log(`Изменено ID ${row.id} / Encar ${row.encar_id}: ${formatChangedFields(appliedPatch) || 'без видимых полей'} (VIN-дубликат пропущен)`)
+            const meaningfulFields = getMeaningfulChangedFields(appliedPatch)
+            if (meaningfulFields.length) {
+              stats.updated += 1
+              console.log(`Changed ID ${row.id} / Encar ${row.encar_id}: ${meaningfulFields.join(', ')} (VIN duplicate skipped)`)
+            } else {
+              stats.metadata_updated += 1
+              console.log(`Metadata-only ID ${row.id} / Encar ${row.encar_id} (VIN duplicate skipped)`)
+            }
             console.warn(`Skipped duplicate VIN for ID ${row.id} / Encar ${row.encar_id}; existing ID ${duplicateId || '-'}`)
           } else {
             stats.skipped += 1
-            console.log(`Пропущено ID ${row.id} / Encar ${row.encar_id}: только дубликат VIN`)
+            console.log(`????????? ID ${row.id} / Encar ${row.encar_id}: ?????? ???????? VIN`)
             console.warn(`Duplicate VIN only for ID ${row.id} / Encar ${row.encar_id}; existing ID ${duplicateId || '-'}`)
           }
         }
@@ -487,7 +511,7 @@ async function main() {
       } finally {
         stats.processed += 1
         if (stats.processed % 25 === 0 || stats.processed === stats.checked) {
-          console.log(`Progress: ${stats.processed}/${stats.checked} | updated=${stats.updated} skipped=${stats.skipped} errors=${stats.errors}`)
+          console.log(`Progress: ${stats.processed}/${stats.checked} | updated=${stats.updated} metadata=${stats.metadata_updated} skipped=${stats.skipped} errors=${stats.errors}`)
         }
       }
     }
@@ -507,6 +531,7 @@ async function main() {
     FROM cars
   `)
 
+  console.log(`Backfill stats: checked=${stats.checked} processed=${stats.processed} updated=${stats.updated} metadata=${stats.metadata_updated} skipped=${stats.skipped} errors=${stats.errors} interior_filled=${stats.interior_filled} interior_cleared=${stats.interior_cleared} drive_filled=${stats.drive_filled} key_filled=${stats.key_filled} vin_filled=${stats.vin_filled} trim_filled=${stats.trim_filled} option_features_filled=${stats.option_features_filled} warranty_filled=${stats.warranty_filled}`)
   console.log('Backfill summary:', JSON.stringify(stats, null, 2))
   console.log('Catalog coverage:', JSON.stringify(result.rows[0], null, 2))
 

@@ -5,6 +5,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
+import { buildBlockedCatalogPriceSql } from '../lib/catalogPriceRules.js'
+import { buildBlockedGenericVehicleSql } from '../lib/catalogVehicleRules.js'
 import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
 import { getPricingSettings, savePricingSettings } from '../lib/pricingSettings.js'
 import {
@@ -94,8 +96,10 @@ const encarBackfillState = {
   total: 0,
   processed: 0,
   updated: 0,
+  metadata_updated: 0,
   skipped: 0,
   errors: 0,
+  metrics: {},
   started_at: null,
   finished_at: null,
   last_error: '',
@@ -159,6 +163,7 @@ const EXTRA_COLOR_SWATCH = {
   'Графитовый': { color: '#505862' },
   'Серебристо-серый': { color: '#b8c0ca', border: '#94a3b8' },
   'Белый двухцветный': { color: '#f8fafc', border: '#111827' },
+  'Золотой двухцветный': { color: '#d4a72c', border: '#8a6a12' },
   'Темно-серый': { color: '#4b5563' },
   'Светло-серый': { color: '#dbe1e8', border: '#a8b3c2' },
   'Жемчужный': { color: '#e7eaef', border: '#cbd5e1' },
@@ -382,6 +387,23 @@ function buildEnrichParseNotes(detail, car) {
   return notes
 }
 
+const ENRICH_REPORT_HIDDEN_FIELDS = new Set([
+  'drive_type_source',
+  'drive_type_diagnostics',
+  'interior_color_source',
+  'interior_color_diagnostics',
+])
+
+function buildVisibleEnrichChanges(car, patch) {
+  return Object.entries(patch)
+    .filter(([field]) => !ENRICH_REPORT_HIDDEN_FIELDS.has(field))
+    .map(([field, nextValue]) => ({
+      field,
+      before: car[field] ?? '',
+      after: nextValue ?? '',
+    }))
+}
+
 function isVinConstraintError(error) {
   return error?.code === '23505' && error?.constraint === 'idx_cars_vin_unique'
 }
@@ -487,8 +509,10 @@ function createBackfillStatusSnapshot() {
     total: encarBackfillState.total,
     processed: encarBackfillState.processed,
     updated: encarBackfillState.updated,
+    metadata_updated: encarBackfillState.metadata_updated,
     skipped: encarBackfillState.skipped,
     errors: encarBackfillState.errors,
+    metrics: { ...encarBackfillState.metrics },
     started_at: encarBackfillState.started_at,
     finished_at: encarBackfillState.finished_at,
     last_error: encarBackfillState.last_error,
@@ -511,13 +535,34 @@ function pushBackfillOutputLine(line) {
 }
 
 function parseBackfillProgressLine(line) {
-  const progressMatch = line.match(/Progress:\s*(\d+)\/(\d+)\s*\|\s*updated=(\d+)\s*skipped=(\d+)\s*errors=(\d+)/i)
+  const progressMatch = line.match(/Progress:\s*(\d+)\/(\d+)\s*\|\s*updated=(\d+)\s*metadata=(\d+)\s*skipped=(\d+)\s*errors=(\d+)/i)
   if (progressMatch) {
     encarBackfillState.processed = Number.parseInt(progressMatch[1], 10) || 0
     encarBackfillState.total = Number.parseInt(progressMatch[2], 10) || encarBackfillState.total
     encarBackfillState.updated = Number.parseInt(progressMatch[3], 10) || 0
-    encarBackfillState.skipped = Number.parseInt(progressMatch[4], 10) || 0
-    encarBackfillState.errors = Number.parseInt(progressMatch[5], 10) || 0
+    encarBackfillState.metadata_updated = Number.parseInt(progressMatch[4], 10) || 0
+    encarBackfillState.skipped = Number.parseInt(progressMatch[5], 10) || 0
+    encarBackfillState.errors = Number.parseInt(progressMatch[6], 10) || 0
+    return
+  }
+
+  const statsMatch = line.match(/Backfill stats:\s*(.+)$/i)
+  if (statsMatch) {
+    const metrics = {}
+    for (const token of statsMatch[1].split(/\s+/)) {
+      const [rawKey, rawValue] = token.split('=')
+      if (!rawKey || rawValue === undefined) continue
+      const value = Number.parseInt(rawValue, 10)
+      if (!Number.isFinite(value)) continue
+      metrics[rawKey] = value
+    }
+    encarBackfillState.total = metrics.checked || encarBackfillState.total
+    encarBackfillState.processed = metrics.processed || encarBackfillState.processed
+    encarBackfillState.updated = metrics.updated || 0
+    encarBackfillState.metadata_updated = metrics.metadata || 0
+    encarBackfillState.skipped = metrics.skipped || 0
+    encarBackfillState.errors = metrics.errors || 0
+    encarBackfillState.metrics = metrics
     return
   }
 
@@ -565,8 +610,10 @@ function resetBackfillState(options) {
   encarBackfillState.total = 0
   encarBackfillState.processed = 0
   encarBackfillState.updated = 0
+  encarBackfillState.metadata_updated = 0
   encarBackfillState.skipped = 0
   encarBackfillState.errors = 0
+  encarBackfillState.metrics = {}
   encarBackfillState.started_at = null
   encarBackfillState.finished_at = null
   encarBackfillState.last_error = ''
@@ -902,27 +949,25 @@ async function enrichCar(car, context = {}) {
         })
       }
 
-      const changes = Object.entries(appliedPatch).map(([field, nextValue]) => ({
-        field,
-        before: car[field] ?? '',
-        after: nextValue ?? '',
-      }))
+      const changes = buildVisibleEnrichChanges(car, appliedPatch)
 
       if (context.vinLookupCache && appliedPatch.vin && isStandardVin(normalizeVin(appliedPatch.vin))) {
         context.vinLookupCache.set(normalizeVin(appliedPatch.vin), car.id)
       }
 
       enrichState.updated += 1
-      pushEnrichReportItem({
-        status: duplicateVinId ? 'updated_with_duplicate_vin' : 'updated',
-        id: car.id,
-        encar_id: car.encar_id,
-        name: car.name || car.model || '',
-        changes,
-        ...(parseNotes.length ? { parse_notes: parseNotes } : {}),
-        ...(duplicateVinId ? { error: `VIN already exists at ID ${duplicateVinId}` } : {}),
-        finished_at: new Date().toISOString(),
-      })
+      if (changes.length || parseNotes.length || duplicateVinId) {
+        pushEnrichReportItem({
+          status: duplicateVinId ? 'updated_with_duplicate_vin' : 'updated',
+          id: car.id,
+          encar_id: car.encar_id,
+          name: car.name || car.model || '',
+          changes,
+          ...(parseNotes.length ? { parse_notes: parseNotes } : {}),
+          ...(duplicateVinId ? { error: `VIN already exists at ID ${duplicateVinId}` } : {}),
+          finished_at: new Date().toISOString(),
+        })
+      }
     } else {
       await updateCarFields(car.id, {}, {
         status: 'checked',
@@ -1215,6 +1260,7 @@ function normalizeColor(value) {
   if (/^eunsaektuton$/.test(compact)) return 'Серебристый двухцветный'
   if (/^galsaektuton$/.test(compact)) return 'Коричневый двухцветный'
   if (/^(huinseaktuton|huinsaektuton)$/.test(compact)) return 'Белый двухцветный'
+  if (/^geumsaektuton$/.test(compact)) return 'Золотой двухцветный'
   if (/^myeongeunsaek$/.test(compact)) return 'Серебристый'
   if (low.includes('white') || /^(baegsaek|huinsaek)$/.test(compact) || hasAny(src, [KO.white, KO.whiteAlt])) return 'Белый'
   if (low.includes('silver') || /^(eunsaek)$/.test(compact) || src.includes(KO.silver)) return 'Серебристый'
@@ -1321,6 +1367,49 @@ function aggregateOrigins(rows) {
       const aOrder = order.has(a[0]) ? order.get(a[0]) : Number.MAX_SAFE_INTEGER
       const bOrder = order.has(b[0]) ? order.get(b[0]) : Number.MAX_SAFE_INTEGER
       if (aOrder !== bOrder) return aOrder - bOrder
+      return b[1] - a[1]
+    })
+    .map(([name, count]) => ({ name, count }))
+}
+
+const FUEL_FILTER_PRIORITY = new Map([
+  ['Бензин (гибрид)', 0],
+  ['Электро', 1],
+  ['Дизель', 2],
+  ['Газ (LPG)', 3],
+  ['Бензин', 4],
+  ['Водород', 5],
+])
+
+function pickFuelFilterLabel(row) {
+  const explicit = normalizeFuel(row?.fuel_type)
+  if (explicit) return explicit
+
+  const tagValues = Array.isArray(row?.tags) ? row.tags : []
+  const candidates = [...new Set(tagValues.map((value) => normalizeFuel(value)).filter(Boolean))]
+  if (!candidates.length) return ''
+
+  return [...candidates].sort((a, b) => {
+    const aRank = FUEL_FILTER_PRIORITY.has(a) ? FUEL_FILTER_PRIORITY.get(a) : Number.MAX_SAFE_INTEGER
+    const bRank = FUEL_FILTER_PRIORITY.has(b) ? FUEL_FILTER_PRIORITY.get(b) : Number.MAX_SAFE_INTEGER
+    return aRank - bRank
+  })[0]
+}
+
+function aggregateFuelRows(rows) {
+  const acc = new Map()
+
+  for (const row of rows || []) {
+    const name = pickFuelFilterLabel(row)
+    if (!name) continue
+    acc.set(name, (acc.get(name) || 0) + 1)
+  }
+
+  return [...acc.entries()]
+    .sort((a, b) => {
+      const aRank = FUEL_FILTER_PRIORITY.has(a[0]) ? FUEL_FILTER_PRIORITY.get(a[0]) : Number.MAX_SAFE_INTEGER
+      const bRank = FUEL_FILTER_PRIORITY.has(b[0]) ? FUEL_FILTER_PRIORITY.get(b[0]) : Number.MAX_SAFE_INTEGER
+      if (aRank !== bRank) return aRank - bRank
       return b[1] - a[1]
     })
     .map(([name, count]) => ({ name, count }))
@@ -1448,88 +1537,82 @@ router.get('/filter-options', async (req, res) => {
     const siteRateSql = Number((exchangeSnapshot.siteRate || 1).toFixed(2))
     const priceUsdSql = `ROUND((COALESCE(price_krw, 0)::numeric / ${siteRateSql})::numeric, 0)`
     const listingParams = requestedListingType === 'all' ? [] : [requestedListingType]
-    const listingWhere = (alias = '') => (
-      requestedListingType === 'all'
-        ? ''
-        : `WHERE ${alias ? `${alias}.` : ''}listing_type = $1`
-    )
+    const listingWhere = (alias = 'c') => {
+      const prefix = alias ? `${alias}.` : ''
+      const conditions = []
+      if (requestedListingType !== 'all') conditions.push(`${prefix}listing_type = $1`)
+      conditions.push(`NOT ${buildBlockedCatalogPriceSql(alias || 'c')}`)
+      conditions.push(`NOT ${buildBlockedGenericVehicleSql(alias || 'c')}`)
+      return `WHERE ${conditions.join(' AND ')}`
+    }
     const yearParams = requestedListingType === 'all'
       ? [MIN_CATALOG_YEAR]
       : [requestedListingType, MIN_CATALOG_YEAR]
     const yearWhere = requestedListingType === 'all'
-      ? `WHERE year ~ '^[0-9]{4}$' AND year::integer >= $1`
-      : `WHERE listing_type = $1 AND year ~ '^[0-9]{4}$' AND year::integer >= $2`
+      ? `${listingWhere('c')} AND c.year ~ '^[0-9]{4}$' AND c.year::integer >= $1`
+      : `${listingWhere('c')} AND c.year ~ '^[0-9]{4}$' AND c.year::integer >= $2`
 
-    const [nameCounts, originSourceRows, fuelCounts, tagCounts, driveSourceRows, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
+    const [nameCounts, originSourceRows, fuelSourceRows, driveSourceRows, bodySourceRows, bodyColorRows, interiorColorRows, yearRange, priceRange, mileageRange, total] = await Promise.all([
       pool.query(`
-        SELECT name, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        ${requestedListingType === 'all' ? 'WHERE' : 'AND'} name IS NOT NULL AND name != ''
-        GROUP BY name
+        SELECT c.name, COUNT(*)::int AS count
+        FROM cars c
+        ${listingWhere('c')}
+        AND c.name IS NOT NULL AND c.name != ''
+        GROUP BY c.name
       `, listingParams),
       pool.query(`
         SELECT
-          COALESCE(NULLIF(name, ''), model) AS name,
-          COALESCE(model, '') AS model,
+          COALESCE(NULLIF(c.name, ''), c.model) AS name,
+          COALESCE(c.model, '') AS model,
           COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        GROUP BY COALESCE(NULLIF(name, ''), model), COALESCE(model, '')
-      `, listingParams),
-      pool.query(`
-        SELECT fuel_type AS name, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        ${requestedListingType === 'all' ? 'WHERE' : 'AND'} fuel_type IS NOT NULL AND fuel_type != ''
-        GROUP BY fuel_type
-      `, listingParams),
-      pool.query(`
-        SELECT tag AS name, COUNT(*)::int AS count
         FROM cars c
-        CROSS JOIN LATERAL UNNEST(COALESCE(c.tags, '{}'::text[])) AS tag
         ${listingWhere('c')}
-        GROUP BY tag
+        GROUP BY COALESCE(NULLIF(c.name, ''), c.model), COALESCE(c.model, '')
       `, listingParams),
       pool.query(`
-        SELECT COALESCE(drive_type, '') AS name, COALESCE(name, '') AS car_name, COALESCE(model, '') AS model, COALESCE(trim_level, '') AS trim_level, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        GROUP BY COALESCE(drive_type, ''), COALESCE(name, ''), COALESCE(model, ''), COALESCE(trim_level, '')
+        SELECT c.id, COALESCE(c.fuel_type, '') AS fuel_type, COALESCE(c.tags, '{}'::text[]) AS tags
+        FROM cars c
+        ${listingWhere('c')}
       `, listingParams),
       pool.query(`
-        SELECT COALESCE(body_type, '') AS name, COALESCE(name, '') AS car_name, COALESCE(model, '') AS model, COALESCE(trim_level, '') AS trim_level, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        GROUP BY COALESCE(body_type, ''), COALESCE(name, ''), COALESCE(model, ''), COALESCE(trim_level, '')
+        SELECT COALESCE(c.drive_type, '') AS name, COALESCE(c.name, '') AS car_name, COALESCE(c.model, '') AS model, COALESCE(c.trim_level, '') AS trim_level, COUNT(*)::int AS count
+        FROM cars c
+        ${listingWhere('c')}
+        GROUP BY COALESCE(c.drive_type, ''), COALESCE(c.name, ''), COALESCE(c.model, ''), COALESCE(c.trim_level, '')
       `, listingParams),
       pool.query(`
-        SELECT body_color AS name, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        ${requestedListingType === 'all' ? 'WHERE' : 'AND'} body_color IS NOT NULL AND body_color != ''
-        GROUP BY body_color
+        SELECT COALESCE(c.body_type, '') AS name, COALESCE(c.name, '') AS car_name, COALESCE(c.model, '') AS model, COALESCE(c.trim_level, '') AS trim_level, COUNT(*)::int AS count
+        FROM cars c
+        ${listingWhere('c')}
+        GROUP BY COALESCE(c.body_type, ''), COALESCE(c.name, ''), COALESCE(c.model, ''), COALESCE(c.trim_level, '')
       `, listingParams),
       pool.query(`
-        SELECT interior_color AS name, COUNT(*)::int AS count
-        FROM cars
-        ${listingWhere()}
-        ${requestedListingType === 'all' ? 'WHERE' : 'AND'} interior_color IS NOT NULL AND interior_color != ''
-        GROUP BY interior_color
+        SELECT c.body_color AS name, COUNT(*)::int AS count
+        FROM cars c
+        ${listingWhere('c')}
+        AND c.body_color IS NOT NULL AND c.body_color != ''
+        GROUP BY c.body_color
+      `, listingParams),
+      pool.query(`
+        SELECT c.interior_color AS name, COUNT(*)::int AS count
+        FROM cars c
+        ${listingWhere('c')}
+        AND c.interior_color IS NOT NULL AND c.interior_color != ''
+        GROUP BY c.interior_color
       `, listingParams),
       pool.query(`
         SELECT MIN(year::integer) AS min_year, MAX(year::integer) AS max_year
-        FROM cars
+        FROM cars c
         ${yearWhere}
       `, yearParams),
-      pool.query(`SELECT MIN(${priceUsdSql}) AS min_price, MAX(${priceUsdSql}) AS max_price FROM cars ${listingWhere()}`, listingParams),
-      pool.query(`SELECT MIN(mileage) AS min_mileage, MAX(mileage) AS max_mileage FROM cars ${listingWhere()}`, listingParams),
-      pool.query(`SELECT COUNT(*)::int AS count FROM cars ${listingWhere()}`, listingParams),
+      pool.query(`SELECT MIN(${priceUsdSql}) AS min_price, MAX(${priceUsdSql}) AS max_price FROM cars c ${listingWhere('c')}`, listingParams),
+      pool.query(`SELECT MIN(c.mileage) AS min_mileage, MAX(c.mileage) AS max_mileage FROM cars c ${listingWhere('c')}`, listingParams),
+      pool.query(`SELECT COUNT(*)::int AS count FROM cars c ${listingWhere('c')}`, listingParams),
     ])
 
     const brands = aggregateBrands(nameCounts.rows)
     const originTypes = aggregateOrigins(originSourceRows.rows)
-    const fuelTypes = aggregate([...fuelCounts.rows, ...tagCounts.rows], normalizeFuel)
+    const fuelTypes = aggregateFuelRows(fuelSourceRows.rows)
     const driveTypes = aggregate(driveSourceRows.rows, normalizeDriveFilter)
     const bodyTypes = aggregate(bodySourceRows.rows, normalizeBodyFilter)
     const bodyColors = aggregateColors(bodyColorRows.rows)

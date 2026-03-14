@@ -183,6 +183,141 @@ function getBackfillModeLabel(value) {
     return BACKFILL_MODE_OPTIONS.find(option => option.value === value)?.label || value
 }
 
+function getBackfillEffectiveChanges(status) {
+    const metrics = status?.metrics || {}
+    if (status?.target === 'interior') return Number(metrics.interior_filled || 0) + Number(metrics.interior_cleared || 0)
+    if (status?.target === 'drive') return Number(metrics.drive_filled || 0)
+    if (status?.target === 'key') return Number(metrics.key_filled || 0)
+    if (status?.target === 'vin') return Number(metrics.vin_filled || 0)
+    if (status?.target === 'trim') return Number(metrics.trim_filled || 0)
+    if (status?.target === 'options') return Number(metrics.option_features_filled || 0)
+    if (status?.target === 'warranty') return Number(metrics.warranty_filled || 0)
+    return Number(status?.updated || 0)
+}
+
+function getBackfillEffectiveLabel(status) {
+    if (status?.target === 'interior') return 'цвет салона найден'
+    if (status?.target === 'drive') return 'привод найден'
+    if (status?.target === 'key') return 'ключ найден'
+    if (status?.target === 'vin') return 'VIN найден'
+    if (status?.target === 'trim') return 'комплектация найдена'
+    if (status?.target === 'options') return 'опции найдены'
+    if (status?.target === 'warranty') return 'гарантия найдена'
+    return 'данные найдены'
+}
+
+function getBackfillMetaLabel(status) {
+    if (status?.target === 'interior') return 'только диагностика обновлена'
+    return 'служебно обновлено'
+}
+
+const ENRICH_VISIBLE_FIELDS = new Set([
+    'name',
+    'model',
+    'trim_level',
+    'drive_type',
+    'key_info',
+    'interior_color',
+    'body_type',
+    'vehicle_class',
+    'vin',
+    'option_features',
+    'warranty_company',
+    'warranty_body_months',
+    'warranty_body_km',
+    'warranty_transmission_months',
+    'warranty_transmission_km',
+])
+
+const ENRICH_FIELD_LABELS = {
+    name: 'Название',
+    model: 'Модель',
+    trim_level: 'Комплектация',
+    drive_type: 'Привод',
+    key_info: 'Ключ',
+    interior_color: 'Цвет салона',
+    body_type: 'Кузов',
+    vehicle_class: 'Класс',
+    vin: 'VIN',
+    option_features: 'Опции',
+    warranty_company: 'Гарантия',
+    warranty_body_months: 'Гарантия кузова, мес.',
+    warranty_body_km: 'Гарантия кузова, км',
+    warranty_transmission_months: 'Гарантия КПП, мес.',
+    warranty_transmission_km: 'Гарантия КПП, км',
+}
+
+const ENRICH_REASON_LABELS = {
+    value_not_found: 'не найдено в карточке',
+    not_present: 'нет в карточке',
+    invalid_value: 'найдено, но не подошло',
+    no_context: 'не хватило данных',
+    empty_value: 'значение пустое',
+    selector_no_match: 'не найдено на странице',
+    material_only: 'найден только материал салона',
+    no_interior_context: 'не найден блок салона',
+    body_color_conflict: 'похоже совпадает с цветом кузова',
+    duplicate_body_color: 'совпадает с цветом кузова',
+}
+
+function getEnrichFieldLabel(field) {
+    return ENRICH_FIELD_LABELS[field] || field
+}
+
+function getVisibleEnrichChanges(changes) {
+    return Array.isArray(changes)
+        ? changes.filter(change => change?.field && ENRICH_VISIBLE_FIELDS.has(change.field))
+        : []
+}
+
+function formatEnrichValue(value) {
+    if (Array.isArray(value)) {
+        if (!value.length) return '—'
+        const preview = value.slice(0, 3).map(item => String(item || '').trim()).filter(Boolean)
+        if (!preview.length) return `${value.length} шт.`
+        return value.length > preview.length
+            ? `${preview.join(', ')} + ещё ${value.length - preview.length}`
+            : preview.join(', ')
+    }
+
+    if (value === null || value === undefined) return '—'
+
+    const text = String(value).trim()
+    if (!text) return '—'
+    if (text.length <= 90) return text
+    return `${text.slice(0, 87)}...`
+}
+
+function formatEnrichParseNote(note) {
+    const [rawField, rawReason] = String(note || '').split(':')
+    const field = getEnrichFieldLabel((rawField || '').trim())
+    const reasonKey = (rawReason || '').trim()
+    const reason = ENRICH_REASON_LABELS[reasonKey] || reasonKey || 'не найдено'
+    return `${field}: ${reason}`
+}
+
+function getEnrichSummary(item) {
+    const changes = getVisibleEnrichChanges(item?.changes)
+    if (changes.length) {
+        return `Обновлено: ${changes.map(change => getEnrichFieldLabel(change.field)).join(', ')}`
+    }
+    if (Array.isArray(item?.parse_notes) && item.parse_notes.length) {
+        return `Без изменений: ${item.parse_notes.map(formatEnrichParseNote).join('; ')}`
+    }
+    if (item?.status === 'checked') return 'Проверено, новых данных не найдено'
+    return ''
+}
+
+function getEnrichStatusLabel(status) {
+    if (status === 'error') return 'Ошибка'
+    if (status === 'removed') return 'Удалено'
+    if (status === 'not_found') return 'Недоступно'
+    if (status === 'duplicate_vin') return 'Дубликат VIN'
+    if (status === 'updated_with_duplicate_vin') return 'Обновлено без VIN'
+    if (status === 'checked') return 'Проверено'
+    return 'Обновлено'
+}
+
 function normalizeAdminVehicleTitle(value, { keepBrand = true } = {}) {
     let text = String(value || '').trim().replace(/\s+/g, ' ')
     if (!text) return ''
@@ -1530,9 +1665,10 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         if (prevBackfillRunningRef.current && !encarBackfillStatus.running) {
             load(page, search, sort)
             if (encarBackfillStatus.total > 0 || encarBackfillStatus.processed > 0) {
+                const effectiveChanges = getBackfillEffectiveChanges(encarBackfillStatus)
                 const message = encarBackfillStatus.stopped
-                    ? `Encar backfill stopped: updated ${encarBackfillStatus.updated}, errors ${encarBackfillStatus.errors}`
-                    : `Encar backfill finished: updated ${encarBackfillStatus.updated}, errors ${encarBackfillStatus.errors}`
+                    ? `Backfill остановлен: ${getBackfillEffectiveLabel(encarBackfillStatus)} ${effectiveChanges}, ошибок ${encarBackfillStatus.errors}`
+                    : `Backfill завершен: ${getBackfillEffectiveLabel(encarBackfillStatus)} ${effectiveChanges}, ошибок ${encarBackfillStatus.errors}`
                 toast(message, encarBackfillStatus.errors ? 'error' : 'success')
             }
         }
@@ -1879,8 +2015,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {!isPartsSection && (encarBackfillStatus.running || encarBackfillStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {encarBackfillStatus.running
-                                ? `Backfill (${getBackfillTargetLabel(encarBackfillStatus.target)}${encarBackfillStatus.target === 'interior' ? `, ${getBackfillModeLabel(encarBackfillStatus.mode)}` : ''}): ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - обновлено ${encarBackfillStatus.updated} - ошибок ${encarBackfillStatus.errors}`
-                                : `${encarBackfillStatus.stopped ? 'Последний backfill остановлен' : 'Последний backfill'}: обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`}
+                                ? `Backfill (${getBackfillTargetLabel(encarBackfillStatus.target)}${encarBackfillStatus.target === 'interior' ? `, ${getBackfillModeLabel(encarBackfillStatus.mode)}` : ''}): ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - ${getBackfillEffectiveLabel(encarBackfillStatus)} ${getBackfillEffectiveChanges(encarBackfillStatus)} - ${getBackfillMetaLabel(encarBackfillStatus)} ${encarBackfillStatus.metadata_updated || 0} - ошибок ${encarBackfillStatus.errors}`
+                                : `${encarBackfillStatus.stopped ? 'Последний backfill остановлен' : 'Последний backfill'}: ${getBackfillEffectiveLabel(encarBackfillStatus)} ${getBackfillEffectiveChanges(encarBackfillStatus)} - ${getBackfillMetaLabel(encarBackfillStatus)} ${encarBackfillStatus.metadata_updated || 0} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`}
                         </div>
                     )}
                 </div>
@@ -2055,8 +2191,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {(encarBackfillStatus.running || encarBackfillStatus.finished_at) && (
                         <div className="adm-car-sub" style={{ marginBottom: 8 }}>
                             {encarBackfillStatus.running
-                                ? `PID ${encarBackfillStatus.pid || '-'} - ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`
-                                : `Последний запуск: обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}${encarBackfillStatus.stopped ? ' - остановлен' : ''}`}
+                                ? `PID ${encarBackfillStatus.pid || '-'} - ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - ${getBackfillEffectiveLabel(encarBackfillStatus)} ${getBackfillEffectiveChanges(encarBackfillStatus)} - ${getBackfillMetaLabel(encarBackfillStatus)} ${encarBackfillStatus.metadata_updated || 0} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`
+                                : `Последний запуск: ${getBackfillEffectiveLabel(encarBackfillStatus)} ${getBackfillEffectiveChanges(encarBackfillStatus)} - ${getBackfillMetaLabel(encarBackfillStatus)} ${encarBackfillStatus.metadata_updated || 0} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}${encarBackfillStatus.stopped ? ' - остановлен' : ''}`}
                         </div>
                     )}
                     {!!encarBackfillStatus.last_error && (
@@ -2112,7 +2248,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             {!isPartsSection && !!enrichStatus.report?.length && (
                 <div className="adm-chart-box" style={{ marginBottom: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: isEnrichReportOpen ? 12 : 0 }}>
-                        <div className="adm-chart-title" style={{ margin: 0 }}>Что изменило обогащение</div>
+                        <div className="adm-chart-title" style={{ margin: 0 }}>Результат обогащения</div>
                         <button
                             className="adm-btn adm-btn-sm adm-btn-ghost"
                             type="button"
@@ -2124,54 +2260,63 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {isEnrichReportOpen && (
                         <>
                             <div className="adm-car-sub" style={{ marginBottom: 12 }}>
-                                Показаны последние {enrichStatus.report.length} изменений и ошибок текущего/последнего запуска.
+                                Показаны последние {enrichStatus.report.length} результатов: что обновилось и где данные не нашлись.
                             </div>
                             <div style={{ display: 'grid', gap: 10 }}>
-                                {enrichStatus.report.map((item, index) => (
-                                    <div key={`${item.id}-${item.encar_id}-${item.finished_at || index}`} className="adm-settings-card" style={{ padding: 12 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-                                            <div style={{ fontWeight: 700, color: '#e2e8f0' }}>
-                                                {item.name || `ID ${item.id}`}
+                                {enrichStatus.report.map((item, index) => {
+                                    const visibleChanges = getVisibleEnrichChanges(item.changes)
+                                    const summary = getEnrichSummary(item)
+
+                                    return (
+                                        <div key={`${item.id}-${item.encar_id}-${item.finished_at || index}`} className="adm-settings-card" style={{ padding: 12 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+                                                <div style={{ fontWeight: 700, color: '#e2e8f0' }}>
+                                                    {item.name || `ID ${item.id}`}
+                                                </div>
+                                                <span className={`adm-tag-sm ${(item.status === 'error' || item.status === 'not_found' || item.status === 'removed') ? 'adm-tag-more' : ''}`}>
+                                                    {getEnrichStatusLabel(item.status)}
+                                                </span>
                                             </div>
-                                            <span className={`adm-tag-sm ${(item.status === 'error' || item.status === 'not_found' || item.status === 'removed') ? 'adm-tag-more' : ''}`}>
-                                                {item.status === 'error'
-                                                    ? 'Ошибка'
-                                                    : item.status === 'removed'
-                                                        ? 'Удалено'
-                                                    : item.status === 'not_found'
-                                                        ? 'Недоступно'
-                                                    : item.status === 'duplicate_vin'
-                                                        ? 'Дубликат VIN'
-                                                    : item.status === 'updated_with_duplicate_vin'
-                                                        ? 'Обновлено'
-                                                        : 'Обновлено'}
-                                            </span>
+                                            <div className="adm-car-sub" style={{ marginBottom: 8 }}>
+                                                ID: {item.id} • Encar: {item.encar_id}
+                                            </div>
+                                            {summary ? (
+                                                <div className="adm-car-sub" style={{ marginBottom: 8, color: '#cbd5e1' }}>
+                                                    {summary}
+                                                </div>
+                                            ) : null}
+                                            {(item.status === 'error' || item.status === 'not_found' || item.status === 'removed' || item.status === 'duplicate_vin') ? (
+                                                <div className="adm-car-sub" style={{ color: '#fca5a5' }}>
+                                                    {item.error}
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'grid', gap: 6 }}>
+                                                    {item.error ? (
+                                                        <div className="adm-car-sub" style={{ color: '#fcd34d' }}>
+                                                            {item.error}
+                                                        </div>
+                                                    ) : null}
+                                                    {visibleChanges.map((change, changeIndex) => (
+                                                        <div key={`${item.id}-${change.field}-${changeIndex}`} className="adm-car-sub">
+                                                            <strong>{getEnrichFieldLabel(change.field)}</strong>: `{formatEnrichValue(change.before)}`
+                                                            {' -> '}
+                                                            `{formatEnrichValue(change.after)}`
+                                                        </div>
+                                                    ))}
+                                                    {!visibleChanges.length && Array.isArray(item.parse_notes) && item.parse_notes.length ? (
+                                                        <div style={{ display: 'grid', gap: 4 }}>
+                                                            {item.parse_notes.map((note, noteIndex) => (
+                                                                <div key={`${item.id}-note-${noteIndex}`} className="adm-car-sub">
+                                                                    {formatEnrichParseNote(note)}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="adm-car-sub" style={{ marginBottom: 8 }}>
-                                            ID: {item.id} • Encar: {item.encar_id}
-                                        </div>
-                                        {(item.status === 'error' || item.status === 'not_found' || item.status === 'removed' || item.status === 'duplicate_vin') ? (
-                                            <div className="adm-car-sub" style={{ color: '#fca5a5' }}>
-                                                {item.error}
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'grid', gap: 6 }}>
-                                                {item.error ? (
-                                                    <div className="adm-car-sub" style={{ color: '#fcd34d' }}>
-                                                        {item.error}
-                                                    </div>
-                                                ) : null}
-                                                {(item.changes || []).map((change, changeIndex) => (
-                                                    <div key={`${item.id}-${change.field}-${changeIndex}`} className="adm-car-sub">
-                                                        <strong>{change.field}</strong>: `{change.before || '-'}`
-                                                        {' -> '}
-                                                        `{change.after || '-'}`
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </>
                     )}

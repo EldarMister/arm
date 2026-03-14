@@ -4593,6 +4593,7 @@ body {
   flex-shrink: 0;
   display: inline-block;
   margin-top: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
 .filter-color-name {

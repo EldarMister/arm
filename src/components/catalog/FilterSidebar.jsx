@@ -355,13 +355,36 @@ const COLOR_MAP = {
 function getColorStyle(name) {
   const normalized = normalizeVehicleColorLabel(name)
   const color = getColorSwatch(normalized)
-  if (normalized.toLowerCase().includes('двухцветный')) {
-    return { color, border: '#111827' }
-  }
-  const border = /бел|white|silver|серебрист|жемчуж|pearl|snow|ivory|айвори/i.test(normalized)
+  const isTwoTone = /\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(normalized)
+  const border = /\u0431\u0435\u043b|white|silver|\u0441\u0435\u0440\u0435\u0431\u0440\u0438\u0441\u0442|\u0436\u0435\u043c\u0447\u0443\u0436|pearl|snow|ivory|\u0430\u0439\u0432\u043e\u0440\u0438/i.test(normalized)
     ? '#cbd5e1'
     : color
-  return { color, border }
+
+  if (isTwoTone) {
+    return {
+      background: `linear-gradient(135deg, ${color} 0%, ${color} 54%, #f8fafc 54%, #f8fafc 100%)`,
+      border: '#94a3b8',
+    }
+  }
+
+  return { background: color, border }
+}
+
+function resolveColorChipStyle({ name, color, border }) {
+  const fallback = getColorStyle(name)
+  const isTwoTone = /\u0434\u0432\u0443\u0445\u0446\u0432\u0435\u0442/i.test(normalizeVehicleColorLabel(name))
+  const baseColor = typeof color === 'string' && color.trim() ? color.trim() : fallback.background
+  const background = isTwoTone
+    ? `linear-gradient(135deg, ${baseColor} 0%, ${baseColor} 54%, #f8fafc 54%, #f8fafc 100%)`
+    : baseColor
+  const borderColor = typeof border === 'string' && border.trim()
+    ? border.trim()
+    : fallback.border
+
+  return {
+    background,
+    border: borderColor || '#94a3b8',
+  }
 }
 
 function normalizeColorName(value) {
@@ -439,9 +462,7 @@ function ColorGrid({ colors, selected, onToggle, showMoreLabel }) {
     <>
       <div className="filter-color-grid">
         {visible.map(({ name, count, color, border }) => {
-          const style = color ? { color, border: `2px solid ${border || color}` } : getColorStyle(name)
-          const borderColor = style.border || style.color
-          const bgColor = style.color
+          const style = resolveColorChipStyle({ name, color, border })
           return (
             <label
               key={name + count}
@@ -456,8 +477,8 @@ function ColorGrid({ colors, selected, onToggle, showMoreLabel }) {
               <span
                 className="filter-color-circle"
                 style={{
-                  background: bgColor,
-                  border: `2px solid ${borderColor}`,
+                  background: style.background,
+                  border: `2px solid ${style.border}`,
                   outline: selectedValues.includes(name) ? '2px solid #1a3c5e' : 'none',
                   outlineOffset: '2px',
                 }}
@@ -566,7 +587,7 @@ function buildLiveColorOptions(cars, field) {
     .map(([name, count]) => ({
       name,
       count,
-      ...getColorStyle(name),
+      ...resolveColorChipStyle({ name }),
     }))
 }
 
