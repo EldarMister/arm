@@ -64,6 +64,21 @@ const BODY_TYPE_MODEL_OVERRIDES = [
   { pattern: /\bLamborghini\s+Huracan\b.*\bSTO\b/i, body: BODY_TYPE_LABELS.coupe },
 ]
 
+const RE_HYUNDAI_IONIQ5 = /\bHyundai\s+Ioniq\s*5\b/i
+const RE_BMW_GRAN_TURISMO = /\bBMW\b.*\bGran\s+Turismo\b/i
+const RE_BMW_1_SERIES = /\bBMW\s+1\s*Series\b/i
+const RE_BENTLEY_CONTINENTAL_GTC = /\bBentley\s+Continental\b.*\bGTC\b/i
+const RE_BENTLEY_CONTINENTAL_GT = /\bBentley\s+Continental\b.*\bGT\b/i
+const RE_PORSCHE_911 = /\bPorsche\s+911\b/i
+const RE_PORSCHE_911_OPEN = /\b(Cabriolet|Targa)\b/i
+const RE_MERCEDES_SL_CLASS = /\bMercedes[-\s]?Benz\s+SL-Class\b/i
+const RE_ASTON_VANTAGE_ROADSTER = /\bAston\s+Martin\s+Vantage\b.*\bRoadster\b/i
+const RE_AUDI_RS6_AVANT = /\bAudi\s+RS6\b.*\bAvant\b/i
+const RE_JEEP_GLADIATOR = /\bJeep\s+Gladiator\b/i
+const RE_KIA_TASMAN = /\bKia\s+Tasman\b/i
+const RE_CHEVROLET_DAMAS = /\bChevrolet\s+Damas\b/i
+const RE_LEXUS_LM = /\bLexus\s+LM\b/i
+
 function matchesAny(text, patterns) {
   return patterns.some((pattern) => pattern.test(text))
 }
@@ -76,9 +91,62 @@ function applyBodyTypeOverrides(bodyType, context) {
   const isBusiness = matchesAny(text, BUSINESS_SEDAN_MODEL_RE)
   const isSf90 = /\bFerrari\s+SF90\b/i.test(text)
   const isSpider = /\bSpider\b/i.test(text)
+  const isBodyEmpty = !bodyType || String(bodyType).trim() === '-'
 
   for (const rule of BODY_TYPE_MODEL_OVERRIDES) {
     if (rule.pattern.test(text)) return rule.body
+  }
+
+  if (RE_HYUNDAI_IONIQ5.test(text) && bodyType === BODY_TYPE_LABELS.sedan) {
+    return BODY_TYPE_LABELS.suv
+  }
+
+  if (RE_BMW_GRAN_TURISMO.test(text) && bodyType === BODY_TYPE_LABELS.sedan) {
+    return BODY_TYPE_LABELS.liftback
+  }
+
+  if (RE_BMW_1_SERIES.test(text) && bodyType === BODY_TYPE_LABELS.sedan) {
+    return BODY_TYPE_LABELS.hatchback
+  }
+
+  if (isBodyEmpty && RE_BENTLEY_CONTINENTAL_GTC.test(text)) {
+    return BODY_TYPE_LABELS.cabriolet
+  }
+
+  if (isBodyEmpty && RE_BENTLEY_CONTINENTAL_GT.test(text) && !RE_BENTLEY_CONTINENTAL_GTC.test(text)) {
+    return BODY_TYPE_LABELS.coupe
+  }
+
+  if (isBodyEmpty && RE_PORSCHE_911.test(text) && !RE_PORSCHE_911_OPEN.test(text)) {
+    return BODY_TYPE_LABELS.coupe
+  }
+
+  if (isBodyEmpty && RE_MERCEDES_SL_CLASS.test(text)) {
+    return BODY_TYPE_LABELS.roadster
+  }
+
+  if (isBodyEmpty && RE_ASTON_VANTAGE_ROADSTER.test(text)) {
+    return BODY_TYPE_LABELS.roadster
+  }
+
+  if (isBodyEmpty && RE_AUDI_RS6_AVANT.test(text)) {
+    return BODY_TYPE_LABELS.wagon
+  }
+
+  if (isBodyEmpty && RE_JEEP_GLADIATOR.test(text)) {
+    return BODY_TYPE_LABELS.pickup
+  }
+
+  if (isBodyEmpty && RE_KIA_TASMAN.test(text)) {
+    return BODY_TYPE_LABELS.pickup
+  }
+
+  if (isBodyEmpty && RE_CHEVROLET_DAMAS.test(text)) {
+    return BODY_TYPE_LABELS.minivan
+  }
+
+  if (isBodyEmpty && RE_LEXUS_LM.test(text)) {
+    return BODY_TYPE_LABELS.minivan
   }
 
   if (isSf90) {

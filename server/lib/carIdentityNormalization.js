@@ -43,6 +43,52 @@ const SAFE_WORD_REPLACEMENTS = Object.freeze([
   [/\bManupaktueo\b/gi, 'MANUFAKTUR'],
 ])
 
+const EXPLICIT_NAME_RULES = Object.freeze([
+  {
+    test: /\bPeugeot\s+3008\b.*\b1\.2\b.*\bPure\s*Tech\b.*\bAlrwireu\b/i,
+    replacements: [[/\bAlrwireu\b/gi, 'Allure']],
+  },
+  {
+    test: /\bBentley\s+Continental\b.*\b4\.0\b.*\bGT\b.*\bAjureu\b/i,
+    replacements: [[/\bAjureu\b/gi, 'Azure']],
+  },
+  {
+    test: /\bFord\s+Mondeo\b.*\b2\.0\b.*\bTeurendeu\b/i,
+    replacements: [[/\bTeurendeu\b/gi, 'Trend']],
+  },
+  {
+    test: /\bMaserati\s+Levante\b.*\b3\.0\b.*\bAWD\b.*\bGeuranSports\b/i,
+    replacements: [[/\bGeuranSports\b/gi, 'GranSport']],
+  },
+  {
+    test: /\bAstonmartin\s+Vantage\b.*\b4\.0\b.*\bV8\b.*\bRodeuseuteo\b/i,
+    replacements: [
+      [/\bAstonmartin\b/gi, 'Aston Martin'],
+      [/\bRodeuseuteo\b/gi, 'Roadster'],
+    ],
+  },
+  {
+    test: /\bMercedes[-\s]?Benz\s+AMG\s+GT\b.*\b4\.0\b.*\bC\b.*\bRodeuseuteo\b/i,
+    replacements: [[/\bRodeuseuteo\b/gi, 'Roadster']],
+  },
+  {
+    test: /\bAudi\s+RS6\b.*\b4\.0\b.*\bTFSI\b.*\bquattro\b.*\bAbanteu\b.*\bPerformance\b/i,
+    replacements: [[/\bAbanteu\b/gi, 'Avant']],
+  },
+  {
+    test: /\bHyundai\s+Venue\b.*\b1\.6\b.*\bPeulreokseu\b/i,
+    replacements: [[/\bPeulreokseu\b/gi, 'Flux']],
+  },
+  {
+    test: /\bChevrolet\s+Colorado\b.*\b3\.6\b.*\bIkseuteurim-X\b.*\b4WD\b/i,
+    replacements: [[/\bIkseuteurim-X\b/gi, 'Extreme-X']],
+  },
+  {
+    test: /\bChevrolet\s+Colorado\b.*\b3\.6\b.*\bIkseuteurim\b.*\b4WD\b/i,
+    replacements: [[/\bIkseuteurim\b/gi, 'Extreme']],
+  },
+])
+
 const BRAND_RULES = Object.freeze([
   {
     brand: 'Honda',
@@ -170,6 +216,21 @@ function applyBrandReplacements(value, brand) {
   return normalized.replace(/\s+/g, ' ').trim()
 }
 
+function applyExplicitNameRules(value) {
+  let text = cleanText(value)
+  if (!text) return text
+
+  for (const rule of EXPLICIT_NAME_RULES) {
+    if (!rule.test.test(text)) continue
+    for (const [pattern, replacement] of rule.replacements) {
+      text = text.replace(pattern, replacement)
+    }
+    text = text.replace(/\s+/g, ' ').trim()
+  }
+
+  return text
+}
+
 function resolveMapped2wdDrive(combined) {
   for (const rule of IDENTITY_2WD_DRIVE_RULES) {
     if (rule.matcher.test(combined)) return rule.drive
@@ -240,7 +301,7 @@ function resolveIdentityDrive({ brand, name, model, trim_level, drive_type }) {
 
 export function normalizeCarIdentityFields(input = {}) {
   const brand = detectBrand(input.name, input.model, input.trim_level)
-  const name = normalizeNullableText(input.name, (value) => applyBrandReplacements(value, brand))
+  const name = normalizeNullableText(input.name, (value) => applyExplicitNameRules(applyBrandReplacements(value, brand)))
   const model = normalizeNullableText(input.model, (value) => applyBrandReplacements(value, brand))
   const trim_level = normalizeNullableText(input.trim_level, (value) => normalizeTrimWithContext(value, brand, name ?? input.name, model ?? input.model))
 
