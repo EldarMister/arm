@@ -672,7 +672,7 @@ const KEY_EXPLICIT_PATH_RE = /(?:\b(?:smart\s*key|smartkey|card\s*key|key\s*card
 const KEY_COUNT_LABEL_RE = /(?:\b(?:number\s*of\s*keys|key\s*count)\b|\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9))/i
 const DRIVE_KEY_CONTEXT_RE = /(?:\b(?:drive|drivetrain|traction|wheel\s*drive|drive\s*type)\b|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
 const DRIVE_TITLE_LABEL_RE = /(?:\b(?:name|title|vehicle\s*name|model\s*name|grade(?:\s*name)?|trim(?:\s*name)?)\b|\uC81C\uBAA9|\uCC28\uB7C9\uBA85|\uCC28\uBA85|\uBAA8\uB378\uBA85|Название)/i
-const DRIVE_UNAMBIGUOUS_SIGNAL_RE = /(?:\b(?:awd|4wd|4x4|fwd|rwd|ff|fr|all4|quattro|4matic\+?|4motion|allrad|syncro|sh-awd|e-awd|e-?4wd|e[-\s]*four|htrac|xdrive(?:[a-z0-9]+)?)\b|(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uB95C(?:\s*\uAD6C\uB3D9)?|\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?|\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?))/i
+const DRIVE_UNAMBIGUOUS_SIGNAL_RE = /(?:\b(?:awd|4wd|4x4|fwd|rwd|ff|fr|all4|quattro|q4|4matic\+?|4motion|allrad|syncro|sh-awd|e-awd|e-?4wd|e[-\s]*four|e-?4orce|4xe|htrac|xdrive(?:[a-z0-9]+)?)\b|(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uB95C(?:\s*\uAD6C\uB3D9)?|\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?|\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?))/i
 const DRIVE_AMBIGUOUS_SIGNAL_RE = /(?:\b2wd\b|\uC774\uB95C(?:\s*\uAD6C\uB3D9)?|\u0032\uB95C(?:\s*\uAD6C\uB3D9)?)/i
 const CANONICAL_DRIVE_TYPES = new Set(['Передний (FWD)', 'Задний (RWD)', 'Полный (AWD)', 'Полный (4WD)'])
 const WEAK_KEY_INFO_VALUES = new Set([
@@ -1056,7 +1056,11 @@ function buildDriveCandidate(rawValue, options = {}) {
   const combined = cleanText([label, raw].filter(Boolean).join(' '))
   const explicitContext = hasDriveContext(label, options.path_or_label) || Boolean(options.explicitContext)
   const titleContext = isDriveTitleLike(label, options.path_or_label) || Boolean(options.titleContext)
-  const normalized = normalizeDrive(raw) || normalizeDrive(combined)
+  const normalized =
+    (CANONICAL_DRIVE_TYPES.has(raw) && raw) ||
+    (CANONICAL_DRIVE_TYPES.has(combined) && combined) ||
+    normalizeDrive(raw) ||
+    normalizeDrive(combined)
   const rejectReason = normalized
     ? (
       !explicitContext && !titleContext && !DRIVE_UNAMBIGUOUS_SIGNAL_RE.test(combined)
@@ -2163,6 +2167,7 @@ export function resolveDriveTypeEvidence(context = {}) {
       supplementalPayload?.ad?.subTitle,
       supplementalPayload?.ad?.memo,
       ...((context.optionTexts || []).map((value) => cleanText(value))),
+      ...inspectionPairs.map((pair) => cleanText([pair?.label, pair?.value].filter(Boolean).join(' '))),
       ...((context.textSources || []).filter((source) => source?.source === 'inspection-report').map((source) => source.text)),
     ],
   )

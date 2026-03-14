@@ -156,6 +156,7 @@ const INTERIOR_COLOR_CONTEXT_RE = new RegExp(INTERIOR_COLOR_CONTEXT_MARKERS, 'i'
 const INTERIOR_TWO_TONE_HINT_RE = /(?:\uD22C\s*\uD1A4|\uD22C\uD1A4|\uCEE8\uD2B8\uB77C\uC2A4\uD2B8|two[-\s]*tone|bi[-\s]*tone|dual[-\s]*tone|contrast)/i
 const INTERIOR_COLOR_SEPARATOR_RE = /(?:\/|&|\+|,|\band\b)/i
 const INTERIOR_COLOR_BOUNDARY_RE = /[\p{L}\p{N}]/u
+const INTERIOR_COMPOUND_EDGE_CONTEXT_RE = /(?:\uC2DC\uD2B8|\uB0B4\uC7A5(?:\s*\uC0AC\uC591)?|\uC2E4\uB0B4(?:\s*\uC0C9\uC0C1|\s*\uCEEC\uB7EC)?|\uC778\uD14C\uB9AC\uC5B4|\uAC00\uC8FD|\uB098\uD30C|\uBAA8\uB178\uD1A4|\uD22C\uD1A4|seat(?:s)?|interior|trim|upholstery|leather|nappa|monotone|two[-\s]*tone|bi[-\s]*tone|dual[-\s]*tone|contrast|siteu|silnae|naejang|inteorieo|gajuk|upeolseuteori)/i
 const INTERIOR_COLOR_VALUE_RE = /(?:\b(?:black|white|beige|brown|gray|grey|red|blue|green|orange|ivory|cream|burgundy|wine|tan|camel|caramel|cognac|charcoal|graphite)\b|(?:\uBE14\uB799|\uAC80\uC815|\uD751\uC0C9|\uD654\uC774\uD2B8|\uD770\uC0C9|\uBC31\uC0C9|\uBCA0\uC774\uC9C0|\uBE0C\uB77C\uC6B4|\uADF8\uB808\uC774|\uD68C\uC0C9|\uB808\uB4DC|\uC801\uC0C9|\uB124\uC774\uBE44|\uCCAD\uC0C9|\uADF8\uB9B0|\uC624\uB80C\uC9C0|\uC544\uC774\uBCF4\uB9AC|\uD06C\uB9BC|\uBC84\uAC74\uB514|\uC640\uC778|\uCE74\uBA5C|\uCE90\uB7EC\uBA5C|\uCF54\uB0D1|\uCC28\uCF5C|\uADF8\uB798\uD53C\uD2B8))/i
 const INTERIOR_MARKETING_WHITE_RE = /\b(?:snow\s*white|pure\s*white|polar\s*white|pearl\s*white)\b/i
 const INTERIOR_MATERIAL_HINT_RE = /(?:\b(?:leather|nappa|alcantara|suede|quilted|perforated|premium|natural|seat(?:s)?|interior|trim|upholstery)\b|(?:\uAC00\uC8FD|\uB098\uD30C|\uC2DC\uD2B8|\uB0B4\uC7A5|\uC778\uD14C\uB9AC\uC5B4))/i
@@ -181,8 +182,8 @@ const INTERIOR_ALLOWED_OUTPUTS = new Set([
   'Оранжевый',
   'Желтый',
 ])
-const DRIVE_AWD_RE = /\b(?:awd|all[-\s]*wheel(?:\s*drive)?|allrad|all4|quattro|4matic\+?|4motion|syncro|sh-awd|e-awd|e[-\s]*four|htrac|xdrive(?:[a-z0-9]+)?)\b/i
-const DRIVE_4WD_RE = /\b(?:4wd|4x4|e-?4wd|4wd\s*system)\b/i
+const DRIVE_AWD_RE = /\b(?:awd|all[-\s]*wheel(?:\s*drive)?|allrad|all4|quattro|q4|4matic\+?|4motion|syncro|sh-awd|e-awd|e[-\s]*four|e-?4orce|htrac|xdrive(?:[a-z0-9]+)?)\b/i
+const DRIVE_4WD_RE = /\b(?:4wd|4x4|4xe|e-?4wd|4wd\s*system)\b/i
 const DRIVE_FWD_RE = /\b(?:fwd|ff|front[-\s]*wheel(?:\s*drive)?)\b/i
 const DRIVE_RWD_RE = /\b(?:rwd|fr|rear[-\s]*wheel(?:\s*drive)?)\b/i
 const DRIVE_AWD_HANGUL_RE = /(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uC790\uC2DD\s*AWD|\uC774-?AWD)/u
@@ -190,6 +191,11 @@ const DRIVE_4WD_HANGUL_RE = /(?:\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\u0034WD\s*\uC2
 const DRIVE_FWD_HANGUL_RE = /(?:\uC804\uB95C(?:\s*\uAD6C\uB3D9)?)/u
 const DRIVE_RWD_HANGUL_RE = /(?:\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?)/u
 const DRIVE_LABEL_RE = /(?:drive|drivetrain|traction|wheel\s*drive|4wd\s*system|awd\s*system|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
+const DRIVE_EXPLICIT_2WD_RE = /(?:\b2wd\b|\btwo[-\s]*wheel(?:\s*drive)?\b|\uC774\uB95C(?:\s*\uAD6C\uB3D9)?|\u0032\uB95C(?:\s*\uAD6C\uB3D9)?)/i
+const DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE = /(?:\b(?:hyundai\s+(?:avante|elantra|sonata|grandeur|azera|casper|santa[\s-]*fe|tucson|palisade|staria)|kia\s+(?:k3|forte|k5|optima|k7|cadenza|k8|morning|picanto|ray|carnival|sorento|sportage|seltos|niro)|renault\s+(?:samsung|korea)\s+(?:sm3|sm5|sm6|qm3|qm6|xm3)|chevrolet\s+(?:spark|malibu|orlando|trax)|genesis\s+gv60)\b|\uC544\uBC18\uB5BC|\uC18C\uB098\uD0C0|\uADF8\uB79C\uC800|\uCE90\uC2A4\uD37C|\uC2FC\uD0C0\uD398|\uD22C\uC2FC|\uD330\uB9AC\uC138\uC774\uB4DC|\uC2A4\uD0C0\uB9AC\uC544|\uBAA8\uB2DD|\uB808\uC774|\uCE74\uB2C8\uBC1C|\uC3D8\uB80C\uD1A0|\uC2A4\uD3EC\uD2F0\uC9C0|\uC140\uD1A0\uC2A4|\uB2C8\uB85C|\bK3\b|\bK5\b|\bK7\b|\bK8\b|\bSM3\b|\bSM5\b|\bSM6\b|\bQM3\b|\bQM6\b|\bXM3\b)/i
+const DRIVE_KNOWN_MODEL_2WD_FWD_RE = DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE
+const DRIVE_KNOWN_MODEL_DEFAULT_RWD_RE = /(?:\b(?:bmw\s+(?:3\s*series|4\s*series|5\s*series|6\s*series|7\s*series|8\s*series|z4)|genesis\s+(?:g70|g80|g90)|kia\s+(?:k9|stinger)|hyundai\s+(?:eq900|equus))\b|\b[3578]\s*\uC2DC\uB9AC\uC988\b|\uC81C\uB124\uC2DC\uC2A4\s*g(?:70|80|90)|\bG(?:70|80|90)\b|\uC2A4\uD305\uC5B4|\bK9\b|\bEQ900\b)/i
+const DRIVE_KNOWN_MODEL_2WD_RWD_RE = /(?:\b(?:kia\s+(?:mohave|k9|stinger)|hyundai\s+(?:eq900|equus)|genesis\s+(?:g70|g80|g90)|bmw\s+(?:3\s*series|5\s*series|7\s*series)|mercedes-benz\s+(?:c-class|e-class|s-class|cls-class))\b|\uBAA8\uD558\uBE44|\uC81C\uB124\uC2DC\uC2A4\s*g(?:70|80|90)|\uC2A4\uD305\uC5B4|\bK9\b|\bEQ900\b|\b[357]\s*\uC2DC\uB9AC\uC988\b)/i
 const KEY_INFO_SEGMENT_SPLIT_RE = /(?:\r?\n|[|;]|\/|▶|★|◈|▪|•|\u2022)+/g
 const KEY_SPARE_RE = /(?:spare\s*key|\uBCF4\uC870\s*\uD0A4)/i
 const KEY_CONTEXT_RE = /(?:\b(?:key(?:\s*count)?|smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key)\b|\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9)|\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uCC28\uD0A4)/i
@@ -669,7 +675,26 @@ export function inferDrive(...values) {
     const normalized = normalizeDrive(value)
     if (normalized) return normalized
   }
-  return ''
+  return inferDriveFromKnownModelContext(...values).value
+}
+
+export function inferDriveFromKnownModelContext(...values) {
+  const text = flattenTextValues(values).join(' ')
+  if (!text) return { value: '', reason: '' }
+
+  if (normalizeDrive(text)) return { value: '', reason: '' }
+
+  const hasExplicit2wd = DRIVE_EXPLICIT_2WD_RE.test(text)
+  if (hasExplicit2wd) {
+    if (DRIVE_KNOWN_MODEL_2WD_RWD_RE.test(text)) return { value: 'Задний (RWD)', reason: 'known_model_explicit_2wd_rwd' }
+    if (DRIVE_KNOWN_MODEL_2WD_FWD_RE.test(text)) return { value: 'Передний (FWD)', reason: 'known_model_explicit_2wd_fwd' }
+    return { value: '', reason: '' }
+  }
+
+  if (DRIVE_KNOWN_MODEL_DEFAULT_RWD_RE.test(text)) return { value: 'Задний (RWD)', reason: 'known_model_default_rwd' }
+  if (DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE.test(text)) return { value: 'Передний (FWD)', reason: 'known_model_default_fwd' }
+
+  return { value: '', reason: '' }
 }
 
 export function extractDriveFromPairs(pairs = []) {
@@ -1008,6 +1033,12 @@ function isStandaloneInteriorColorMatch(text, index, matchValue) {
   return !INTERIOR_COLOR_BOUNDARY_RE.test(before) && !INTERIOR_COLOR_BOUNDARY_RE.test(after)
 }
 
+function hasCompoundInteriorColorContext(text, index, matchValue) {
+  const before = text.slice(Math.max(0, index - 18), index)
+  const after = text.slice(index + matchValue.length, Math.min(text.length, index + matchValue.length + 18))
+  return INTERIOR_COMPOUND_EDGE_CONTEXT_RE.test(before) || INTERIOR_COMPOUND_EDGE_CONTEXT_RE.test(after)
+}
+
 function getInteriorColorMatchWindow(text, index, matchValue) {
   const radius = 24
   const start = Math.max(0, index - radius)
@@ -1047,12 +1078,15 @@ function collectInteriorColorEvidence(value) {
     while ((match = pattern.exec(text))) {
       const matchedValue = cleanText(match[0])
       if (!matchedValue) continue
-      if (!isStandaloneInteriorColorMatch(text, match.index, matchedValue)) continue
+      const standaloneMatch = isStandaloneInteriorColorMatch(text, match.index, matchedValue)
+      const compoundContext = hasCompoundInteriorColorContext(text, match.index, matchedValue)
+      if (!standaloneMatch && !compoundContext) continue
 
       const window = getInteriorColorMatchWindow(text, match.index, matchedValue)
       const hasLocalContext =
         INTERIOR_COLOR_CONTEXT_RE.test(window) ||
-        INTERIOR_MATERIAL_HINT_RE.test(window)
+        INTERIOR_MATERIAL_HINT_RE.test(window) ||
+        compoundContext
 
       if (!hasLocalContext && color !== '\u0414\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043d\u044b\u0439') continue
 
@@ -1085,7 +1119,7 @@ function collectDirectInteriorColorMatches(value) {
     while ((match = pattern.exec(text))) {
       const matchedValue = cleanText(match[0])
       if (!matchedValue) continue
-      if (!isStandaloneInteriorColorMatch(text, match.index, matchedValue)) continue
+      if (!isStandaloneInteriorColorMatch(text, match.index, matchedValue) && !hasCompoundInteriorColorContext(text, match.index, matchedValue)) continue
       if (!matches.includes(color)) matches.push(color)
     }
   }

@@ -311,6 +311,12 @@ async function updateCar(id, patch) {
   return true
 }
 
+function formatChangedFields(patch) {
+  return Object.keys(patch)
+    .filter((field) => field !== 'updated_at')
+    .join(', ')
+}
+
 async function main() {
   await ensureSchema()
 
@@ -443,8 +449,10 @@ async function main() {
         try {
           if (await updateCar(row.id, appliedPatch)) {
             stats.updated += 1
+            console.log(`Изменено ID ${row.id} / Encar ${row.encar_id}: ${formatChangedFields(appliedPatch) || 'без видимых полей'}`)
           } else {
             stats.skipped += 1
+            console.log(`Пропущено ID ${row.id} / Encar ${row.encar_id}: нет изменений`)
           }
         } catch (updateError) {
           if (!isVinConstraintError(updateError) || !appliedPatch.vin) throw updateError
@@ -461,9 +469,11 @@ async function main() {
 
           if (await updateCar(row.id, appliedPatch)) {
             stats.updated += 1
+            console.log(`Изменено ID ${row.id} / Encar ${row.encar_id}: ${formatChangedFields(appliedPatch) || 'без видимых полей'} (VIN-дубликат пропущен)`)
             console.warn(`Skipped duplicate VIN for ID ${row.id} / Encar ${row.encar_id}; existing ID ${duplicateId || '-'}`)
           } else {
             stats.skipped += 1
+            console.log(`Пропущено ID ${row.id} / Encar ${row.encar_id}: только дубликат VIN`)
             console.warn(`Duplicate VIN only for ID ${row.id} / Encar ${row.encar_id}; existing ID ${duplicateId || '-'}`)
           }
         }

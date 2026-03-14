@@ -314,6 +314,23 @@ function run() {
   assert.equal(rawOptionInterior.value, '\u041A\u0440\u0430\u0441\u043D\u044B\u0439')
   assert.equal(rawOptionInterior.source, 'raw-option-text')
 
+  assert.equal(extractInteriorColorFromText('\uBE0C\uB77C\uC6B4\uC2DC\uD2B8'), '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439')
+  assert.equal(extractInteriorColorFromText('\uBE14\uB799\uB0B4\uC7A5'), '\u0427\u0435\u0440\u043D\u044B\u0439')
+  assert.equal(extractInteriorColorFromText('\uCE74\uBA5C\uC2DC\uD2B8'), '\u0420\u044B\u0436\u0438\u0439 / \u043A\u0430\u0440\u0430\u043C\u0435\u043B\u044C\u043D\u044B\u0439')
+
+  const compoundOptionInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    textSources: [
+      { source: 'official-api-option-text', path_or_label: 'options.etc[1]', text: '\uBE0C\uB77C\uC6B4\uC2DC\uD2B8 \uC644\uC804\uBB34\uC0AC\uACE0' },
+    ],
+  }))
+  assert.equal(compoundOptionInterior.value, '\u041A\u043E\u0440\u0438\u0447\u043D\u0435\u0432\u044B\u0439')
+  assert.equal(compoundOptionInterior.source, 'raw-option-text')
+
   const rejectedBodyColorInterior = resolveInteriorColorEvidence(createResolverContext({
     primaryPayload: {
       source: 'api',
@@ -342,6 +359,9 @@ function run() {
   assert.equal(normalizeDrive('BMW X6 xDrive40i M Sport'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('Mini Countryman ALL4 Classic'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('Mercedes-Benz 4MATIC+'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('Maserati Levante Q4 Modena'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('Nissan Ariya e-4ORCE'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('Jeep Wrangler 4xe'), '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)')
   assert.equal(normalizeDrive('e-AWD'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('4WD system'), '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)')
   assert.equal(normalizeDrive('\uC804\uB95C\uAD6C\uB3D9'), '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
@@ -408,11 +428,19 @@ function run() {
 
   const ambiguous2wd = resolveDriveTypeEvidence(createResolverContext({
     structuredPairs: [
-      { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: '\uC3CF\uB80C\uD1A0 1.6 2WD', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
+      { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: '\uC3D8\uB80C\uD1A0 1.6 2WD', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
     ],
   }))
-  assert.equal(ambiguous2wd.value, '')
-  assert.equal(ambiguous2wd.diagnostics.some((entry) => entry.reason === 'ambiguous_2wd'), true)
+  assert.equal(ambiguous2wd.value, '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
+  assert.equal(ambiguous2wd.source, 'legacy-drive-parser')
+
+  const knownModelDefaultDrive = resolveDriveTypeEvidence(createResolverContext({
+    structuredPairs: [
+      { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: 'BMW 5 Series 520i M Sport', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
+    ],
+  }))
+  assert.equal(knownModelDefaultDrive.value, '\u0417\u0430\u0434\u043D\u0438\u0439 (RWD)')
+  assert.equal(knownModelDefaultDrive.source, 'legacy-drive-parser')
 
   const conflictingDrive = resolveDriveTypeEvidence(createResolverContext({
     structuredPairs: [

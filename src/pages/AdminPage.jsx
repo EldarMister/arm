@@ -1861,19 +1861,19 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             <div className="adm-page-hd">
                 <div>
                     <h2 className="adm-section-heading">{sectionLabel}</h2>
-                    <div className="adm-meta">{loading ? '...' : `Total: ${total.toLocaleString()} ${totalLabel}`}</div>
+                    <div className="adm-meta">{loading ? '...' : `Всего: ${total.toLocaleString()} ${totalLabel}`}</div>
                     {!isPartsSection && (enrichStatus.running || enrichStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {enrichStatus.running
-                                ? `Enrichment (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} - updated ${enrichStatus.updated} - removed ${enrichStatus.removed || 0} - errors ${enrichStatus.errors}`
-                                : `${enrichStatus.stopped ? 'Last enrichment stopped' : 'Last enrichment'} (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): updated ${enrichStatus.updated} - removed ${enrichStatus.removed || 0} - skipped ${enrichStatus.skipped} - errors ${enrichStatus.errors}`}
+                                ? `Обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} - обновлено ${enrichStatus.updated} - удалено ${enrichStatus.removed || 0} - ошибок ${enrichStatus.errors}`
+                                : `${enrichStatus.stopped ? 'Последнее обогащение остановлено' : 'Последнее обогащение'} (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): обновлено ${enrichStatus.updated} - удалено ${enrichStatus.removed || 0} - пропущено ${enrichStatus.skipped} - ошибок ${enrichStatus.errors}`}
                         </div>
                     )}
                     {!isPartsSection && (normalizeCarsStatus.running || normalizeCarsStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {normalizeCarsStatus.running
-                                ? `Normalization: ${normalizeCarsStatus.processed}/${normalizeCarsStatus.total} - updated ${normalizeCarsStatus.updated} - errors ${normalizeCarsStatus.errors}`
-                                : `${normalizeCarsStatus.stopped ? 'Last normalization stopped' : 'Last normalization'}: updated ${normalizeCarsStatus.updated} - skipped ${normalizeCarsStatus.skipped} - errors ${normalizeCarsStatus.errors}`}
+                                ? `Нормализация: ${normalizeCarsStatus.processed}/${normalizeCarsStatus.total} - обновлено ${normalizeCarsStatus.updated} - ошибок ${normalizeCarsStatus.errors}`
+                                : `${normalizeCarsStatus.stopped ? 'Последняя нормализация остановлена' : 'Последняя нормализация'}: обновлено ${normalizeCarsStatus.updated} - пропущено ${normalizeCarsStatus.skipped} - ошибок ${normalizeCarsStatus.errors}`}
                         </div>
                     )}
                     {!isPartsSection && (encarBackfillStatus.running || encarBackfillStatus.finished_at) && (
@@ -1888,11 +1888,11 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                     {!isPartsSection && (
                         <>
                             <button className="adm-btn adm-btn-sm" onClick={startNormalizeExistingCars} disabled={normalizingCars || hasBackgroundTaskRunning}>
-                                <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Normalizing...' : (normalizingCars ? 'Starting...' : 'Normalize names')}
+                                <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Нормализация...' : (normalizingCars ? 'Запуск...' : 'Нормализовать названия')}
                             </button>
                             {normalizeCarsStatus.running && (
                                 <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopNormalizeExistingCars} disabled={stoppingNormalizeCars}>
-                                    <Ic d={IC.x} s={14} /> {stoppingNormalizeCars ? 'Stopping...' : 'Stop'}
+                                    <Ic d={IC.x} s={14} /> {stoppingNormalizeCars ? 'Остановка...' : 'Остановить'}
                                 </button>
                             )}
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1903,8 +1903,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                     disabled={enriching || hasBackgroundTaskRunning}
                                     style={{ minWidth: 190 }}
                                 >
-                                    <option value={ENRICH_SCOPE_ALL}>All cars</option>
-                                    <option value={ENRICH_SCOPE_LATEST}>Latest added</option>
+                                    <option value={ENRICH_SCOPE_ALL}>Все машины</option>
+                                    <option value={ENRICH_SCOPE_LATEST}>Последние добавленные</option>
                                 </select>
                                 {enrichScope === ENRICH_SCOPE_LATEST && (
                                     <input
@@ -1921,11 +1921,11 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                 )}
                             </div>
                             <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || hasBackgroundTaskRunning}>
-                                <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Enriching...' : (enriching ? 'Starting...' : 'Enrich empty fields')}
+                                <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Обогащение...' : (enriching ? 'Запуск...' : 'Обогатить пустые поля')}
                             </button>
                             {enrichStatus.running && (
                                 <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopEnrichEmptyFields} disabled={stoppingEnrich}>
-                                    <Ic d={IC.x} s={14} /> {stoppingEnrich ? 'Stopping...' : 'Stop'}
+                                    <Ic d={IC.x} s={14} /> {stoppingEnrich ? 'Остановка...' : 'Остановить'}
                                 </button>
                             )}
                             <div className="adm-export-controls">
@@ -1944,15 +1944,15 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                         placeholder={String(DEFAULT_CATALOG_EXPORT_LIMIT)}
                                         title="Leave empty to export the whole catalog"
                                     />
-                                    <span className="adm-export-limit-suffix">latest</span>
+                                    <span className="adm-export-limit-suffix">последних</span>
                                 </label>
                                 <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
-                                    <Ic d={IC.download} s={14} /> {exporting ? 'Exporting...' : 'Download JSON'}
+                                    <Ic d={IC.download} s={14} /> {exporting ? 'Экспорт...' : 'Скачать JSON'}
                                 </button>
                             </div>
                         </>
                     )}
-                    {selected.size > 0 && <button className="adm-btn adm-btn-danger" onClick={delSelected}><Ic d={IC.trash} s={14} />Delete ({selected.size})</button>}
+                    {selected.size > 0 && <button className="adm-btn adm-btn-danger" onClick={delSelected}><Ic d={IC.trash} s={14} />Удалить ({selected.size})</button>}
                     <button className="adm-btn adm-btn-primary" onClick={() => { setAdding(true); setEditCar(null); setEditPart(null) }}>
                         <Ic d={IC.plus} s={15} /> {addButtonLabel}
                     </button>
@@ -2044,7 +2044,7 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                             title="Количество потоков"
                         />
                         <button className="adm-btn adm-btn-sm" onClick={startEncarBackfill} disabled={backfilling || hasBackgroundTaskRunning}>
-                            <Ic d={IC.bolt} s={14} /> {encarBackfillStatus.running ? 'Backfill выполняется...' : (backfilling ? 'Запуск...' : 'Запустить backfill')}
+                            <Ic d={IC.bolt} s={14} /> {encarBackfillStatus.running ? 'Выполняется backfill...' : (backfilling ? 'Запуск...' : 'Запустить backfill')}
                         </button>
                         {encarBackfillStatus.running && (
                             <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopEncarBackfill} disabled={stoppingBackfill}>
@@ -2065,21 +2065,26 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                         </div>
                     )}
                     {!!encarBackfillStatus.output?.length && (
-                        <pre style={{
-                            margin: 0,
-                            whiteSpace: 'pre-wrap',
-                            background: '#0f172a',
-                            color: '#cbd5e1',
-                            border: '1px solid rgba(148, 163, 184, 0.2)',
-                            borderRadius: 12,
-                            padding: 12,
-                            fontSize: 12,
-                            lineHeight: 1.5,
-                            maxHeight: 180,
-                            overflow: 'auto',
-                        }}>
-                            {encarBackfillStatus.output.slice(-8).join('\n')}
-                        </pre>
+                        <div>
+                            <div className="adm-car-sub" style={{ marginBottom: 8 }}>
+                                Последние изменения и лог:
+                            </div>
+                            <pre style={{
+                                margin: 0,
+                                whiteSpace: 'pre-wrap',
+                                background: '#0f172a',
+                                color: '#cbd5e1',
+                                border: '1px solid rgba(148, 163, 184, 0.2)',
+                                borderRadius: 12,
+                                padding: 12,
+                                fontSize: 12,
+                                lineHeight: 1.5,
+                                maxHeight: 180,
+                                overflow: 'auto',
+                            }}>
+                                {encarBackfillStatus.output.slice(-12).join('\n')}
+                            </pre>
+                        </div>
                     )}
                 </div>
             )}

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
@@ -34,6 +35,9 @@ import {
 } from '../lib/requestSecurity.js'
 
 const router = Router()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..')
 const MIN_CATALOG_YEAR = 2019
 const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
@@ -591,7 +595,7 @@ function requestBackfillStop() {
   if (!encarBackfillState.running || !encarBackfillState.process) return false
 
   encarBackfillState.stop_requested = true
-  pushBackfillOutputLine('Stop requested from admin panel')
+  pushBackfillOutputLine('Остановка запрошена из админки')
 
   const child = encarBackfillState.process
   if (process.platform === 'win32') {
@@ -600,7 +604,7 @@ function requestBackfillStop() {
       windowsHide: true,
     })
     killer.on('error', (error) => {
-      encarBackfillState.last_error = `Failed to stop PID ${child.pid}: ${error.message}`
+      encarBackfillState.last_error = `Не удалось остановить PID ${child.pid}: ${error.message}`
     })
   } else {
     child.kill('SIGTERM')
@@ -1688,14 +1692,14 @@ router.post('/normalize-existing-cars/start', adminRouteProtection, async (_req,
 
 router.post('/normalize-existing-cars/stop', adminRouteProtection, async (_req, res) => {
   if (!normalizeCarsState.running) {
-    return res.status(409).json({ error: 'Normalization is not running', status: normalizeCarsState })
+    return res.status(409).json({ error: 'Нормализация сейчас не выполняется', status: normalizeCarsState })
   }
 
   normalizeCarsState.stop_requested = true
 
   return res.json({
     ok: true,
-    message: 'Normalization stop requested',
+    message: 'Остановка нормализации запрошена',
     status: normalizeCarsState,
   })
 })
@@ -1707,7 +1711,7 @@ router.get('/encar-backfill/status', adminRouteProtection, (_req, res) => {
 router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
   if (hasActiveBackgroundTask()) {
     return res.status(409).json({
-      error: 'Another background task is already running',
+      error: 'Сейчас уже выполняется другая фоновая задача',
       enrich: enrichState.running,
       normalize: normalizeCarsState.running,
       backfill: encarBackfillState.running,
@@ -1715,14 +1719,14 @@ router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
   }
 
   const options = normalizeBackfillOptions(req.body || {})
-  const scriptPath = path.resolve(process.cwd(), 'scripts', 'backfill-encar-enrichment.js')
+  const scriptPath = path.resolve(PROJECT_ROOT, 'scripts', 'backfill-encar-enrichment.js')
 
   resetBackfillState(options)
   encarBackfillState.running = true
   encarBackfillState.started_at = new Date().toISOString()
 
   const child = spawn(process.execPath, [scriptPath], {
-    cwd: process.cwd(),
+    cwd: PROJECT_ROOT,
     env: buildBackfillEnv(options),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
@@ -1750,7 +1754,7 @@ router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
     encarBackfillState.exit_code = Number.isFinite(code) ? code : null
     encarBackfillState.signal = signal || null
     if (!encarBackfillState.stopped && (code || signal)) {
-      encarBackfillState.last_error = `Backfill process exited with code ${code ?? 'null'}${signal ? ` (${signal})` : ''}`
+      encarBackfillState.last_error = `Процесс backfill завершился с кодом ${code ?? 'null'}${signal ? ` (${signal})` : ''}`
     }
     encarBackfillState.process = null
     encarBackfillState.pid = null
@@ -1758,21 +1762,21 @@ router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
 
   return res.json({
     ok: true,
-    message: 'Encar backfill started',
+    message: 'Encar backfill запущен',
     status: createBackfillStatusSnapshot(),
   })
 })
 
 router.post('/encar-backfill/stop', adminRouteProtection, async (_req, res) => {
   if (!encarBackfillState.running) {
-    return res.status(409).json({ error: 'Encar backfill is not running', status: createBackfillStatusSnapshot() })
+    return res.status(409).json({ error: 'Encar backfill сейчас не выполняется', status: createBackfillStatusSnapshot() })
   }
 
   requestBackfillStop()
 
   return res.json({
     ok: true,
-    message: 'Encar backfill stop requested',
+    message: 'Остановка Encar backfill запрошена',
     status: createBackfillStatusSnapshot(),
   })
 })
