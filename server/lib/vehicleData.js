@@ -181,7 +181,7 @@ const INTERIOR_ALLOWED_OUTPUTS = new Set([
   'Оранжевый',
   'Желтый',
 ])
-const DRIVE_AWD_RE = /\b(?:awd|all[-\s]*wheel(?:\s*drive)?|allrad|xdrive|quattro|4matic\+?|4motion|syncro|sh-awd|e-awd|e[-\s]*four|htrac)\b/i
+const DRIVE_AWD_RE = /\b(?:awd|all[-\s]*wheel(?:\s*drive)?|allrad|all4|quattro|4matic\+?|4motion|syncro|sh-awd|e-awd|e[-\s]*four|htrac|xdrive(?:[a-z0-9]+)?)\b/i
 const DRIVE_4WD_RE = /\b(?:4wd|4x4|e-?4wd|4wd\s*system)\b/i
 const DRIVE_FWD_RE = /\b(?:fwd|ff|front[-\s]*wheel(?:\s*drive)?)\b/i
 const DRIVE_RWD_RE = /\b(?:rwd|fr|rear[-\s]*wheel(?:\s*drive)?)\b/i

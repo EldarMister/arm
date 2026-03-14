@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import { spawn } from 'node:child_process'
+import path from 'node:path'
 import pool from '../db.js'
 import { getExchangeRateSnapshot } from '../lib/exchangeRate.js'
 import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
@@ -37,6 +39,15 @@ const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
 const MAX_LATEST_ENRICH_LIMIT = 50000
+const BACKFILL_TARGET_ALL = 'all'
+const BACKFILL_TARGET_VALUES = ['interior', 'drive', 'key', 'vin', 'trim', 'options', 'warranty', BACKFILL_TARGET_ALL]
+const BACKFILL_INTERIOR_MODE_VALUES = ['missing', 'invalid', 'missing_or_invalid']
+const DEFAULT_BACKFILL_TARGET = 'interior'
+const DEFAULT_BACKFILL_INTERIOR_MODE = 'missing'
+const DEFAULT_BACKFILL_LIMIT = 300
+const MAX_BACKFILL_LIMIT = 50000
+const DEFAULT_BACKFILL_CONCURRENCY = 3
+const MAX_BACKFILL_CONCURRENCY = 8
 const DEFAULT_CATALOG_EXPORT_LIMIT = 5000
 const MAX_CATALOG_EXPORT_LIMIT = 50000
 const WEAK_BODY_TYPES = new Set(['', '-', 'SUV', 'Вэн', 'Малый класс', 'Компактный класс', 'Средний класс', 'Бизнес-класс'])
@@ -50,6 +61,8 @@ const CANONICAL_DRIVE_TYPES = new Set(['Передний (FWD)', 'Задний (
 const WEAK_KEY_INFO_VALUES = new Set(['Ключи есть', 'Есть запасной ключ', 'Пульт-ключ', 'Карта-ключ', 'Ключ-карта'])
 const enrichState = {
   running: false,
+  stop_requested: false,
+  stopped: false,
   total: 0,
   processed: 0,
   updated: 0,
@@ -65,6 +78,29 @@ const enrichState = {
   latest_limit: DEFAULT_LATEST_ENRICH_LIMIT,
 }
 const normalizeCarsState = createCarTextBackfillState()
+const encarBackfillState = {
+  running: false,
+  stop_requested: false,
+  stopped: false,
+  target: DEFAULT_BACKFILL_TARGET,
+  mode: DEFAULT_BACKFILL_INTERIOR_MODE,
+  limit: DEFAULT_BACKFILL_LIMIT,
+  concurrency: DEFAULT_BACKFILL_CONCURRENCY,
+  total: 0,
+  processed: 0,
+  updated: 0,
+  skipped: 0,
+  errors: 0,
+  started_at: null,
+  finished_at: null,
+  last_error: '',
+  last_line: '',
+  output: [],
+  pid: null,
+  exit_code: null,
+  signal: null,
+  process: null,
+}
 const DEFAULT_ENRICH_CONCURRENCY = (() => {
   const raw = Number.parseInt(globalThis.process?.env?.ENRICH_CONCURRENCY || '5', 10)
   if (!Number.isFinite(raw)) return 5
@@ -301,6 +337,15 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function normalizeEvidenceSource(value) {
+  const text = cleanText(value)
+  return text || null
+}
+
+function serializeEvidenceDiagnostics(value) {
+  return JSON.stringify(Array.isArray(value) ? value : [])
+}
+
 function getResolverReason(diagnostics = []) {
   if (!Array.isArray(diagnostics)) return ''
   return cleanText(
@@ -394,6 +439,174 @@ function normalizeEnrichOptions(value = {}) {
     : DEFAULT_LATEST_ENRICH_LIMIT
 
   return { scope, latestLimit }
+}
+
+function normalizeBackfillTarget(value) {
+  const raw = String(value || DEFAULT_BACKFILL_TARGET).trim().toLowerCase()
+  return BACKFILL_TARGET_VALUES.includes(raw) ? raw : DEFAULT_BACKFILL_TARGET
+}
+
+function normalizeBackfillMode(value) {
+  const raw = String(value || DEFAULT_BACKFILL_INTERIOR_MODE).trim().toLowerCase()
+  return BACKFILL_INTERIOR_MODE_VALUES.includes(raw) ? raw : DEFAULT_BACKFILL_INTERIOR_MODE
+}
+
+function clampInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(Math.max(parsed, min), max)
+}
+
+function normalizeBackfillOptions(value = {}) {
+  return {
+    target: normalizeBackfillTarget(value?.target),
+    mode: normalizeBackfillMode(value?.mode),
+    limit: clampInteger(value?.limit, DEFAULT_BACKFILL_LIMIT, 1, MAX_BACKFILL_LIMIT),
+    concurrency: clampInteger(value?.concurrency, DEFAULT_BACKFILL_CONCURRENCY, 1, MAX_BACKFILL_CONCURRENCY),
+  }
+}
+
+function hasActiveBackgroundTask() {
+  return Boolean(enrichState.running || normalizeCarsState.running || encarBackfillState.running)
+}
+
+function createBackfillStatusSnapshot() {
+  return {
+    running: encarBackfillState.running,
+    stop_requested: encarBackfillState.stop_requested,
+    stopped: encarBackfillState.stopped,
+    target: encarBackfillState.target,
+    mode: encarBackfillState.mode,
+    limit: encarBackfillState.limit,
+    concurrency: encarBackfillState.concurrency,
+    total: encarBackfillState.total,
+    processed: encarBackfillState.processed,
+    updated: encarBackfillState.updated,
+    skipped: encarBackfillState.skipped,
+    errors: encarBackfillState.errors,
+    started_at: encarBackfillState.started_at,
+    finished_at: encarBackfillState.finished_at,
+    last_error: encarBackfillState.last_error,
+    last_line: encarBackfillState.last_line,
+    output: [...encarBackfillState.output],
+    pid: encarBackfillState.pid,
+    exit_code: encarBackfillState.exit_code,
+    signal: encarBackfillState.signal,
+  }
+}
+
+function pushBackfillOutputLine(line) {
+  const text = cleanText(line)
+  if (!text) return
+  encarBackfillState.last_line = text
+  encarBackfillState.output.push(text)
+  if (encarBackfillState.output.length > 40) {
+    encarBackfillState.output = encarBackfillState.output.slice(-40)
+  }
+}
+
+function parseBackfillProgressLine(line) {
+  const progressMatch = line.match(/Progress:\s*(\d+)\/(\d+)\s*\|\s*updated=(\d+)\s*skipped=(\d+)\s*errors=(\d+)/i)
+  if (progressMatch) {
+    encarBackfillState.processed = Number.parseInt(progressMatch[1], 10) || 0
+    encarBackfillState.total = Number.parseInt(progressMatch[2], 10) || encarBackfillState.total
+    encarBackfillState.updated = Number.parseInt(progressMatch[3], 10) || 0
+    encarBackfillState.skipped = Number.parseInt(progressMatch[4], 10) || 0
+    encarBackfillState.errors = Number.parseInt(progressMatch[5], 10) || 0
+    return
+  }
+
+  const candidatesMatch = line.match(/Backfill candidates:\s*(\d+)/i)
+  if (candidatesMatch) {
+    encarBackfillState.total = Number.parseInt(candidatesMatch[1], 10) || 0
+    return
+  }
+
+  if (/^Backfill error for ID /i.test(line)) {
+    encarBackfillState.errors += 1
+    encarBackfillState.last_error = line
+  }
+}
+
+function bindBackfillStream(stream) {
+  if (!stream) return
+
+  let buffer = ''
+  stream.setEncoding('utf8')
+  stream.on('data', (chunk) => {
+    buffer += String(chunk || '')
+    const parts = buffer.split(/\r?\n/)
+    buffer = parts.pop() || ''
+    for (const line of parts) {
+      pushBackfillOutputLine(line)
+      parseBackfillProgressLine(line)
+    }
+  })
+  stream.on('end', () => {
+    if (!buffer) return
+    pushBackfillOutputLine(buffer)
+    parseBackfillProgressLine(buffer)
+  })
+}
+
+function resetBackfillState(options) {
+  encarBackfillState.running = false
+  encarBackfillState.stop_requested = false
+  encarBackfillState.stopped = false
+  encarBackfillState.target = options?.target ?? DEFAULT_BACKFILL_TARGET
+  encarBackfillState.mode = options?.mode ?? DEFAULT_BACKFILL_INTERIOR_MODE
+  encarBackfillState.limit = options?.limit ?? DEFAULT_BACKFILL_LIMIT
+  encarBackfillState.concurrency = options?.concurrency ?? DEFAULT_BACKFILL_CONCURRENCY
+  encarBackfillState.total = 0
+  encarBackfillState.processed = 0
+  encarBackfillState.updated = 0
+  encarBackfillState.skipped = 0
+  encarBackfillState.errors = 0
+  encarBackfillState.started_at = null
+  encarBackfillState.finished_at = null
+  encarBackfillState.last_error = ''
+  encarBackfillState.last_line = ''
+  encarBackfillState.output = []
+  encarBackfillState.pid = null
+  encarBackfillState.exit_code = null
+  encarBackfillState.signal = null
+  encarBackfillState.process = null
+}
+
+function buildBackfillEnv(options) {
+  const target = options.target === BACKFILL_TARGET_ALL
+    ? 'interior,drive,key,vin,trim,options,warranty'
+    : options.target
+
+  return {
+    ...process.env,
+    BACKFILL_TARGETS: target,
+    BACKFILL_INTERIOR_MODE: options.mode,
+    BACKFILL_ENRICH_LIMIT: String(options.limit),
+    BACKFILL_ENRICH_CONCURRENCY: String(options.concurrency),
+  }
+}
+
+function requestBackfillStop() {
+  if (!encarBackfillState.running || !encarBackfillState.process) return false
+
+  encarBackfillState.stop_requested = true
+  pushBackfillOutputLine('Stop requested from admin panel')
+
+  const child = encarBackfillState.process
+  if (process.platform === 'win32') {
+    const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    killer.on('error', (error) => {
+      encarBackfillState.last_error = `Failed to stop PID ${child.pid}: ${error.message}`
+    })
+  } else {
+    child.kill('SIGTERM')
+  }
+
+  return true
 }
 
 function normalizeCatalogExportLimit(value) {
@@ -573,8 +786,12 @@ async function enrichCar(car, context = {}) {
     const parseNotes = buildEnrichParseNotes(detail, car)
     const patch = {}
 
-    if (shouldRefreshDriveType(car.drive_type) && cleanText(normalizedDetail.drive_type)) {
-      patch.drive_type = normalizedDetail.drive_type
+    if (shouldRefreshDriveType(car.drive_type)) {
+      patch.drive_type_source = normalizeEvidenceSource(detail.drive_type_source)
+      patch.drive_type_diagnostics = serializeEvidenceDiagnostics(detail.drive_type_diagnostics)
+      if (cleanText(normalizedDetail.drive_type)) {
+        patch.drive_type = normalizedDetail.drive_type
+      }
     }
 
     if (shouldRefreshKeyInfo(car.key_info) && cleanText(detail.key_info)) {
@@ -585,8 +802,12 @@ async function enrichCar(car, context = {}) {
       patch.body_color = normalizedDetail.body_color
     }
 
-    if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color) && cleanText(normalizedDetail.interior_color)) {
-      patch.interior_color = normalizedDetail.interior_color
+    if (shouldRefreshInteriorColor(car.interior_color, patch.body_color || car.body_color)) {
+      patch.interior_color_source = normalizeEvidenceSource(detail.interior_color_source)
+      patch.interior_color_diagnostics = serializeEvidenceDiagnostics(detail.interior_color_diagnostics)
+      if (cleanText(normalizedDetail.interior_color)) {
+        patch.interior_color = normalizedDetail.interior_color
+      }
     }
 
     if (shouldRefreshWarranty(car)) {
@@ -767,6 +988,8 @@ async function enrichCar(car, context = {}) {
 async function runEmptyFieldEnrichment(options = {}) {
   const { scope, latestLimit } = normalizeEnrichOptions(options)
   enrichState.running = true
+  enrichState.stop_requested = false
+  enrichState.stopped = false
   enrichState.total = 0
   enrichState.processed = 0
   enrichState.updated = 0
@@ -823,6 +1046,7 @@ async function runEmptyFieldEnrichment(options = {}) {
     }
     const workers = Array.from({ length: workerCount }, async () => {
       while (true) {
+        if (enrichState.stop_requested) return
         const currentIndex = nextIndex++
         if (currentIndex >= candidates.length) return
         await enrichCar(candidates[currentIndex], enrichContext)
@@ -832,6 +1056,7 @@ async function runEmptyFieldEnrichment(options = {}) {
     await Promise.all(workers)
   } finally {
     enrichState.running = false
+    enrichState.stopped = enrichState.stop_requested
     enrichState.current = null
     enrichState.finished_at = new Date().toISOString()
   }
@@ -1373,11 +1598,17 @@ router.post('/enrich-empty-fields/start', adminRouteProtection, async (_req, res
     return res.status(409).json({ error: 'Normalization is already running' })
   }
 
+  if (encarBackfillState.running) {
+    return res.status(409).json({ error: 'Encar backfill is already running', status: createBackfillStatusSnapshot() })
+  }
+
   if (enrichState.running) {
     return res.status(409).json({ error: 'Обогащение уже запущено', status: enrichState })
   }
 
   enrichState.running = true
+  enrichState.stop_requested = false
+  enrichState.stopped = false
   enrichState.started_at = new Date().toISOString()
   enrichState.finished_at = null
   enrichState.last_error = ''
@@ -1400,6 +1631,20 @@ router.post('/enrich-empty-fields/start', adminRouteProtection, async (_req, res
   })
 })
 
+router.post('/enrich-empty-fields/stop', adminRouteProtection, async (_req, res) => {
+  if (!enrichState.running) {
+    return res.status(409).json({ error: 'Enrichment is not running', status: enrichState })
+  }
+
+  enrichState.stop_requested = true
+
+  return res.json({
+    ok: true,
+    message: 'Enrichment stop requested',
+    status: enrichState,
+  })
+})
+
 router.get('/normalize-existing-cars/status', adminRouteProtection, (_req, res) => {
   return res.json(normalizeCarsState)
 })
@@ -1407,6 +1652,10 @@ router.get('/normalize-existing-cars/status', adminRouteProtection, (_req, res) 
 router.post('/normalize-existing-cars/start', adminRouteProtection, async (_req, res) => {
   if (enrichState.running) {
     return res.status(409).json({ error: 'Enrichment is already running' })
+  }
+
+  if (encarBackfillState.running) {
+    return res.status(409).json({ error: 'Encar backfill is already running', status: createBackfillStatusSnapshot() })
   }
 
   if (normalizeCarsState.running) {
@@ -1425,6 +1674,7 @@ router.post('/normalize-existing-cars/start', adminRouteProtection, async (_req,
       onProgress: (snapshot) => {
         Object.assign(normalizeCarsState, snapshot)
       },
+      shouldStop: () => Boolean(normalizeCarsState.stop_requested),
     }).catch((err) => {
       normalizeCarsState.running = false
       normalizeCarsState.last_error = err.message
@@ -1434,6 +1684,97 @@ router.post('/normalize-existing-cars/start', adminRouteProtection, async (_req,
   }, 0)
 
   return res.json({ ok: true, message: 'РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ СѓР¶Рµ СЃРѕС…СЂР°РЅРµРЅРЅС‹С… РјР°С€РёРЅ Р·Р°РїСѓС‰РµРЅР°' })
+})
+
+router.post('/normalize-existing-cars/stop', adminRouteProtection, async (_req, res) => {
+  if (!normalizeCarsState.running) {
+    return res.status(409).json({ error: 'Normalization is not running', status: normalizeCarsState })
+  }
+
+  normalizeCarsState.stop_requested = true
+
+  return res.json({
+    ok: true,
+    message: 'Normalization stop requested',
+    status: normalizeCarsState,
+  })
+})
+
+router.get('/encar-backfill/status', adminRouteProtection, (_req, res) => {
+  return res.json(createBackfillStatusSnapshot())
+})
+
+router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
+  if (hasActiveBackgroundTask()) {
+    return res.status(409).json({
+      error: 'Another background task is already running',
+      enrich: enrichState.running,
+      normalize: normalizeCarsState.running,
+      backfill: encarBackfillState.running,
+    })
+  }
+
+  const options = normalizeBackfillOptions(req.body || {})
+  const scriptPath = path.resolve(process.cwd(), 'scripts', 'backfill-encar-enrichment.js')
+
+  resetBackfillState(options)
+  encarBackfillState.running = true
+  encarBackfillState.started_at = new Date().toISOString()
+
+  const child = spawn(process.execPath, [scriptPath], {
+    cwd: process.cwd(),
+    env: buildBackfillEnv(options),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+
+  encarBackfillState.process = child
+  encarBackfillState.pid = child.pid || null
+
+  bindBackfillStream(child.stdout)
+  bindBackfillStream(child.stderr)
+
+  child.on('error', (error) => {
+    encarBackfillState.running = false
+    encarBackfillState.finished_at = new Date().toISOString()
+    encarBackfillState.last_error = error.message
+    encarBackfillState.exit_code = -1
+    encarBackfillState.process = null
+    encarBackfillState.pid = null
+  })
+
+  child.on('exit', (code, signal) => {
+    encarBackfillState.running = false
+    encarBackfillState.stopped = encarBackfillState.stop_requested
+    encarBackfillState.finished_at = new Date().toISOString()
+    encarBackfillState.exit_code = Number.isFinite(code) ? code : null
+    encarBackfillState.signal = signal || null
+    if (!encarBackfillState.stopped && (code || signal)) {
+      encarBackfillState.last_error = `Backfill process exited with code ${code ?? 'null'}${signal ? ` (${signal})` : ''}`
+    }
+    encarBackfillState.process = null
+    encarBackfillState.pid = null
+  })
+
+  return res.json({
+    ok: true,
+    message: 'Encar backfill started',
+    status: createBackfillStatusSnapshot(),
+  })
+})
+
+router.post('/encar-backfill/stop', adminRouteProtection, async (_req, res) => {
+  if (!encarBackfillState.running) {
+    return res.status(409).json({ error: 'Encar backfill is not running', status: createBackfillStatusSnapshot() })
+  }
+
+  requestBackfillStop()
+
+  return res.json({
+    ok: true,
+    message: 'Encar backfill stop requested',
+    status: createBackfillStatusSnapshot(),
+  })
 })
 
 router.get('/catalog-export', adminRouteProtection, async (req, res) => {

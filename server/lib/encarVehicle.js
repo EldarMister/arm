@@ -387,7 +387,7 @@ function normalizeEnrichmentTargets(targets, { includeInspection = false } = {})
 }
 
 function shouldLoadOptionTexts(targets) {
-  return Boolean(targets?.optionFeatures || targets?.keyInfo || targets?.driveType)
+  return Boolean(targets?.optionFeatures || targets?.keyInfo || targets?.driveType || targets?.interiorColor)
 }
 
 async function fetchEncarVehicleApiData(encarId) {
@@ -611,6 +611,35 @@ function collectObjectValuesByKeyPattern(input = {}, keyPattern = /.*/) {
   return values
 }
 
+function looksLikeFreeformOptionText(value) {
+  const text = cleanText(value)
+  if (!text || text.length < 2) return false
+  if (/^\d+$/.test(text)) return false
+  if (!/[\p{L}]/u.test(text)) return false
+  if (text.length <= 8 && /^[A-Z0-9 _-]+$/.test(text)) return false
+  return true
+}
+
+function collectFreeformOptionTexts(options = {}, pathPrefix = 'options') {
+  if (!options || typeof options !== 'object') return []
+
+  const texts = []
+  for (const [bucketKey, bucketValue] of Object.entries(options)) {
+    if (!Array.isArray(bucketValue)) continue
+
+    bucketValue.forEach((item, index) => {
+      const text = cleanText(item)
+      if (!looksLikeFreeformOptionText(text)) return
+      texts.push({
+        path: `${pathPrefix}.${bucketKey}[${index}]`,
+        text,
+      })
+    })
+  }
+
+  return texts
+}
+
 const MAX_STRUCTURED_SCAN_DEPTH = 8
 const MAX_STRUCTURED_ARRAY_ITEMS = 60
 const TWO_TONE_INTERIOR_COLOR = '\u0414\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043d\u044b\u0439'
@@ -643,7 +672,7 @@ const KEY_EXPLICIT_PATH_RE = /(?:\b(?:smart\s*key|smartkey|card\s*key|key\s*card
 const KEY_COUNT_LABEL_RE = /(?:\b(?:number\s*of\s*keys|key\s*count)\b|\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9))/i
 const DRIVE_KEY_CONTEXT_RE = /(?:\b(?:drive|drivetrain|traction|wheel\s*drive|drive\s*type)\b|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
 const DRIVE_TITLE_LABEL_RE = /(?:\b(?:name|title|vehicle\s*name|model\s*name|grade(?:\s*name)?|trim(?:\s*name)?)\b|\uC81C\uBAA9|\uCC28\uB7C9\uBA85|\uCC28\uBA85|\uBAA8\uB378\uBA85|Название)/i
-const DRIVE_UNAMBIGUOUS_SIGNAL_RE = /(?:\b(?:awd|4wd|4x4|fwd|rwd|ff|fr|xdrive|quattro|4matic\+?|4motion|allrad|syncro|sh-awd|e-awd|e-?4wd|e[-\s]*four|htrac)\b|(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uB95C(?:\s*\uAD6C\uB3D9)?|\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?|\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?))/i
+const DRIVE_UNAMBIGUOUS_SIGNAL_RE = /(?:\b(?:awd|4wd|4x4|fwd|rwd|ff|fr|all4|quattro|4matic\+?|4motion|allrad|syncro|sh-awd|e-awd|e-?4wd|e[-\s]*four|htrac|xdrive(?:[a-z0-9]+)?)\b|(?:\uC0C1\uC2DC\s*\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?|\uC804\uCCB4\s*\uAD6C\uB3D9|\uC804\uB95C(?:\s*\uAD6C\uB3D9)?|\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?|\uC0AC\uB95C(?:\s*\uAD6C\uB3D9)?))/i
 const DRIVE_AMBIGUOUS_SIGNAL_RE = /(?:\b2wd\b|\uC774\uB95C(?:\s*\uAD6C\uB3D9)?|\u0032\uB95C(?:\s*\uAD6C\uB3D9)?)/i
 const CANONICAL_DRIVE_TYPES = new Set(['Передний (FWD)', 'Задний (RWD)', 'Полный (AWD)', 'Полный (4WD)'])
 const WEAK_KEY_INFO_VALUES = new Set([
@@ -1622,6 +1651,17 @@ function buildEvidenceContext(encarId, primaryPayload, options = {}) {
     optionTexts.map((text, index) => createTextSource('option-dictionary', `optionTexts[${index}]`, text)),
   )
 
+  for (const payload of payloads) {
+    const payloadSource = payload?.source === 'html_preloaded_state'
+      ? 'official-preloaded-option-text'
+      : 'official-api-option-text'
+    appendTextSources(
+      textSources,
+      collectFreeformOptionTexts(payload?.options || {})
+        .map((item) => createTextSource(payloadSource, item.path, item.text)),
+    )
+  }
+
   const inspectionPairs = buildInspectionPairs(inspection).map((pair) => ({
     ...pair,
     source: 'inspection-report',
@@ -1828,12 +1868,37 @@ export function resolveInteriorColorEvidence(context = {}) {
   )
   if (structuredKeyCandidate.value || structuredKeyCandidate.reject_reason) candidates.push(structuredKeyCandidate)
 
-  const textCandidate = buildInteriorTextCandidate(context.textSources || [], {
+  const optionFreeformCandidate = buildInteriorTextCandidate(
+    (context.textSources || []).filter((source) => String(source?.source || '').includes('option-text')),
+    {
+      source: 'raw-option-text',
+      priority: 220,
+      confidence: 0.76,
+      bodyColor,
+    },
+  )
+  if (optionFreeformCandidate.value || optionFreeformCandidate.reject_reason) candidates.push(optionFreeformCandidate)
+
+  const optionDictionaryCandidate = buildInteriorTextCandidate(
+    (context.textSources || []).filter((source) => source?.source === 'option-dictionary'),
+    {
+      source: 'option-dictionary',
+      priority: 180,
+      confidence: 0.66,
+      bodyColor,
+    },
+  )
+  if (optionDictionaryCandidate.value || optionDictionaryCandidate.reject_reason) candidates.push(optionDictionaryCandidate)
+
+  const textCandidate = buildInteriorTextCandidate(
+    (context.textSources || []).filter((source) => !String(source?.source || '').includes('option-text') && source?.source !== 'option-dictionary'),
+    {
     source: 'text-fallback',
     priority: 140,
     confidence: 0.58,
     bodyColor,
-  })
+    },
+  )
   if (textCandidate.value || textCandidate.reject_reason) candidates.push(textCandidate)
 
   return finalizeEvidenceResolution('interior_color', candidates, diagnostics, {

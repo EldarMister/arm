@@ -44,6 +44,27 @@ const ENRICH_SCOPE_ALL = 'all'
 const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
 const MAX_LATEST_ENRICH_LIMIT = 50000
+const DEFAULT_BACKFILL_TARGET = 'interior'
+const DEFAULT_BACKFILL_MODE = 'missing'
+const DEFAULT_BACKFILL_LIMIT = 300
+const MAX_BACKFILL_LIMIT = 50000
+const DEFAULT_BACKFILL_CONCURRENCY = 3
+const MAX_BACKFILL_CONCURRENCY = 8
+const BACKFILL_TARGET_OPTIONS = [
+    { value: 'interior', label: 'Цвет салона' },
+    { value: 'drive', label: 'Привод' },
+    { value: 'key', label: 'Ключи' },
+    { value: 'vin', label: 'VIN' },
+    { value: 'trim', label: 'Комплектация' },
+    { value: 'options', label: 'Опции' },
+    { value: 'warranty', label: 'Гарантия' },
+    { value: 'all', label: 'Все данные' },
+]
+const BACKFILL_MODE_OPTIONS = [
+    { value: 'missing', label: 'Только пустые' },
+    { value: 'invalid', label: 'Только невалидные' },
+    { value: 'missing_or_invalid', label: 'Пустые или невалидные' },
+]
 const DEFAULT_CATALOG_EXPORT_LIMIT = 5000
 const MAX_CATALOG_EXPORT_LIMIT = 50000
 const ADMIN_LOGIN_MAX_ATTEMPTS = 3
@@ -128,6 +149,18 @@ function normalizeLatestEnrichLimit(value) {
     return Math.min(Math.max(parsed, 1), MAX_LATEST_ENRICH_LIMIT)
 }
 
+function normalizeBackfillLimit(value) {
+    const parsed = Number.parseInt(String(value || DEFAULT_BACKFILL_LIMIT), 10)
+    if (!Number.isFinite(parsed)) return DEFAULT_BACKFILL_LIMIT
+    return Math.min(Math.max(parsed, 1), MAX_BACKFILL_LIMIT)
+}
+
+function normalizeBackfillConcurrency(value) {
+    const parsed = Number.parseInt(String(value || DEFAULT_BACKFILL_CONCURRENCY), 10)
+    if (!Number.isFinite(parsed)) return DEFAULT_BACKFILL_CONCURRENCY
+    return Math.min(Math.max(parsed, 1), MAX_BACKFILL_CONCURRENCY)
+}
+
 function normalizeCatalogExportLimit(value) {
     if (value === '' || value === null || value === undefined) return null
     const parsed = Number.parseInt(String(value), 10)
@@ -139,6 +172,15 @@ function formatEnrichScopeLabel(scope, latestLimit) {
     return scope === ENRICH_SCOPE_LATEST
         ? `последние ${normalizeLatestEnrichLimit(latestLimit)}`
         : 'все машины'
+}
+
+
+function getBackfillTargetLabel(value) {
+    return BACKFILL_TARGET_OPTIONS.find(option => option.value === value)?.label || value
+}
+
+function getBackfillModeLabel(value) {
+    return BACKFILL_MODE_OPTIONS.find(option => option.value === value)?.label || value
 }
 
 function normalizeAdminVehicleTitle(value, { keepBrand = true } = {}) {
@@ -224,8 +266,13 @@ const api = {
     },
     getEnrichStatus: () => apiFetch('/api/admin/enrich-empty-fields/status'),
     startEnrichEmptyFields: d => apiFetch('/api/admin/enrich-empty-fields/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d || {}) }),
+    stopEnrichEmptyFields: () => apiFetch('/api/admin/enrich-empty-fields/stop', { method: 'POST' }),
     getNormalizeExistingCarsStatus: () => apiFetch('/api/admin/normalize-existing-cars/status'),
     startNormalizeExistingCars: () => apiFetch('/api/admin/normalize-existing-cars/start', { method: 'POST' }),
+    stopNormalizeExistingCars: () => apiFetch('/api/admin/normalize-existing-cars/stop', { method: 'POST' }),
+    getEncarBackfillStatus: () => apiFetch('/api/admin/encar-backfill/status'),
+    startEncarBackfill: d => apiFetch('/api/admin/encar-backfill/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d || {}) }),
+    stopEncarBackfill: () => apiFetch('/api/admin/encar-backfill/stop', { method: 'POST' }),
 }
 
 const PRICING_FALLBACK = {
@@ -639,7 +686,7 @@ function CarForm({ init = BLANK, onSave, onCancel, busy, pricingSettings }) {
                 <textarea
                     className="adm-input adm-textarea"
                     rows={5}
-                    placeholder={'Люк\nКамера 360\nПодогрев сидений'}
+                    placeholder={'Sunroof\n360 camera\nSeat heating'}
                     value={optionFeaturesText}
                     onChange={e => set('option_features', parseOptionFeaturesInput(e.target.value))}
                 />
@@ -1302,11 +1349,21 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [exporting, setExporting] = useState(false)
     const [catalogExportLimit, setCatalogExportLimit] = useState(String(DEFAULT_CATALOG_EXPORT_LIMIT))
     const [enriching, setEnriching] = useState(false)
+    const [stoppingEnrich, setStoppingEnrich] = useState(false)
     const [enrichScope, setEnrichScope] = useState(ENRICH_SCOPE_ALL)
     const [latestEnrichLimit, setLatestEnrichLimit] = useState(String(DEFAULT_LATEST_ENRICH_LIMIT))
     const [normalizingCars, setNormalizingCars] = useState(false)
+    const [stoppingNormalizeCars, setStoppingNormalizeCars] = useState(false)
+    const [backfilling, setBackfilling] = useState(false)
+    const [stoppingBackfill, setStoppingBackfill] = useState(false)
+    const [backfillTarget, setBackfillTarget] = useState(DEFAULT_BACKFILL_TARGET)
+    const [backfillMode, setBackfillMode] = useState(DEFAULT_BACKFILL_MODE)
+    const [backfillLimit, setBackfillLimit] = useState(String(DEFAULT_BACKFILL_LIMIT))
+    const [backfillConcurrency, setBackfillConcurrency] = useState(String(DEFAULT_BACKFILL_CONCURRENCY))
     const [enrichStatus, setEnrichStatus] = useState({
         running: false,
+        stop_requested: false,
+        stopped: false,
         total: 0,
         processed: 0,
         updated: 0,
@@ -1323,6 +1380,8 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     })
     const [normalizeCarsStatus, setNormalizeCarsStatus] = useState({
         running: false,
+        stop_requested: false,
+        stopped: false,
         total: 0,
         processed: 0,
         updated: 0,
@@ -1342,6 +1401,26 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             location: 0,
         },
     })
+    const [encarBackfillStatus, setEncarBackfillStatus] = useState({
+        running: false,
+        stop_requested: false,
+        stopped: false,
+        target: DEFAULT_BACKFILL_TARGET,
+        mode: DEFAULT_BACKFILL_MODE,
+        limit: DEFAULT_BACKFILL_LIMIT,
+        concurrency: DEFAULT_BACKFILL_CONCURRENCY,
+        total: 0,
+        processed: 0,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        started_at: null,
+        finished_at: null,
+        last_error: '',
+        last_line: '',
+        output: [],
+        pid: null,
+    })
     const [isEnrichReportOpen, setIsEnrichReportOpen] = useState(() => {
         if (typeof window === 'undefined') return true
         const saved = window.localStorage.getItem(ENRICH_REPORT_VISIBILITY_KEY)
@@ -1350,8 +1429,10 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     const [selected, setSelected] = useState(new Set())
     const prevEnrichRunningRef = useRef(false)
     const prevNormalizeCarsRunningRef = useRef(false)
+    const prevBackfillRunningRef = useRef(false)
     const isPartsSection = section === SECTION_PARTS
     const sectionLabel = getSectionLabel(section)
+    const hasBackgroundTaskRunning = enrichStatus.running || normalizeCarsStatus.running || encarBackfillStatus.running
 
     const load = useCallback(async (pg, sq, so) => {
         setLoading(true); setError(null)
@@ -1392,6 +1473,15 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         }
     }, [])
 
+    const loadEncarBackfillStatus = useCallback(async () => {
+        try {
+            const data = await api.getEncarBackfillStatus()
+            setEncarBackfillStatus(data)
+        } catch {
+            /* ignore status polling errors */
+        }
+    }, [])
+
     useEffect(() => {
         loadEnrichStatus()
         const timer = setInterval(loadEnrichStatus, enrichStatus.running ? 2000 : 10000)
@@ -1405,13 +1495,19 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
     }, [loadNormalizeCarsStatus, normalizeCarsStatus.running])
 
     useEffect(() => {
+        loadEncarBackfillStatus()
+        const timer = setInterval(loadEncarBackfillStatus, encarBackfillStatus.running ? 2000 : 10000)
+        return () => clearInterval(timer)
+    }, [loadEncarBackfillStatus, encarBackfillStatus.running])
+
+    useEffect(() => {
         if (prevEnrichRunningRef.current && !enrichStatus.running) {
             load(page, search, sort)
             if (enrichStatus.total > 0) {
-                toast(
-                    `Обогащение завершено: обновлено ${enrichStatus.updated}, удалено ${enrichStatus.removed || 0}, ошибок ${enrichStatus.errors}`,
-                    enrichStatus.errors ? 'error' : 'success'
-                )
+                const message = enrichStatus.stopped
+                    ? `Enrichment stopped: updated ${enrichStatus.updated}, removed ${enrichStatus.removed || 0}, errors ${enrichStatus.errors}`
+                    : `Enrichment finished: updated ${enrichStatus.updated}, removed ${enrichStatus.removed || 0}, errors ${enrichStatus.errors}`
+                toast(message, enrichStatus.errors ? 'error' : 'success')
             }
         }
         prevEnrichRunningRef.current = enrichStatus.running
@@ -1421,11 +1517,27 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         if (prevNormalizeCarsRunningRef.current && !normalizeCarsStatus.running) {
             load(page, search, sort)
             if (normalizeCarsStatus.total > 0) {
-                toast(`Нормализация завершена: обновлено ${normalizeCarsStatus.updated}, ошибок ${normalizeCarsStatus.errors}`, normalizeCarsStatus.errors ? 'error' : 'success')
+                const message = normalizeCarsStatus.stopped
+                    ? `Normalization stopped: updated ${normalizeCarsStatus.updated}, errors ${normalizeCarsStatus.errors}`
+                    : `Normalization finished: updated ${normalizeCarsStatus.updated}, errors ${normalizeCarsStatus.errors}`
+                toast(message, normalizeCarsStatus.errors ? 'error' : 'success')
             }
         }
         prevNormalizeCarsRunningRef.current = normalizeCarsStatus.running
     }, [normalizeCarsStatus, load, page, search, sort, toast])
+
+    useEffect(() => {
+        if (prevBackfillRunningRef.current && !encarBackfillStatus.running) {
+            load(page, search, sort)
+            if (encarBackfillStatus.total > 0 || encarBackfillStatus.processed > 0) {
+                const message = encarBackfillStatus.stopped
+                    ? `Encar backfill stopped: updated ${encarBackfillStatus.updated}, errors ${encarBackfillStatus.errors}`
+                    : `Encar backfill finished: updated ${encarBackfillStatus.updated}, errors ${encarBackfillStatus.errors}`
+                toast(message, encarBackfillStatus.errors ? 'error' : 'success')
+            }
+        }
+        prevBackfillRunningRef.current = encarBackfillStatus.running
+    }, [encarBackfillStatus, load, page, search, sort, toast])
 
     useEffect(() => {
         if (typeof window === 'undefined') return
@@ -1550,6 +1662,18 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
         setEnriching(false)
     }
 
+    const stopEnrichEmptyFields = async () => {
+        setStoppingEnrich(true)
+        try {
+            await api.stopEnrichEmptyFields()
+            await loadEnrichStatus()
+            toast('Остановка обогащения запрошена', 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка остановки обогащения', 'error')
+        }
+        setStoppingEnrich(false)
+    }
+
     const startNormalizeExistingCars = async () => {
         setNormalizingCars(true)
         try {
@@ -1560,6 +1684,48 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             toast(e.message || 'Ошибка запуска нормализации', 'error')
         }
         setNormalizingCars(false)
+    }
+
+    const stopNormalizeExistingCars = async () => {
+        setStoppingNormalizeCars(true)
+        try {
+            await api.stopNormalizeExistingCars()
+            await loadNormalizeCarsStatus()
+            toast('Остановка нормализации запрошена', 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка остановки нормализации', 'error')
+        }
+        setStoppingNormalizeCars(false)
+    }
+
+    const startEncarBackfill = async () => {
+        setBackfilling(true)
+        try {
+            const payload = {
+                target: backfillTarget,
+                mode: backfillMode,
+                limit: normalizeBackfillLimit(backfillLimit),
+                concurrency: normalizeBackfillConcurrency(backfillConcurrency),
+            }
+            await api.startEncarBackfill(payload)
+            await loadEncarBackfillStatus()
+            toast(`Backfill запущен: ${getBackfillTargetLabel(payload.target)}, лимит ${payload.limit}`, 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка запуска backfill', 'error')
+        }
+        setBackfilling(false)
+    }
+
+    const stopEncarBackfill = async () => {
+        setStoppingBackfill(true)
+        try {
+            await api.stopEncarBackfill()
+            await loadEncarBackfillStatus()
+            toast('Остановка backfill запрошена', 'success')
+        } catch (e) {
+            toast(e.message || 'Ошибка остановки backfill', 'error')
+        }
+        setStoppingBackfill(false)
     }
 
     const toggleSel = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -1694,82 +1860,99 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
             {/* Header */}
             <div className="adm-page-hd">
                 <div>
-                    <h2 className="adm-section-heading">🗂️ {sectionLabel}</h2>
-                    <div className="adm-meta">{loading ? '...' : `Всего: ${total.toLocaleString()} ${totalLabel}`}</div>
+                    <h2 className="adm-section-heading">{sectionLabel}</h2>
+                    <div className="adm-meta">{loading ? '...' : `Total: ${total.toLocaleString()} ${totalLabel}`}</div>
                     {!isPartsSection && (enrichStatus.running || enrichStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {enrichStatus.running
-                                ? `Обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} • обновлено ${enrichStatus.updated} • удалено ${enrichStatus.removed || 0} • ошибок ${enrichStatus.errors}`
-                                : `Последнее обогащение (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): обновлено ${enrichStatus.updated} • удалено ${enrichStatus.removed || 0} • пропущено ${enrichStatus.skipped} • ошибок ${enrichStatus.errors}`}
+                                ? `Enrichment (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): ${enrichStatus.processed}/${enrichStatus.total} - updated ${enrichStatus.updated} - removed ${enrichStatus.removed || 0} - errors ${enrichStatus.errors}`
+                                : `${enrichStatus.stopped ? 'Last enrichment stopped' : 'Last enrichment'} (${formatEnrichScopeLabel(enrichStatus.scope, enrichStatus.latest_limit)}): updated ${enrichStatus.updated} - removed ${enrichStatus.removed || 0} - skipped ${enrichStatus.skipped} - errors ${enrichStatus.errors}`}
                         </div>
                     )}
                     {!isPartsSection && (normalizeCarsStatus.running || normalizeCarsStatus.finished_at) && (
                         <div className="adm-meta" style={{ marginTop: 4 }}>
                             {normalizeCarsStatus.running
-                                ? `Нормализация: ${normalizeCarsStatus.processed}/${normalizeCarsStatus.total} • обновлено ${normalizeCarsStatus.updated} • ошибок ${normalizeCarsStatus.errors}`
-                                : `Последняя нормализация: обновлено ${normalizeCarsStatus.updated} • пропущено ${normalizeCarsStatus.skipped} • ошибок ${normalizeCarsStatus.errors}`}
+                                ? `Normalization: ${normalizeCarsStatus.processed}/${normalizeCarsStatus.total} - updated ${normalizeCarsStatus.updated} - errors ${normalizeCarsStatus.errors}`
+                                : `${normalizeCarsStatus.stopped ? 'Last normalization stopped' : 'Last normalization'}: updated ${normalizeCarsStatus.updated} - skipped ${normalizeCarsStatus.skipped} - errors ${normalizeCarsStatus.errors}`}
+                        </div>
+                    )}
+                    {!isPartsSection && (encarBackfillStatus.running || encarBackfillStatus.finished_at) && (
+                        <div className="adm-meta" style={{ marginTop: 4 }}>
+                            {encarBackfillStatus.running
+                                ? `Backfill (${getBackfillTargetLabel(encarBackfillStatus.target)}${encarBackfillStatus.target === 'interior' ? `, ${getBackfillModeLabel(encarBackfillStatus.mode)}` : ''}): ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - обновлено ${encarBackfillStatus.updated} - ошибок ${encarBackfillStatus.errors}`
+                                : `${encarBackfillStatus.stopped ? 'Последний backfill остановлен' : 'Последний backfill'}: обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`}
                         </div>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
                     {!isPartsSection && (
                         <>
-                    <button className="adm-btn adm-btn-sm" onClick={startNormalizeExistingCars} disabled={normalizingCars || normalizeCarsStatus.running || enriching || enrichStatus.running}>
-                        <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Нормализация...' : (normalizingCars ? 'Запуск...' : 'Нормализовать названия')}
-                    </button>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select
-                            className="adm-select"
-                            value={enrichScope}
-                            onChange={e => setEnrichScope(e.target.value)}
-                            disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}
-                            style={{ minWidth: 190 }}
-                        >
-                            <option value={ENRICH_SCOPE_ALL}>Все машины</option>
-                            <option value={ENRICH_SCOPE_LATEST}>Последние добавленные</option>
-                        </select>
-                        {enrichScope === ENRICH_SCOPE_LATEST && (
-                            <input
-                                className="adm-input"
-                                type="number"
-                                min="1"
-                                max={Math.max(total || DEFAULT_LATEST_ENRICH_LIMIT, DEFAULT_LATEST_ENRICH_LIMIT)}
-                                step="1"
-                                value={latestEnrichLimit}
-                                onChange={e => setLatestEnrichLimit(e.target.value)}
-                                disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}
-                                style={{ width: 96 }}
-                            />
-                        )}
-                    </div>
-                    <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || enrichStatus.running || normalizingCars || normalizeCarsStatus.running}>
-                        <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Обогащение...' : (enriching ? 'Запуск...' : 'Обогатить пустые поля')}
-                    </button>
-                    <div className="adm-export-controls">
-                        <label className="adm-export-limit">
-                            <span className="adm-export-limit-label">JSON</span>
-                            <input
-                                className="adm-input adm-export-limit-input"
-                                type="number"
-                                inputMode="numeric"
-                                min="1"
-                                max={Math.max(total || DEFAULT_CATALOG_EXPORT_LIMIT, DEFAULT_CATALOG_EXPORT_LIMIT)}
-                                step="1"
-                                value={catalogExportLimit}
-                                onChange={e => setCatalogExportLimit(e.target.value)}
-                                disabled={exporting}
-                                placeholder={String(DEFAULT_CATALOG_EXPORT_LIMIT)}
-                                title="Пусто — скачать весь каталог"
-                            />
-                            <span className="adm-export-limit-suffix">последних</span>
-                        </label>
-                        <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
-                            <Ic d={IC.download} s={14} /> {exporting ? 'Экспорт...' : 'Скачать JSON'}
-                        </button>
-                    </div>
+                            <button className="adm-btn adm-btn-sm" onClick={startNormalizeExistingCars} disabled={normalizingCars || hasBackgroundTaskRunning}>
+                                <Ic d={IC.tag} s={14} /> {normalizeCarsStatus.running ? 'Normalizing...' : (normalizingCars ? 'Starting...' : 'Normalize names')}
+                            </button>
+                            {normalizeCarsStatus.running && (
+                                <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopNormalizeExistingCars} disabled={stoppingNormalizeCars}>
+                                    <Ic d={IC.x} s={14} /> {stoppingNormalizeCars ? 'Stopping...' : 'Stop'}
+                                </button>
+                            )}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <select
+                                    className="adm-select"
+                                    value={enrichScope}
+                                    onChange={e => setEnrichScope(e.target.value)}
+                                    disabled={enriching || hasBackgroundTaskRunning}
+                                    style={{ minWidth: 190 }}
+                                >
+                                    <option value={ENRICH_SCOPE_ALL}>All cars</option>
+                                    <option value={ENRICH_SCOPE_LATEST}>Latest added</option>
+                                </select>
+                                {enrichScope === ENRICH_SCOPE_LATEST && (
+                                    <input
+                                        className="adm-input"
+                                        type="number"
+                                        min="1"
+                                        max={Math.max(total || DEFAULT_LATEST_ENRICH_LIMIT, DEFAULT_LATEST_ENRICH_LIMIT)}
+                                        step="1"
+                                        value={latestEnrichLimit}
+                                        onChange={e => setLatestEnrichLimit(e.target.value)}
+                                        disabled={enriching || hasBackgroundTaskRunning}
+                                        style={{ width: 96 }}
+                                    />
+                                )}
+                            </div>
+                            <button className="adm-btn adm-btn-sm" onClick={startEnrichEmptyFields} disabled={enriching || hasBackgroundTaskRunning}>
+                                <Ic d={IC.bolt} s={14} /> {enrichStatus.running ? 'Enriching...' : (enriching ? 'Starting...' : 'Enrich empty fields')}
+                            </button>
+                            {enrichStatus.running && (
+                                <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopEnrichEmptyFields} disabled={stoppingEnrich}>
+                                    <Ic d={IC.x} s={14} /> {stoppingEnrich ? 'Stopping...' : 'Stop'}
+                                </button>
+                            )}
+                            <div className="adm-export-controls">
+                                <label className="adm-export-limit">
+                                    <span className="adm-export-limit-label">JSON</span>
+                                    <input
+                                        className="adm-input adm-export-limit-input"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="1"
+                                        max={Math.max(total || DEFAULT_CATALOG_EXPORT_LIMIT, DEFAULT_CATALOG_EXPORT_LIMIT)}
+                                        step="1"
+                                        value={catalogExportLimit}
+                                        onChange={e => setCatalogExportLimit(e.target.value)}
+                                        disabled={exporting}
+                                        placeholder={String(DEFAULT_CATALOG_EXPORT_LIMIT)}
+                                        title="Leave empty to export the whole catalog"
+                                    />
+                                    <span className="adm-export-limit-suffix">latest</span>
+                                </label>
+                                <button className="adm-btn adm-btn-sm" onClick={downloadCatalogExport} disabled={exporting}>
+                                    <Ic d={IC.download} s={14} /> {exporting ? 'Exporting...' : 'Download JSON'}
+                                </button>
+                            </div>
                         </>
                     )}
-                    {selected.size > 0 && <button className="adm-btn adm-btn-danger" onClick={delSelected}><Ic d={IC.trash} s={14} />Удалить ({selected.size})</button>}
+                    {selected.size > 0 && <button className="adm-btn adm-btn-danger" onClick={delSelected}><Ic d={IC.trash} s={14} />Delete ({selected.size})</button>}
                     <button className="adm-btn adm-btn-primary" onClick={() => { setAdding(true); setEditCar(null); setEditPart(null) }}>
                         <Ic d={IC.plus} s={15} /> {addButtonLabel}
                     </button>
@@ -1806,6 +1989,100 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                 </select>
                 <button className="adm-btn adm-btn-sm" onClick={() => load(page, search, sort)}><Ic d={IC.ref} s={14} /></button>
             </div>
+
+            {!isPartsSection && (
+                <div className="adm-chart-box" style={{ marginBottom: 16 }}>
+                    <div className="adm-chart-title" style={{ marginBottom: 8 }}>Backfill Encar</div>
+                    <div className="adm-car-sub" style={{ marginBottom: 12 }}>
+                        Запуск детального backfill из админки с выбором параметра, режима, лимита и количества потоков.
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                        <select
+                            className="adm-select"
+                            value={backfillTarget}
+                            onChange={e => setBackfillTarget(e.target.value)}
+                            disabled={backfilling || hasBackgroundTaskRunning}
+                        >
+                            {BACKFILL_TARGET_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                        <select
+                            className="adm-select"
+                            value={backfillMode}
+                            onChange={e => setBackfillMode(e.target.value)}
+                            disabled={backfilling || hasBackgroundTaskRunning || backfillTarget !== 'interior'}
+                        >
+                            {BACKFILL_MODE_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                        <input
+                            className="adm-input"
+                            type="number"
+                            min="1"
+                            max={Math.max(total || DEFAULT_BACKFILL_LIMIT, DEFAULT_BACKFILL_LIMIT)}
+                            step="1"
+                            value={backfillLimit}
+                            onChange={e => setBackfillLimit(e.target.value)}
+                            disabled={backfilling || hasBackgroundTaskRunning}
+                            style={{ width: 110 }}
+                            placeholder="Лимит"
+                            title="Лимит backfill"
+                        />
+                        <input
+                            className="adm-input"
+                            type="number"
+                            min="1"
+                            max={MAX_BACKFILL_CONCURRENCY}
+                            step="1"
+                            value={backfillConcurrency}
+                            onChange={e => setBackfillConcurrency(e.target.value)}
+                            disabled={backfilling || hasBackgroundTaskRunning}
+                            style={{ width: 120 }}
+                            placeholder="Потоки"
+                            title="Количество потоков"
+                        />
+                        <button className="adm-btn adm-btn-sm" onClick={startEncarBackfill} disabled={backfilling || hasBackgroundTaskRunning}>
+                            <Ic d={IC.bolt} s={14} /> {encarBackfillStatus.running ? 'Backfill выполняется...' : (backfilling ? 'Запуск...' : 'Запустить backfill')}
+                        </button>
+                        {encarBackfillStatus.running && (
+                            <button className="adm-btn adm-btn-sm adm-btn-cancel" onClick={stopEncarBackfill} disabled={stoppingBackfill}>
+                                <Ic d={IC.x} s={14} /> {stoppingBackfill ? 'Остановка...' : 'Остановить'}
+                            </button>
+                        )}
+                    </div>
+                    {(encarBackfillStatus.running || encarBackfillStatus.finished_at) && (
+                        <div className="adm-car-sub" style={{ marginBottom: 8 }}>
+                            {encarBackfillStatus.running
+                                ? `PID ${encarBackfillStatus.pid || '-'} - ${encarBackfillStatus.processed}/${encarBackfillStatus.total || '?'} - обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}`
+                                : `Последний запуск: обновлено ${encarBackfillStatus.updated} - пропущено ${encarBackfillStatus.skipped} - ошибок ${encarBackfillStatus.errors}${encarBackfillStatus.stopped ? ' - остановлен' : ''}`}
+                        </div>
+                    )}
+                    {!!encarBackfillStatus.last_error && (
+                        <div className="adm-car-sub" style={{ marginBottom: 8, color: '#fca5a5' }}>
+                            Последняя ошибка: {encarBackfillStatus.last_error}
+                        </div>
+                    )}
+                    {!!encarBackfillStatus.output?.length && (
+                        <pre style={{
+                            margin: 0,
+                            whiteSpace: 'pre-wrap',
+                            background: '#0f172a',
+                            color: '#cbd5e1',
+                            border: '1px solid rgba(148, 163, 184, 0.2)',
+                            borderRadius: 12,
+                            padding: 12,
+                            fontSize: 12,
+                            lineHeight: 1.5,
+                            maxHeight: 180,
+                            overflow: 'auto',
+                        }}>
+                            {encarBackfillStatus.output.slice(-8).join('\n')}
+                        </pre>
+                    )}
+                </div>
+            )}
 
             {!isPartsSection && normalizeCarsStatus.current?.name && normalizeCarsStatus.running && (
                 <div className="adm-car-sub" style={{ marginBottom: 12 }}>

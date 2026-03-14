@@ -57,6 +57,8 @@ function pushReportItem(state, item) {
 export function createCarTextBackfillState() {
   return {
     running: false,
+    stop_requested: false,
+    stopped: false,
     total: 0,
     processed: 0,
     updated: 0,
@@ -72,7 +74,7 @@ export function createCarTextBackfillState() {
   }
 }
 
-export async function runCarTextBackfill({ onProgress, fields } = {}) {
+export async function runCarTextBackfill({ onProgress, fields, shouldStop } = {}) {
   const state = createCarTextBackfillState()
   const requestedFields = normalizeRequestedFields(fields)
   state.running = true
@@ -95,6 +97,12 @@ export async function runCarTextBackfill({ onProgress, fields } = {}) {
   publish()
 
   for (const row of result.rows) {
+    if (shouldStop?.()) {
+      state.stop_requested = true
+      state.stopped = true
+      break
+    }
+
     state.current = {
       id: row.id,
       encar_id: row.encar_id,

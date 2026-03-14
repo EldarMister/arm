@@ -259,6 +259,15 @@ function cleanText(value) {
   return repairTextEncoding(String(value || '')).replace(/\s+/g, ' ').trim()
 }
 
+function normalizeEvidenceSource(value) {
+  const text = cleanText(value)
+  return text || null
+}
+
+function serializeEvidenceDiagnostics(value) {
+  return JSON.stringify(Array.isArray(value) ? value : [])
+}
+
 function buildListPageFingerprint(cars = [], scanned = 0) {
   const ids = cars
     .map((raw) => cleanText(raw?.Id))
@@ -618,11 +627,19 @@ function mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings) 
     fuel_type: enrichment.fuel_type || car.fuel_type,
     transmission: enrichment.transmission || car.transmission,
     drive_type: enrichment.drive_type || car.drive_type,
+    drive_type_source: normalizeEvidenceSource(enrichment.drive_type_source) || normalizeEvidenceSource(car.drive_type_source),
+    drive_type_diagnostics: Array.isArray(enrichment.drive_type_diagnostics)
+      ? enrichment.drive_type_diagnostics
+      : (Array.isArray(car.drive_type_diagnostics) ? car.drive_type_diagnostics : []),
     body_type: enrichment.body_type || car.body_type,
     vehicle_class: enrichment.vehicle_class || car.vehicle_class,
     trim_level: enrichment.trim_level || car.trim_level,
     body_color: enrichment.body_color || car.body_color,
     interior_color: enrichment.interior_color || car.interior_color,
+    interior_color_source: normalizeEvidenceSource(enrichment.interior_color_source) || normalizeEvidenceSource(car.interior_color_source),
+    interior_color_diagnostics: Array.isArray(enrichment.interior_color_diagnostics)
+      ? enrichment.interior_color_diagnostics
+      : (Array.isArray(car.interior_color_diagnostics) ? car.interior_color_diagnostics : []),
     warranty_company: enrichment.warranty_company || car.warranty_company || null,
     warranty_body_months: enrichment.warranty_body_months ?? car.warranty_body_months ?? null,
     warranty_body_km: enrichment.warranty_body_km ?? car.warranty_body_km ?? null,
@@ -677,17 +694,19 @@ async function insertCar(car, photoUrls) {
     await client.query('BEGIN')
     const res = await client.query(
       `INSERT INTO cars
-         (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission, drive_type,
-          body_type, vehicle_class, trim_level, key_info, body_color, interior_color, warranty_company, warranty_body_months, warranty_body_km,
+         (name, model, year, mileage, price_krw, price_usd, fuel_type, transmission, drive_type, drive_type_source, drive_type_diagnostics,
+          body_type, vehicle_class, trim_level, key_info, body_color, interior_color, interior_color_source, interior_color_diagnostics, warranty_company, warranty_body_months, warranty_body_km,
           warranty_transmission_months, warranty_transmission_km, option_features, location, vin, encar_url, encar_id,
           tags, can_negotiate, commission, delivery, delivery_profile_code, loading, unloading, storage, pricing_locked, vat_refund, total)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
        RETURNING id`,
       [
         car.name, car.model, car.year, car.mileage,
         car.price_krw, car.price_usd, car.fuel_type, car.transmission, car.drive_type,
+        normalizeEvidenceSource(car.drive_type_source), serializeEvidenceDiagnostics(car.drive_type_diagnostics),
         car.body_type || null, car.vehicle_class || null, car.trim_level || null, car.key_info || null,
-        car.body_color, car.interior_color, car.warranty_company || null, car.warranty_body_months ?? null, car.warranty_body_km ?? null,
+        car.body_color, car.interior_color, normalizeEvidenceSource(car.interior_color_source), serializeEvidenceDiagnostics(car.interior_color_diagnostics),
+        car.warranty_company || null, car.warranty_body_months ?? null, car.warranty_body_km ?? null,
         car.warranty_transmission_months ?? null, car.warranty_transmission_km ?? null, car.option_features || [], car.location, car.vin,
         car.encar_url, car.encar_id, car.tags, car.can_negotiate, car.commission, car.delivery, car.delivery_profile_code || null,
         car.loading, car.unloading, car.storage, car.pricing_locked || false, car.vat_refund, car.total,

@@ -45,6 +45,15 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function normalizeEvidenceSource(value) {
+  const text = cleanText(value)
+  return text || null
+}
+
+function serializeEvidenceDiagnostics(value) {
+  return JSON.stringify(Array.isArray(value) ? value : [])
+}
+
 function hasCanonicalDrive(value) {
   return DRIVE_CANONICAL_VALUES.has(cleanText(value))
 }
@@ -111,7 +120,11 @@ async function getExistingCarIdByVin(vin, excludeId = null) {
 
 async function ensureSchema() {
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type VARCHAR(100)`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type_source VARCHAR(80)`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb`)
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS key_info VARCHAR(120)`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS interior_color_source VARCHAR(80)`)
+  await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS interior_color_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb`)
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS option_features TEXT[] DEFAULT '{}'`)
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_company VARCHAR(120)`)
   await pool.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_months INTEGER`)
@@ -363,6 +376,8 @@ async function main() {
         const currentKeyInfo = cleanText(row.key_info)
 
         if (isInteriorCandidate(row)) {
+          patch.interior_color_source = normalizeEvidenceSource(detail.interior_color_source)
+          patch.interior_color_diagnostics = serializeEvidenceDiagnostics(detail.interior_color_diagnostics)
           if (nextInterior) {
             patch.interior_color = nextInterior
             stats.interior_filled += 1
@@ -373,8 +388,13 @@ async function main() {
         }
 
         if (isDriveCandidate(row) && shouldRefreshDrive(currentDrive, nextDrive)) {
+          patch.drive_type_source = normalizeEvidenceSource(detail.drive_type_source)
+          patch.drive_type_diagnostics = serializeEvidenceDiagnostics(detail.drive_type_diagnostics)
           patch.drive_type = nextDrive
           stats.drive_filled += 1
+        } else if (isDriveCandidate(row)) {
+          patch.drive_type_source = normalizeEvidenceSource(detail.drive_type_source)
+          patch.drive_type_diagnostics = serializeEvidenceDiagnostics(detail.drive_type_diagnostics)
         }
 
         if (isKeyCandidate(row) && shouldRefreshKeyInfo(currentKeyInfo, nextKeyInfo)) {

@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS cars (
   fuel_type        VARCHAR(100),
   transmission     VARCHAR(100),
   drive_type       VARCHAR(100),
+  drive_type_source VARCHAR(80),
+  drive_type_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb,
   body_type        VARCHAR(100),
   vehicle_class    VARCHAR(100),
   trim_level       VARCHAR(120),
@@ -17,6 +19,8 @@ CREATE TABLE IF NOT EXISTS cars (
   body_color       VARCHAR(100),
   body_color_dots  TEXT[]  DEFAULT '{}',
   interior_color   VARCHAR(100),
+  interior_color_source VARCHAR(80),
+  interior_color_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb,
   interior_color_dots TEXT[] DEFAULT '{}',
   warranty_company VARCHAR(120),
   warranty_body_months INTEGER,
@@ -86,11 +90,15 @@ CREATE TABLE IF NOT EXISTS part_images (
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS transmission VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type VARCHAR(100);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type_source VARCHAR(80);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS drive_type_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS body_type VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS vehicle_class VARCHAR(100);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS trim_level VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS key_info VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS displacement INTEGER DEFAULT 0;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS interior_color_source VARCHAR(80);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS interior_color_diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_company VARCHAR(120);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_months INTEGER;
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS warranty_body_km BIGINT;

@@ -301,6 +301,19 @@ function run() {
   }))
   assert.equal(textFallbackInterior.value, '\u0427\u0435\u0440\u043D\u044B\u0439')
 
+  const rawOptionInterior = resolveInteriorColorEvidence(createResolverContext({
+    primaryPayload: {
+      source: 'api',
+      data: {},
+      spec: {},
+    },
+    textSources: [
+      { source: 'official-api-option-text', path_or_label: 'options.etc[0]', text: '\uB808\uB4DC\uC2DC\uD2B8 \uC644\uC804\uBB34\uC0AC\uACE0 \uC9E7\uC740 \uD0A4\uB85C\uC218\uC8FC\uD589' },
+    ],
+  }))
+  assert.equal(rawOptionInterior.value, '\u041A\u0440\u0430\u0441\u043D\u044B\u0439')
+  assert.equal(rawOptionInterior.source, 'raw-option-text')
+
   const rejectedBodyColorInterior = resolveInteriorColorEvidence(createResolverContext({
     primaryPayload: {
       source: 'api',
@@ -326,6 +339,8 @@ function run() {
   assert.equal(extractKeyInfo({ contentsText: '\uC2A4\uB9C8\uD2B8\uD0A4 2EA' }), '\u0421\u043C\u0430\u0440\u0442-\u043A\u043B\u044E\u0447: 2 \u0448\u0442.')
 
   assert.equal(normalizeDrive('BMW xDrive 40i'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('BMW X6 xDrive40i M Sport'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(normalizeDrive('Mini Countryman ALL4 Classic'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('Mercedes-Benz 4MATIC+'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('e-AWD'), '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
   assert.equal(normalizeDrive('4WD system'), '\u041F\u043E\u043B\u043D\u044B\u0439 (4WD)')
@@ -370,6 +385,19 @@ function run() {
   }))
   assert.equal(explicitDrive.value, '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
   assert.equal(explicitDrive.source, 'inspection-report')
+
+  const structuredTitleDrive = resolveDriveTypeEvidence(createResolverContext({
+    structuredEntries: [
+      {
+        source: 'official-api.data',
+        path: 'data.category.gradeEnglishName',
+        pathSignal: 'data category grade english name',
+        value: 'xDrive40i M Sport',
+      },
+    ],
+  }))
+  assert.equal(structuredTitleDrive.value, '\u041F\u043E\u043B\u043D\u044B\u0439 (AWD)')
+  assert.equal(structuredTitleDrive.source, 'official-structured-drive')
 
   const titleDrive = resolveDriveTypeEvidence(createResolverContext({
     structuredPairs: [
