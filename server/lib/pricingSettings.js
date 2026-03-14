@@ -378,11 +378,6 @@ function buildVehicleSearchText(vehicle = {}) {
 }
 
 export function inferDeliveryProfileCode(vehicle = {}, settings = DEFAULT_PRICING_SETTINGS) {
-  const explicitCode = toText(vehicle.delivery_profile_code)
-  if (explicitCode && findProfile(settings, explicitCode)) {
-    return explicitCode
-  }
-
   const bodyType = resolveBodyType(
     vehicle.body_type,
     vehicle.name,
@@ -394,6 +389,11 @@ export function inferDeliveryProfileCode(vehicle = {}, settings = DEFAULT_PRICIN
   if (bodyType === BODY_TYPE_LABELS.businessSedan || bodyType === BODY_TYPE_LABELS.executiveSedan) {
     if (findProfile(settings, 'sedan_lux')) return 'sedan_lux'
     if (findProfile(settings, 'sedan_bishkek')) return 'sedan_bishkek'
+  }
+
+  const explicitCode = toText(vehicle.delivery_profile_code)
+  if (explicitCode && findProfile(settings, explicitCode)) {
+    return explicitCode
   }
 
   if (bodyType === 'Мини') return findProfile(settings, 'mini_car') ? 'mini_car' : ''

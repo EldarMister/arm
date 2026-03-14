@@ -23,6 +23,7 @@ import {
   CUSTOMS_FUEL_OPTIONS,
   getCustomsFuelLabel,
   resolveCustomsCalculation,
+  resolveCustomsCalculationKz,
 } from '../lib/customsTariffs.js'
 import { CAR_SECTION_CONFIG } from '../lib/catalogSections.js'
 import DeliveryCountrySelect from '../components/shared/DeliveryCountrySelect.jsx'
@@ -285,6 +286,10 @@ function sanitizeEngineInput(value) {
   }
 
   return out
+}
+
+function sanitizeCustomsValueInput(value) {
+  return sanitizeEngineInput(value)
 }
 
 function parseCalcYearInput(value, fallback = DEFAULT_CALC_YEAR) {
@@ -1511,6 +1516,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
     fuel: 'gasoline',
     direction: 'asia',
     isPremium: false,
+    customsValue: '',
   })
   const [calcDefaults, setCalcDefaults] = useState({ year: DEFAULT_CALC_YEAR, engine: DEFAULT_CALC_ENGINE })
 
@@ -1551,6 +1557,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
             fuel,
             direction: inferredDirection,
             isPremium: isPremiumVehicle(mapped),
+            customsValue: '',
           })
         }
 
@@ -1581,6 +1588,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                 fuel: normalizeCustomsFuel(detectFuel({ fuel_type: detail?.fuel_type || mapped.fuelType, tags: mapped.tags })),
                 direction: inferredDetailDirection,
                 isPremium: isPremiumVehicle(detail) || isPremiumVehicle(mapped),
+                customsValue: '',
               })
             }
           } catch {
@@ -1644,13 +1652,24 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
 
   const calcYearValue = useMemo(() => parseCalcYearInput(calc.year, calcDefaults.year), [calc.year, calcDefaults.year])
   const calcEngineValue = useMemo(() => parseCalcEngineInput(calc.engine, calcDefaults.engine), [calc.engine, calcDefaults.engine])
-  const customsAvailable = (selectedCountry?.code || selectedCountryCode) === 'kg'
+  const customsCountryCode = String(selectedCountry?.code || selectedCountryCode || '').toLowerCase()
+  const kzUnionCodes = ['kz', 'ru', 'by']
+  const customsMode = customsCountryCode === 'kg' ? 'kg' : kzUnionCodes.includes(customsCountryCode) ? 'kz' : null
+  const customsAvailable = Boolean(customsMode)
+  const isKazakhstan = customsMode === 'kz'
   const customsUnavailableMessage = selectedCountry?.label
     ? `Растаможка для ${selectedCountry.label} уточняется.`
     : 'Растаможка для выбранной страны уточняется.'
   const customsResult = useMemo(() => {
     if (!customsAvailable) {
       return { status: 'pending', message: customsUnavailableMessage }
+    }
+    if (isKazakhstan) {
+      return resolveCustomsCalculationKz({
+        year: calcYearValue,
+        engine: calcEngineValue,
+        customsValue: calc.customsValue,
+      })
     }
     return resolveCustomsCalculation({
       year: calcYearValue,
@@ -1659,7 +1678,23 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
       direction: calc.direction,
       isPremium: calc.isPremium,
     })
-  }, [calc.direction, calc.fuel, calc.isPremium, calcEngineValue, calcYearValue, customsAvailable, customsUnavailableMessage])
+  }, [
+    calc.customsValue,
+    calc.direction,
+    calc.fuel,
+    calc.isPremium,
+    calcEngineValue,
+    calcYearValue,
+    customsAvailable,
+    customsUnavailableMessage,
+    isKazakhstan,
+  ])
+  const customsCurrencySymbol = customsResult.currency === 'EUR' ? '€' : '$'
+  const customsTitleSuffix = customsMode === 'kg'
+    ? ' (Кыргызстан)'
+    : customsMode === 'kz'
+      ? ` (${selectedCountry?.label || 'Казахстан'})`
+      : ''
 
   if (loading) {
     return (
@@ -1787,7 +1822,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
             </div>
 
             <div className="car-details-card car-details-customs">
-              <h3 className="car-details-card-title">Калькулятор растаможки{customsAvailable ? ' (Кыргызстан)' : ''}</h3>
+              <h3 className="car-details-card-title">Калькулятор растаможки{customsTitleSuffix}</h3>
               {customsAvailable ? (
                 <>
                   <div className="car-details-customs-grid">
@@ -1810,33 +1845,50 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                         onChange={(e) => updateCalc({ engine: sanitizeEngineInput(e.target.value) })}
                       />
                     </label>
-                    <CustomsDropdown
-                      label="Тип двигателя"
-                      ariaLabel="Тип двигателя"
-                      value={calc.fuel}
-                      options={CUSTOMS_FUEL_OPTIONS}
-                      onChange={(value) => updateCalc({ fuel: value })}
-                    />
-                    <CustomsDropdown
-                      label="Направление ввоза"
-                      ariaLabel="Направление ввоза"
-                      value={calc.direction}
-                      options={CUSTOMS_DIRECTION_OPTIONS}
-                      onChange={(value) => updateCalc({ direction: value })}
-                    />
+                    {isKazakhstan ? (
+                      <label>
+                        <span>Таможенная стоимость (EUR)</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={calc.customsValue}
+                          onChange={(e) => updateCalc({ customsValue: sanitizeCustomsValueInput(e.target.value) })}
+                          placeholder="Напр. 15000"
+                        />
+                      </label>
+                    ) : (
+                      <>
+                        <CustomsDropdown
+                          label="Тип двигателя"
+                          ariaLabel="Тип двигателя"
+                          value={calc.fuel}
+                          options={CUSTOMS_FUEL_OPTIONS}
+                          onChange={(value) => updateCalc({ fuel: value })}
+                        />
+                        <CustomsDropdown
+                          label="Направление ввоза"
+                          ariaLabel="Направление ввоза"
+                          value={calc.direction}
+                          options={CUSTOMS_DIRECTION_OPTIONS}
+                          onChange={(value) => updateCalc({ direction: value })}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="car-details-customs-summary">
-                    <label className="car-details-customs-toggle">
-                      <input
-                        type="checkbox"
-                        checked={calc.isPremium}
-                        onChange={(e) => updateCalc({ isPremium: e.target.checked })}
-                      />
-                      <span>Премиум-класс</span>
-                    </label>
+                    {!isKazakhstan ? (
+                      <label className="car-details-customs-toggle">
+                        <input
+                          type="checkbox"
+                          checked={calc.isPremium}
+                          onChange={(e) => updateCalc({ isPremium: e.target.checked })}
+                        />
+                        <span>Премиум-класс</span>
+                      </label>
+                    ) : null}
                     {customsResult.status === 'success' ? (
                       <div className="car-details-customs-result">
-                        <strong>{`$${customsResult.amount.toLocaleString('en-US')}`}</strong>
+                        <strong>{`${customsCurrencySymbol}${customsResult.amount.toLocaleString('en-US')}`}</strong>
                       </div>
                     ) : null}
                   </div>

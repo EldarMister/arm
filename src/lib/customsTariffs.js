@@ -39,6 +39,33 @@ const GASOLINE_USIR_TARIFFS = {
   '3000': { usa: 11680, asia: 7300, japan: 7300 },
 }
 
+const KZ_UNDER_THREE_TARIFFS = [
+  { max: 8500, percent: 0.54, minPerCc: 2.5 },
+  { max: 16700, percent: 0.48, minPerCc: 3.5 },
+  { max: 42300, percent: 0.48, minPerCc: 5.5 },
+  { max: 84500, percent: 0.48, minPerCc: 7.5 },
+  { max: 169000, percent: 0.48, minPerCc: 15 },
+  { max: Number.POSITIVE_INFINITY, percent: 0.48, minPerCc: 20 },
+]
+
+const KZ_THREE_TO_FIVE_TARIFFS = [
+  { max: 1000, rate: 1.5 },
+  { max: 1500, rate: 1.7 },
+  { max: 1800, rate: 2.5 },
+  { max: 2300, rate: 2.7 },
+  { max: 3000, rate: 3.0 },
+  { max: Number.POSITIVE_INFINITY, rate: 3.6 },
+]
+
+const KZ_OVER_FIVE_TARIFFS = [
+  { max: 1000, rate: 3.0 },
+  { max: 1500, rate: 3.2 },
+  { max: 1800, rate: 3.5 },
+  { max: 2300, rate: 4.8 },
+  { max: 3000, rate: 5.0 },
+  { max: Number.POSITIVE_INFINITY, rate: 5.7 },
+]
+
 const FUEL_LABELS = {
   gasoline: 'Бензин',
   lpg: 'Газ',
@@ -228,10 +255,11 @@ function buildManualResult({ fuel, table, row, volume, direction, message }) {
   }
 }
 
-function buildSuccessResult({ amount, fuel, table, row, volume, direction, message = '' }) {
+function buildSuccessResult({ amount, fuel, table, row, volume, direction, message = '', currency }) {
   return {
     status: 'success',
     amount,
+    currency,
     message,
     meta: buildMeta({ fuel, table, row, volume, direction }),
   }
@@ -392,3 +420,63 @@ export function resolveCustomsCalculation(input, currentDate = new Date()) {
       : 'Расчёт выполнен строго по основной таблице из Таблица.md.',
   })
 }
+
+export function resolveCustomsCalculationKz(input, currentDate = new Date()) {
+  const year = Number(input?.year)
+
+  if (!Number.isInteger(year) || year < 1900) {
+    return buildManualResult({
+      message: '\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u0433\u043e\u0434 \u0432\u044b\u043f\u0443\u0441\u043a\u0430.',
+    })
+  }
+
+  const parsedEngine = parseEngineValue(input?.engine)
+  if (!parsedEngine) {
+    return buildManualResult({
+      message: '\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043e\u0431\u044a\u0435\u043c \u0434\u0432\u0438\u0433\u0430\u0442\u0435\u043b\u044f.',
+    })
+  }
+
+  const engineCc = Math.round(parsedEngine.cc)
+  if (!Number.isFinite(engineCc) || engineCc <= 0) {
+    return buildManualResult({
+      message: '\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043e\u0431\u044a\u0435\u043c \u0434\u0432\u0438\u0433\u0430\u0442\u0435\u043b\u044f.',
+    })
+  }
+
+  const ageFlags = resolveAgeFlags(year, currentDate)
+  const isUnderThree = ageFlags.notOlderThan3Years
+  const isOverFive = ageFlags.olderThan5Years
+
+  if (isUnderThree) {
+    const customsValue = parseNumericValue(input?.customsValue ?? input?.customs_value)
+    if (!customsValue) {
+      return buildManualResult({
+        message: '\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u0442\u0430\u043c\u043e\u0436\u0435\u043d\u043d\u0443\u044e \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0432 EUR \u0434\u043b\u044f \u0430\u0432\u0442\u043e \u0434\u043e 3 \u043b\u0435\u0442.',
+      })
+    }
+
+    const bracket = KZ_UNDER_THREE_TARIFFS.find((item) => customsValue <= item.max)
+      || KZ_UNDER_THREE_TARIFFS[KZ_UNDER_THREE_TARIFFS.length - 1]
+    const percentAmount = customsValue * bracket.percent
+    const minAmount = bracket.minPerCc * engineCc
+    const amount = Math.max(percentAmount, minAmount)
+
+    return buildSuccessResult({
+      amount: Math.round(amount),
+      currency: 'EUR',
+      message: '',
+    })
+  }
+
+  const rateTable = isOverFive ? KZ_OVER_FIVE_TARIFFS : KZ_THREE_TO_FIVE_TARIFFS
+  const rateBracket = rateTable.find((item) => engineCc <= item.max) || rateTable[rateTable.length - 1]
+  const amount = rateBracket.rate * engineCc
+
+  return buildSuccessResult({
+    amount: Math.round(amount),
+    currency: 'EUR',
+    message: '',
+  })
+}
+
