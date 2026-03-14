@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pool from '../db.js'
@@ -1720,6 +1721,13 @@ router.post('/encar-backfill/start', adminRouteProtection, async (req, res) => {
 
   const options = normalizeBackfillOptions(req.body || {})
   const scriptPath = path.resolve(PROJECT_ROOT, 'scripts', 'backfill-encar-enrichment.js')
+
+  if (!existsSync(scriptPath)) {
+    return res.status(500).json({
+      error: `Не найден файл backfill: ${scriptPath}`,
+      status: createBackfillStatusSnapshot(),
+    })
+  }
 
   resetBackfillState(options)
   encarBackfillState.running = true
