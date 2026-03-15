@@ -463,13 +463,19 @@ const BODY_INSPECTION_ALIASES = {
 }
 
 const BODY_PART_HIGHLIGHT_GROUPS = [
-  { label: 'Капот', keys: ['hood'] },
-  { label: 'Передние крылья', keys: ['frontFenderLeft', 'frontFenderRight'], sideLabels: ['Левое', 'Правое'] },
-  { label: 'Передние двери', keys: ['frontDoorLeft', 'frontDoorRight'], sideLabels: ['Левая', 'Правая'] },
-  { label: 'Задние двери', keys: ['rearDoorLeft', 'rearDoorRight'], sideLabels: ['Левая', 'Правая'] },
-  { label: 'Багажник', keys: ['trunkLead'] },
-  { label: 'Крыша', keys: ['roofPanel'] },
-  { label: 'Задние крылья', keys: ['quarterPanelLeft', 'quarterPanelRight'], sideLabels: ['Левое', 'Правое'] },
+  { label: 'Капот', key: 'hood' },
+  { label: 'Переднее крыло (левое)', key: 'frontFenderLeft' },
+  { label: 'Переднее крыло (правое)', key: 'frontFenderRight' },
+  { label: 'Передняя дверь (левая)', key: 'frontDoorLeft' },
+  { label: 'Передняя дверь (правая)', key: 'frontDoorRight' },
+  { label: 'Задняя дверь (левая)', key: 'rearDoorLeft' },
+  { label: 'Задняя дверь (правая)', key: 'rearDoorRight' },
+  { label: 'Крышка багажника', key: 'trunkLead' },
+  { label: 'Крыша', key: 'roofPanel' },
+  { label: 'Заднее крыло (левое)', key: 'quarterPanelLeft' },
+  { label: 'Заднее крыло (правое)', key: 'quarterPanelRight' },
+  { label: 'Порог (левый)', key: 'sideSillPanelLeft' },
+  { label: 'Порог (правый)', key: 'sideSillPanelRight' },
 ]
 
 const TECHNICAL_SUMMARY_RULES = [
@@ -1155,36 +1161,12 @@ function buildBodyPartInspectionHighlights(inspection) {
   const byKey = new Map(parts.map((part) => [String(part?.key || '').trim(), part]))
 
   return BODY_PART_HIGHLIGHT_GROUPS.map((group) => {
-    const matchedParts = group.keys
-      .map((key) => byKey.get(key))
-      .filter(Boolean)
-
-    if (!matchedParts.length) return null
-
-    if (matchedParts.length === 1) {
-      return {
-        label: group.label,
-        value: formatBodyConditionValue(matchedParts[0]),
-      }
-    }
-
-    const values = matchedParts.map((part) => formatBodyConditionValue(part))
-    const allSame = values.every((value) => value === values[0])
-
-    if (allSame) {
-      return {
-        label: group.label,
-        value: values[0],
-      }
-    }
+    const part = byKey.get(group.key)
+    if (!part) return null
 
     return {
       label: group.label,
-      value: 'Есть отличия',
-      metaLines: matchedParts.map((part, index) => {
-        const sideLabel = group.sideLabels?.[index] || part.label || `Сторона ${index + 1}`
-        return `${sideLabel}: ${formatBodyConditionValue(part)}`
-      }),
+      value: formatBodyConditionValue(part),
     }
   }).filter(Boolean)
 }
@@ -1250,6 +1232,26 @@ function buildTechnicalInspectionHighlights(inspection) {
       metaLines: summary.metaLines,
     }
   }).filter(Boolean)
+}
+
+function shouldHideDetailedInspectionRow(row) {
+  if (!row) return false
+  const section = translateInspectionText(row.section || '')
+  const label = translateInspectionText(row.label || '')
+
+  return (
+    matchesInspectionAliases(section, ['самодиагностика'])
+    && matchesInspectionAliases(label, ['двигатель', 'трансмиссия'])
+  )
+}
+
+function filterDetailedInspectionGroups(groups = []) {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: (group.items || []).filter((item) => !shouldHideDetailedInspectionRow(item)),
+    }))
+    .filter((group) => Array.isArray(group.items) && group.items.length)
 }
 
 function buildExteriorInspectionRows(section) {
@@ -1947,6 +1949,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
   const boundedIdx = Math.min(imgIdx, imageCount - 1)
   const imageSrc = car?.images?.[boundedIdx]?.url || ''
   const inspectionGroups = useMemo(() => groupInspectionRows(car?.inspection?.detailStatus || []), [car?.inspection])
+  const filteredInspectionGroups = useMemo(() => filterDetailedInspectionGroups(inspectionGroups), [inspectionGroups])
   const registrationHistoryHighlights = useMemo(() => buildVehicleHistoryHighlightCards(car), [car])
   const registrationHistorySecondaryEntries = useMemo(() => buildVehicleHistorySecondaryEntries(car), [car])
   const accidentHistoryEntries = useMemo(() => buildAccidentHistoryEntries(car), [car])
@@ -2479,7 +2482,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
 
               {!!bodyPartInspectionHighlights.length && (
                 <div className="car-inspection-block">
-                  <h4 className="car-inspection-title">Кузов по элементам</h4>
+                  <h4 className="car-inspection-title">Состояние кузова по элементам</h4>
                   <div className="car-inspection-status-list">
                     {bodyPartInspectionHighlights.map((item) => (
                       <InspectionStatusRow
@@ -2559,48 +2562,11 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                 </div>
               )}
 
-              {inspectionOpen && !!car.inspection.exteriorStatus?.sections?.length && (
-                <div className="car-inspection-block">
-                  <h4 className="car-inspection-title">{translateInspectionText('Body and frame inspection')}</h4>
-                  {!!car.inspection.exteriorStatus?.legend?.length && (
-                    <div className="car-inspection-legend">
-                      {car.inspection.exteriorStatus.legend.map((item, index) => (
-                        <span key={`${item}-${index}`} className="car-inspection-legend-item">
-                          {translateInspectionText(item)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="car-inspection-groups">
-                    {car.inspection.exteriorStatus.sections.map((section) => {
-                      const sectionRows = buildExteriorInspectionRows(section)
-
-                      if (!sectionRows.length) return null
-
-                      return (
-                        <div key={section.title} className="car-inspection-group">
-                          <h5>{translateInspectionText(section.title)}</h5>
-                          <div className="car-inspection-status-list">
-                            {sectionRows.map((row) => (
-                              <InspectionStatusRow
-                                key={row.key}
-                                label={row.label}
-                                value={row.value}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {inspectionOpen && !!inspectionGroups.length && (
+              {inspectionOpen && !!filteredInspectionGroups.length && (
                 <div className="car-inspection-block">
                   <h4 className="car-inspection-title">{translateInspectionText('Detailed technical check')}</h4>
                   <div className="car-inspection-groups">
-                    {inspectionGroups.map((group) => (
+                    {filteredInspectionGroups.map((group) => (
                       <div key={group.title} className="car-inspection-group">
                         <h5>{translateInspectionText(group.title)}</h5>
                         <div className="car-inspection-status-list">
