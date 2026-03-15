@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { VAT_REFUND_RATE } from '../../lib/vehicleDisplay'
+import { useDeliveryContext } from '../../context/DeliveryContext'
 
 const PRIMARY_WHATSAPP_URL = 'https://wa.me/821056650943'
 const VAT_REFUND_PERCENT = Math.round(VAT_REFUND_RATE * 100)
@@ -138,7 +140,32 @@ const logisticsFlags = [
   { code: 'ua', label: 'Украина' },
 ]
 
+const flagEntryMotion = [
+  { x: '-42px', y: '-26px', rotate: '-18deg', delay: '0.02s' },
+  { x: '32px', y: '-36px', rotate: '14deg', delay: '0.08s' },
+  { x: '-54px', y: '14px', rotate: '-12deg', delay: '0.14s' },
+  { x: '44px', y: '-8px', rotate: '17deg', delay: '0.2s' },
+  { x: '-30px', y: '34px', rotate: '-15deg', delay: '0.26s' },
+  { x: '52px', y: '24px', rotate: '12deg', delay: '0.32s' },
+  { x: '-18px', y: '-40px', rotate: '-10deg', delay: '0.38s' },
+  { x: '36px', y: '36px', rotate: '16deg', delay: '0.44s' },
+]
+
 export default function Hero() {
+  const { countries, countryCode, hasUserSelectedCountry, selectedCountry, setCountryCode } = useDeliveryContext()
+
+  const heroCountries = useMemo(() => {
+    if (!countries?.length) return logisticsFlags
+
+    const configuredFlags = logisticsFlags
+      .map((flag) => countries.find((country) => country.code === flag.code) || flag)
+      .filter((country) => countries.some((item) => item.code === country.code))
+
+    return configuredFlags.length ? configuredFlags : logisticsFlags
+  }, [countries])
+
+  const activeCountryLabel = selectedCountry?.label || 'Кыргызстан'
+
   return (
     <section>
       <div className="hero-video-section">
@@ -152,19 +179,35 @@ export default function Hero() {
           </div>
           <div className="why-logistics-card hero-logistics-card">
             <div className="why-logistics-title">SHORING-LOGISTICS</div>
+            <div className="why-logistics-current">Цены и калькулятор: {activeCountryLabel}</div>
             <div className="why-logistics-flags" aria-label="SHORING logistics countries">
-              {logisticsFlags.map(({ code, label }) => (
-                <img
+              {heroCountries.map(({ code, label }, index) => (
+                <button
                   key={code}
-                  className="why-logistics-flag"
-                  src={getFlagUrl(code, 160)}
-                  srcSet={`${getFlagUrl(code, 320)} 2x`}
-                  width="56"
-                  height="36"
-                  alt={label}
-                  loading="lazy"
-                  decoding="async"
-                />
+                  type="button"
+                  className={`why-logistics-flag-button ${hasUserSelectedCountry && countryCode === code ? 'is-active' : ''}`.trim()}
+                  aria-label={`Выбрать ${label} для расчета доставки`}
+                  aria-pressed={hasUserSelectedCountry && countryCode === code}
+                  title={`Переключить доставку на ${label}`}
+                  style={{
+                    '--flag-offset-x': flagEntryMotion[index]?.x || '0px',
+                    '--flag-offset-y': flagEntryMotion[index]?.y || '0px',
+                    '--flag-rotate': flagEntryMotion[index]?.rotate || '0deg',
+                    '--flag-delay': flagEntryMotion[index]?.delay || '0s',
+                  }}
+                  onClick={() => setCountryCode(code)}
+                >
+                  <img
+                    className="why-logistics-flag"
+                    src={getFlagUrl(code, 160)}
+                    srcSet={`${getFlagUrl(code, 320)} 2x`}
+                    width="56"
+                    height="36"
+                    alt={label}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
               ))}
             </div>
           </div>
@@ -183,7 +226,7 @@ export default function Hero() {
           </p>
 
           <div className="hero-btns" style={{ marginTop: '28px', display: 'flex', gap: '12px' }}>
-            <Link to="/catalog" className="btn-primary">
+            <Link to="/catalog" className="btn-primary hero-btn-primary">
               <CarIcon />
               Посмотреть каталог
             </Link>
