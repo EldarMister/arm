@@ -141,15 +141,26 @@ const logisticsFlags = [
 ]
 
 const flagEntryMotion = [
-  { x: '-42px', y: '-26px', rotate: '-18deg', delay: '0.02s' },
-  { x: '32px', y: '-36px', rotate: '14deg', delay: '0.08s' },
-  { x: '-54px', y: '14px', rotate: '-12deg', delay: '0.14s' },
-  { x: '44px', y: '-8px', rotate: '17deg', delay: '0.2s' },
-  { x: '-30px', y: '34px', rotate: '-15deg', delay: '0.26s' },
-  { x: '52px', y: '24px', rotate: '12deg', delay: '0.32s' },
-  { x: '-18px', y: '-40px', rotate: '-10deg', delay: '0.38s' },
-  { x: '36px', y: '36px', rotate: '16deg', delay: '0.44s' },
+  { x: '-78px', y: '-30px', rotate: '-22deg', delay: '0.00s' },
+  { x: '54px', y: '-52px', rotate: '18deg', delay: '0.05s' },
+  { x: '-92px', y: '18px', rotate: '-16deg', delay: '0.10s' },
+  { x: '82px', y: '-10px', rotate: '20deg', delay: '0.15s' },
+  { x: '-46px', y: '52px', rotate: '-18deg', delay: '0.20s' },
+  { x: '88px', y: '34px', rotate: '15deg', delay: '0.25s' },
+  { x: '-26px', y: '-58px', rotate: '-12deg', delay: '0.30s' },
+  { x: '58px', y: '56px', rotate: '18deg', delay: '0.35s' },
 ]
+
+const flagAccentMap = {
+  kg: '218, 42, 48',
+  by: '198, 35, 43',
+  ua: '234, 179, 8',
+  kz: '56, 189, 248',
+  uz: '34, 197, 94',
+  ru: '37, 99, 235',
+  az: '16, 185, 129',
+  tj: '34, 197, 94',
+}
 
 export default function Hero() {
   const { countries, countryCode, hasUserSelectedCountry, selectedCountry, setCountryCode } = useDeliveryContext()
@@ -194,6 +205,7 @@ export default function Hero() {
                     '--flag-offset-y': flagEntryMotion[index]?.y || '0px',
                     '--flag-rotate': flagEntryMotion[index]?.rotate || '0deg',
                     '--flag-delay': flagEntryMotion[index]?.delay || '0s',
+                    '--flag-accent-rgb': flagAccentMap[code] || '218, 42, 48',
                   }}
                   onClick={() => setCountryCode(code)}
                 >
