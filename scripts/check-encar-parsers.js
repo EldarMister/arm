@@ -446,8 +446,7 @@ function run() {
       { source: 'inspection-report', label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435', value: '\uC3D8\uB80C\uD1A0 1.6 2WD', path_or_label: '\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435' },
     ],
   }))
-  assert.equal(ambiguous2wd.value, '\u041F\u0435\u0440\u0435\u0434\u043D\u0438\u0439 (FWD)')
-  assert.equal(ambiguous2wd.source, 'legacy-drive-parser')
+  assert.equal(ambiguous2wd.value, '')
 
   const knownModelDefaultDrive = resolveDriveTypeEvidence(createResolverContext({
     structuredPairs: [
@@ -566,13 +565,31 @@ function run() {
     name: 'BMW iX3 M Sport',
     drive_type: '',
   })
-  assert.equal(bmwIx3.drive_type, 'Задний (RWD)')
+  assert.equal(bmwIx3.drive_type, '')
 
   const kiaCarnival = normalizeCarTextFields({
     name: 'Kia Carnival HEV 9 seats Signature',
     drive_type: '',
   })
   assert.equal(kiaCarnival.drive_type, 'Передний (FWD)')
+
+  const porscheMacan = normalizeCarTextFields({
+    name: 'Porsche Macan S',
+    drive_type: '',
+  })
+  assert.equal(porscheMacan.drive_type, '\u041f\u043e\u043b\u043d\u044b\u0439 (AWD)')
+
+  const volkswagenJetta = normalizeCarTextFields({
+    name: 'Volkswagen Jetta 1.4 TSI Highline',
+    drive_type: '',
+  })
+  assert.equal(volkswagenJetta.drive_type, '\u041f\u0435\u0440\u0435\u0434\u043d\u0438\u0439 (FWD)')
+
+  const unknownModelDrive = normalizeCarTextFields({
+    name: 'Opel Insignia 2.0 Turbo Ultimate',
+    drive_type: '',
+  })
+  assert.equal(unknownModelDrive.drive_type, '')
 
   const canonicalDrivePreserved = normalizeCarTextFields({
     name: 'Honda Accord 2.0 Hybrid Touring',

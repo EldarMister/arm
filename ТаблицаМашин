@@ -1,0 +1,479 @@
+таблица моделей для определение drive_type.
+Использовать только если:
+1) нет явного маркера привода в названии
+2) модель входит в список ниже
+3) если привод не указан на Encar
+
+Модели где почти всегда FWD
+Модель
+Привод
+Hyundai Sonata
+FWD
+Hyundai Avante / Elantra
+FWD
+Hyundai Grandeur
+FWD
+Hyundai Venue
+FWD
+Hyundai i30
+FWD
+Hyundai i40
+FWD
+Kia K5 / Optima
+FWD
+Kia K3 / Forte
+FWD
+Kia K8
+FWD
+Kia K7
+FWD
+Kia Carnival
+FWD
+Kia Morning / Picanto
+FWD
+Chevrolet Spark
+FWD
+Chevrolet Malibu
+FWD
+Chevrolet Cruze
+FWD
+Volkswagen Jetta
+FWD
+Volkswagen Passat
+FWD
+Volkswagen Golf
+FWD
+Volkswagen Polo
+FWD
+Toyota Camry
+FWD
+Toyota Corolla
+FWD
+Honda Accord
+FWD
+Honda Civic
+FWD
+Lexus ES
+FWD
+Nissan Altima
+FWD
+Nissan Sentra
+FWD
+Mazda 3
+FWD
+Mazda 6
+FWD
+Peugeot 208
+FWD
+Peugeot 308
+FWD
+Renault Megane
+FWD
+Renault Fluence
+FWD
+Citroen C4
+FWD
+Citroen C3
+FWD
+
+Модели где почти всегда RWD
+Модель
+Привод
+BMW 3 Series
+RWD
+BMW 5 Series
+RWD
+BMW 7 Series
+RWD
+BMW Z4
+RWD
+Genesis G70
+RWD
+Genesis G80
+RWD
+Genesis G90
+RWD
+Mercedes C-Class
+RWD
+Mercedes E-Class
+RWD
+Mercedes S-Class
+RWD
+Mercedes SL
+RWD
+Mercedes AMG GT
+RWD
+Lexus IS
+RWD
+Lexus GS
+RWD
+Lexus LS
+RWD
+Tesla Model 3 (base)
+RWD
+Tesla Model S (base)
+RWD
+Toyota GR86
+RWD
+Subaru BRZ
+RWD
+Mazda MX-5
+RWD
+
+Модели где почти всегда AWD / 4WD
+Модель
+Привод
+Porsche Macan
+AWD
+Porsche Cayenne
+AWD
+Porsche Panamera 4
+AWD
+Range Rover Evoque
+AWD
+Range Rover Velar
+AWD
+Range Rover Sport
+AWD
+Range Rover
+AWD
+Land Rover Defender
+AWD
+Land Rover Discovery
+AWD
+Land Rover Discovery Sport
+AWD
+Bentley Bentayga
+AWD
+Rolls-Royce Cullinan
+AWD
+Jeep Wrangler
+4WD
+Jeep Gladiator
+4WD
+Mercedes G-Class
+AWD
+Lexus LX
+AWD
+Toyota Land Cruiser
+4WD
+Toyota Land Cruiser Prado
+4WD
+Nissan Patrol
+4WD
+Mitsubishi Pajero
+4WD
+Mitsubishi Pajero Sport
+4WD
+Ford Bronco
+4WD
+Ford Ranger Raptor
+4WD
+RAM 1500 4x4
+4WD
+Chevrolet Tahoe 4WD
+4WD
+Chevrolet Suburban 4WD
+4WD
+GMC Yukon 4WD
+4WD
+
+Электромобили с почти фиксированным приводом
+Модель
+Привод
+Mercedes EQA 250
+FWD
+Mercedes EQB 250
+FWD
+Hyundai Ioniq 5 AWD
+AWD
+Hyundai Ioniq 6 AWD
+AWD
+Kia EV6 AWD
+AWD
+Tesla Model Y AWD
+AWD
+Tesla Model X
+AWD
+BMW iX
+AWD
+BMW i7 xDrive
+AWD
+Audi e-tron
+AWD
+
+================================
+ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ: FWD
+================================
+
+Hyundai Accent -> Передний (FWD)
+Hyundai Aslan -> Передний (FWD)
+Hyundai Bayon -> Передний (FWD)
+Hyundai Casper -> Передний (FWD)
+Hyundai Kona (обычные FWD версии без AWD-маркеров) -> Передний (FWD)
+Hyundai Verna -> Передний (FWD)
+
+Kia Ray -> Передний (FWD)
+Kia Soul -> Передний (FWD)
+Kia Ceed -> Передний (FWD)
+Kia Cerato -> Передний (FWD)
+Kia Rio -> Передний (FWD)
+Kia Stonic -> Передний (FWD)
+Kia Venga -> Передний (FWD)
+
+Chevrolet Aveo -> Передний (FWD)
+Chevrolet Trax (без AWD-маркеров) -> Передний (FWD)
+Chevrolet Orlando -> Передний (FWD)
+
+Renault Samsung SM3 -> Передний (FWD)
+Renault Samsung SM5 -> Передний (FWD)
+Renault Samsung SM6 -> Передний (FWD)
+Renault Samsung XM3 -> Передний (FWD)
+Renault Samsung QM3 -> Передний (FWD)
+Renault Samsung Captur -> Передний (FWD)
+
+Toyota Avalon -> Передний (FWD)
+Toyota Prius -> Передний (FWD)
+Toyota Yaris -> Передний (FWD)
+Toyota Vios -> Передний (FWD)
+Toyota C-HR (без AWD-маркеров) -> Передний (FWD)
+
+Honda CR-Z -> Передний (FWD)
+Honda Fit / Jazz -> Передний (FWD)
+Honda Insight -> Передний (FWD)
+Honda City -> Передний (FWD)
+
+Nissan Leaf -> Передний (FWD)
+Nissan Versa -> Передний (FWD)
+Nissan Maxima -> Передний (FWD)
+Nissan Kicks -> Передний (FWD)
+
+Mazda 2 -> Передний (FWD)
+Mazda CX-3 (без AWD-маркеров) -> Передний (FWD)
+Mazda CX-30 (без AWD-маркеров) -> Передний (FWD)
+
+Volkswagen Arteon (без 4Motion) -> Передний (FWD)
+Volkswagen Touran -> Передний (FWD)
+Volkswagen Tiguan 2WD -> Передний (FWD)
+Volkswagen T-Roc (без AWD-маркеров) -> Передний (FWD)
+
+Skoda Octavia -> Передний (FWD)
+Skoda Superb (без AWD-маркеров) -> Передний (FWD)
+Skoda Scala -> Передний (FWD)
+Skoda Kamiq -> Передний (FWD)
+
+Peugeot 2008 -> Передний (FWD)
+Peugeot 3008 (без AWD/Hybrid4-маркеров) -> Передний (FWD)
+Peugeot 508 -> Передний (FWD)
+Peugeot 5008 -> Передний (FWD)
+
+Citroen C5 -> Передний (FWD)
+Citroen C5 Aircross -> Передний (FWD)
+Citroen DS4 -> Передний (FWD)
+Citroen DS5 -> Передний (FWD)
+
+Mini Cooper -> Передний (FWD)
+Mini Cooper S -> Передний (FWD)
+Mini Clubman (без ALL4) -> Передний (FWD)
+Mini Countryman (без ALL4) -> Передний (FWD)
+
+Lexus CT -> Передний (FWD)
+Lexus UX 200 -> Передний (FWD)
+Lexus UX 250h FWD -> Передний (FWD)
+
+Volvo S60 (без AWD-маркеров) -> Передний (FWD)
+Volvo V40 -> Передний (FWD)
+Volvo V60 (без AWD-маркеров) -> Передний (FWD)
+Volvo XC40 B3/B4 FWD версии -> Передний (FWD)
+
+================================
+ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ: RWD
+================================
+
+BMW 4 Series (без xDrive) -> Задний (RWD)
+BMW 6 Series (без xDrive) -> Задний (RWD)
+BMW 8 Series (без xDrive) -> Задний (RWD)
+BMW i4 eDrive35 -> Задний (RWD)
+BMW i4 eDrive40 -> Задний (RWD)
+
+Mercedes-Benz CLS-Class (без 4MATIC) -> Задний (RWD)
+Mercedes-Benz CLE Coupe (без 4MATIC) -> Задний (RWD)
+Mercedes-Benz EQE sedan base RWD versions -> Задний (RWD)
+Mercedes-Benz EQS sedan base RWD versions -> Задний (RWD)
+
+Genesis Coupe -> Задний (RWD)
+Genesis GV60 RWD -> Задний (RWD)
+
+Kia Stinger (без AWD) -> Задний (RWD)
+Kia EV6 2WD -> Задний (RWD)
+Hyundai Ioniq 5 2WD -> Задний (RWD)
+Hyundai Ioniq 6 2WD -> Задний (RWD)
+
+Tesla Model Y RWD -> Задний (RWD)
+Tesla Model S RWD / base single motor -> Задний (RWD)
+
+Lexus RC 300 / 350 (без AWD) -> Задний (RWD)
+Lexus LC 500 -> Задний (RWD)
+
+Toyota Crown FR-based rear-drive versions -> Задний (RWD)
+Toyota Supra -> Задний (RWD)
+Nissan 370Z / Fairlady Z -> Задний (RWD)
+Nissan Skyline sedan FR versions -> Задний (RWD)
+Infiniti Q50 (без AWD) -> Задний (RWD)
+Infiniti Q60 (без AWD) -> Задний (RWD)
+
+Jaguar XF (без AWD) -> Задний (RWD)
+Jaguar XJ (без AWD) -> Задний (RWD)
+Jaguar F-TYPE (без AWD) -> Задний (RWD)
+
+Maserati Ghibli (без Q4) -> Задний (RWD)
+Maserati Quattroporte (без Q4) -> Задний (RWD)
+Maserati Levante GT base RWD versions -> Задний (RWD)
+Maserati GranTurismo older base RWD versions -> Задний (RWD)
+
+Porsche Boxster -> Задний (RWD)
+Porsche Cayman -> Задний (RWD)
+Porsche 718 Boxster -> Задний (RWD)
+Porsche 718 Cayman -> Задний (RWD)
+Porsche Panamera base non-4 -> Задний (RWD)
+
+Rolls-Royce Ghost -> Задний (RWD)
+Rolls-Royce Wraith -> Задний (RWD)
+Rolls-Royce Dawn -> Задний (RWD)
+Bentley Flying Spur older non-AWD generations -> Задний (RWD)
+
+================================
+ДОПОЛНИТЕЛЬНЫЕ МОДЕЛИ: AWD / 4WD
+================================
+
+BMW X1 xDrive versions -> Полный (AWD)
+BMW X2 xDrive versions -> Полный (AWD)
+BMW X3 xDrive versions -> Полный (AWD)
+BMW X4 xDrive versions -> Полный (AWD)
+BMW X5 xDrive versions -> Полный (AWD)
+BMW X6 xDrive versions -> Полный (AWD)
+BMW X7 xDrive versions -> Полный (AWD)
+BMW iX1 xDrive -> Полный (AWD)
+BMW iX2 xDrive -> Полный (AWD)
+
+Mercedes-Benz CLA 4MATIC -> Полный (AWD)
+Mercedes-Benz CLS 4MATIC -> Полный (AWD)
+Mercedes-Benz EQE SUV -> Полный (AWD)
+Mercedes-Benz EQS SUV -> Полный (AWD)
+Mercedes-Benz GLE Coupe 4MATIC -> Полный (AWD)
+Mercedes-Benz GLS 4MATIC -> Полный (AWD)
+
+Audi A7 quattro -> Полный (AWD)
+Audi S3 quattro -> Полный (AWD)
+Audi S4 quattro -> Полный (AWD)
+Audi S6 quattro -> Полный (AWD)
+Audi A6 Allroad quattro -> Полный (AWD)
+Audi RS Q8 -> Полный (AWD)
+Audi e-tron Sportback -> Полный (AWD)
+
+Volkswagen Touareg -> Полный (AWD)
+Volkswagen Tiguan 4Motion -> Полный (AWD)
+Volkswagen Arteon 4Motion -> Полный (AWD)
+
+Skoda Kodiaq 4x4 -> Полный (AWD)
+Skoda Superb 4x4 -> Полный (AWD)
+
+Volvo XC60 AWD -> Полный (AWD)
+Volvo XC90 AWD -> Полный (AWD)
+Volvo V90 Cross Country -> Полный (AWD)
+Volvo S60 Recharge AWD -> Полный (AWD)
+Volvo S90 Recharge AWD -> Полный (AWD)
+
+Lexus RX AWD -> Полный (AWD)
+Lexus NX AWD -> Полный (AWD)
+Lexus GX -> Полный (4WD/AWD)
+Lexus TX AWD versions -> Полный (AWD)
+
+Toyota RAV4 AWD -> Полный (AWD)
+Toyota Highlander AWD -> Полный (AWD)
+Toyota Sienna AWD -> Полный (AWD)
+Toyota Crown Crossover E-Four -> Полный (AWD)
+
+Honda CR-V AWD -> Полный (AWD)
+Honda Pilot AWD -> Полный (AWD)
+Honda Passport AWD -> Полный (AWD)
+
+Mazda CX-5 AWD -> Полный (AWD)
+Mazda CX-8 AWD -> Полный (AWD)
+Mazda CX-9 AWD -> Полный (AWD)
+Mazda CX-60 AWD -> Полный (AWD)
+
+Subaru Forester -> Полный (AWD)
+Subaru Outback -> Полный (AWD)
+Subaru Crosstrek / XV -> Полный (AWD)
+Subaru Legacy AWD versions -> Полный (AWD)
+Subaru WRX -> Полный (AWD)
+
+Hyundai Santa Cruz AWD -> Полный (AWD)
+Hyundai Tucson AWD -> Полный (AWD)
+Hyundai Santa Fe AWD -> Полный (AWD)
+Hyundai Palisade AWD -> Полный (AWD)
+Hyundai Kona AWD -> Полный (AWD)
+
+Kia Sportage AWD -> Полный (AWD)
+Kia Sorento AWD -> Полный (AWD)
+Kia Seltos AWD -> Полный (AWD)
+Kia Telluride AWD -> Полный (AWD)
+Kia EV9 AWD -> Полный (AWD)
+
+Genesis GV70 -> Полный (AWD)
+Genesis GV80 -> Полный (AWD)
+Genesis GV60 AWD -> Полный (AWD)
+
+Ford Explorer AWD -> Полный (AWD)
+Ford Expedition 4WD -> Полный (4WD)
+Ford F-150 4x4 -> Полный (4WD)
+Ford Maverick AWD -> Полный (AWD)
+
+Chevrolet Traverse AWD -> Полный (AWD)
+Chevrolet Blazer AWD -> Полный (AWD)
+Chevrolet Colorado 4WD -> Полный (4WD)
+Chevrolet Silverado 4WD -> Полный (4WD)
+
+GMC Terrain AWD -> Полный (AWD)
+GMC Acadia AWD -> Полный (AWD)
+GMC Sierra 4WD -> Полный (4WD)
+
+RAM 1500 AWD/4WD versions -> Полный (4WD)
+RAM 2500 4WD -> Полный (4WD)
+
+Jeep Grand Cherokee AWD/4x4 -> Полный (AWD/4WD)
+Jeep Compass AWD -> Полный (AWD)
+Jeep Renegade AWD -> Полный (AWD)
+
+Nissan X-Trail AWD -> Полный (AWD)
+Nissan Murano AWD -> Полный (AWD)
+Nissan Rogue AWD -> Полный (AWD)
+
+Infiniti QX50 AWD -> Полный (AWD)
+Infiniti QX60 AWD -> Полный (AWD)
+Infiniti QX80 -> Полный (4WD/AWD)
+
+Jaguar E-PACE AWD -> Полный (AWD)
+Jaguar F-PACE AWD -> Полный (AWD)
+Jaguar I-PACE -> Полный (AWD)
+
+Porsche Panamera 4 / 4S / Turbo / GTS / Turbo S -> Полный (AWD)
+Porsche Taycan 4 / 4S / Turbo / Turbo S -> Полный (AWD)
+Porsche 911 Carrera 4 / 4S / Turbo -> Полный (AWD)
+
+Bentley Continental GT newer generations AWD -> Полный (AWD)
+Bentley Continental GTC newer generations AWD -> Полный (AWD)
+Bentley Flying Spur newer generations AWD -> Полный (AWD)
+
+Rolls-Royce Spectre -> Полный (AWD)
+Rolls-Royce Cullinan -> Полный (AWD)
+
+Mitsubishi Outlander AWD -> Полный (AWD)
+Mitsubishi Eclipse Cross AWD -> Полный (AWD)
+Mitsubishi Triton / L200 4WD -> Полный (4WD)
+
+Suzuki Jimny -> Полный (4WD)
+Suzuki Vitara AllGrip -> Полный (AWD)
+
+Ineos Grenadier -> Полный (4WD)

@@ -1,5 +1,6 @@
 import { hasHangul, translateVehicleText } from '../scraper/translator.js'
 import { applyTrimFixes, normalizeLocationText, normalizeRequestedRomanizedColorAlias } from '../../shared/vehicleTextFixes.js'
+import { inferDriveFromModelTable } from './driveModelRules.js'
 import {
   isWeakBodyTypeLabel as isWeakCanonicalBodyTypeLabel,
   normalizeBodyTypeLabel,
@@ -196,10 +197,6 @@ const DRIVE_FWD_HANGUL_RE = /(?:\uC804\uB95C(?:\s*\uAD6C\uB3D9)?)/u
 const DRIVE_RWD_HANGUL_RE = /(?:\uD6C4\uB95C(?:\s*\uAD6C\uB3D9)?)/u
 const DRIVE_LABEL_RE = /(?:drive|drivetrain|traction|wheel\s*drive|4wd\s*system|awd\s*system|\uAD6C\uB3D9(?:\uBC29\uC2DD)?|\uB3D9\uB825\uC804\uB2EC)/i
 const DRIVE_EXPLICIT_2WD_RE = /(?:\b2wd\b|\btwo[-\s]*wheel(?:\s*drive)?\b|\uC774\uB95C(?:\s*\uAD6C\uB3D9)?|\u0032\uB95C(?:\s*\uAD6C\uB3D9)?)/i
-const DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE = /(?:\b(?:hyundai\s+(?:avante|elantra|sonata|grandeur|azera|casper|santa[\s-]*fe|tucson|palisade|staria)|kia\s+(?:k3|forte|k5|optima|k7|cadenza|k8|morning|picanto|ray|carnival|sorento|sportage|seltos|niro)|renault\s+(?:samsung|korea)\s+(?:sm3|sm5|sm6|qm3|qm6|xm3)|chevrolet\s+(?:spark|malibu|orlando|trax)|genesis\s+gv60)\b|\uC544\uBC18\uB5BC|\uC18C\uB098\uD0C0|\uADF8\uB79C\uC800|\uCE90\uC2A4\uD37C|\uC2FC\uD0C0\uD398|\uD22C\uC2FC|\uD330\uB9AC\uC138\uC774\uB4DC|\uC2A4\uD0C0\uB9AC\uC544|\uBAA8\uB2DD|\uB808\uC774|\uCE74\uB2C8\uBC1C|\uC3D8\uB80C\uD1A0|\uC2A4\uD3EC\uD2F0\uC9C0|\uC140\uD1A0\uC2A4|\uB2C8\uB85C|\bK3\b|\bK5\b|\bK7\b|\bK8\b|\bSM3\b|\bSM5\b|\bSM6\b|\bQM3\b|\bQM6\b|\bXM3\b)/i
-const DRIVE_KNOWN_MODEL_2WD_FWD_RE = DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE
-const DRIVE_KNOWN_MODEL_DEFAULT_RWD_RE = /(?:\b(?:bmw\s+(?:3\s*series|4\s*series|5\s*series|6\s*series|7\s*series|8\s*series|z4)|genesis\s+(?:g70|g80|g90)|kia\s+(?:k9|stinger)|hyundai\s+(?:eq900|equus))\b|\b[3578]\s*\uC2DC\uB9AC\uC988\b|\uC81C\uB124\uC2DC\uC2A4\s*g(?:70|80|90)|\bG(?:70|80|90)\b|\uC2A4\uD305\uC5B4|\bK9\b|\bEQ900\b)/i
-const DRIVE_KNOWN_MODEL_2WD_RWD_RE = /(?:\b(?:kia\s+(?:mohave|k9|stinger)|hyundai\s+(?:eq900|equus)|genesis\s+(?:g70|g80|g90)|bmw\s+(?:3\s*series|5\s*series|7\s*series)|mercedes-benz\s+(?:c-class|e-class|s-class|cls-class))\b|\uBAA8\uD558\uBE44|\uC81C\uB124\uC2DC\uC2A4\s*g(?:70|80|90)|\uC2A4\uD305\uC5B4|\bK9\b|\bEQ900\b|\b[357]\s*\uC2DC\uB9AC\uC988\b)/i
 const KEY_INFO_SEGMENT_SPLIT_RE = /(?:\r?\n|[|;]|\/|▶|★|◈|▪|•|\u2022)+/g
 const KEY_SPARE_RE = /(?:spare\s*key|\uBCF4\uC870\s*\uD0A4)/i
 const KEY_CONTEXT_RE = /(?:\b(?:key(?:\s*count)?|smart\s*key|smartkey|card\s*key|key\s*card|electronic\s*key|digital\s*key|flip\s*key|switchblade\s*key|fold(?:ing)?\s*key|remote\s*key|distance\s*key|mechanical\s*key|metal\s*key|standard\s*key|regular\s*key|plain\s*key)\b|\uCC28\uB7C9\s*\uD0A4\s*\uAC1C\uC218|\uD0A4\s*(?:\uAC1C\uC218|\uC218\uB7C9)|\uC2A4\uB9C8\uD2B8\s*\uD0A4|\uCE74\uB4DC\s*\uD0A4|\uC804\uC790\s*\uD0A4|\uD3F4\uB529\s*\uD0A4|\uB9AC\uBAA8\uCEE8\s*\uD0A4|\uB9AC\uBAA8\uCF58\s*\uD0A4|\uC77C\uBC18\s*\uD0A4|\uAE30\uBCF8\s*\uD0A4|\uCC28\uD0A4)/i
@@ -697,20 +694,8 @@ export function inferDrive(...values) {
 export function inferDriveFromKnownModelContext(...values) {
   const text = flattenTextValues(values).join(' ')
   if (!text) return { value: '', reason: '' }
-
   if (normalizeDrive(text)) return { value: '', reason: '' }
-
-  const hasExplicit2wd = DRIVE_EXPLICIT_2WD_RE.test(text)
-  if (hasExplicit2wd) {
-    if (DRIVE_KNOWN_MODEL_2WD_RWD_RE.test(text)) return { value: 'Задний (RWD)', reason: 'known_model_explicit_2wd_rwd' }
-    if (DRIVE_KNOWN_MODEL_2WD_FWD_RE.test(text)) return { value: 'Передний (FWD)', reason: 'known_model_explicit_2wd_fwd' }
-    return { value: '', reason: '' }
-  }
-
-  if (DRIVE_KNOWN_MODEL_DEFAULT_RWD_RE.test(text)) return { value: 'Задний (RWD)', reason: 'known_model_default_rwd' }
-  if (DRIVE_KNOWN_MODEL_DEFAULT_FWD_RE.test(text)) return { value: 'Передний (FWD)', reason: 'known_model_default_fwd' }
-
-  return { value: '', reason: '' }
+  return inferDriveFromModelTable(text)
 }
 
 export function extractDriveFromPairs(pairs = []) {

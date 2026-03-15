@@ -1,3 +1,4 @@
+import { inferDriveFromModelTable } from './driveModelRules.js'
 import { normalizeDrive } from './vehicleData.js'
 
 const CANONICAL_DRIVE_TYPES = new Set([
@@ -265,36 +266,25 @@ function resolveIdentityDrive({ brand, name, model, trim_level, drive_type }) {
   }
 
   if (EXPLICIT_2WD_RE.test(combined)) {
-    const mapped2wdDrive = resolveMapped2wdDrive(combined)
+    const mapped2wdDrive = inferDriveFromModelTable(combined).value || resolveMapped2wdDrive(combined)
     if (mapped2wdDrive) {
       if (!CANONICAL_DRIVE_TYPES.has(currentDrive)) return mapped2wdDrive
       if (currentDrive === 'Полный (AWD)' || currentDrive === 'Полный (4WD)') return mapped2wdDrive
       return currentDrive
     }
 
-    if (CANONICAL_DRIVE_TYPES.has(currentDrive)) return currentDrive
-    if (CANONICAL_DRIVE_TYPES.has(normalizedCurrentDrive)) return normalizedCurrentDrive
-    return drive_type
+    if (currentDrive === 'Полный (AWD)' || currentDrive === 'Полный (4WD)') return ''
+    if (normalizedCurrentDrive === 'Полный (AWD)' || normalizedCurrentDrive === 'Полный (4WD)') return ''
+    if (currentDrive === 'Передний (FWD)' || currentDrive === 'Задний (RWD)') return currentDrive
+    if (normalizedCurrentDrive === 'Передний (FWD)' || normalizedCurrentDrive === 'Задний (RWD)') return normalizedCurrentDrive
+    return ''
   }
 
   if (CANONICAL_DRIVE_TYPES.has(currentDrive)) return currentDrive
   if (CANONICAL_DRIVE_TYPES.has(normalizedCurrentDrive)) return normalizedCurrentDrive
 
-  if (brand === 'Honda' && HONDA_ACCORD_HYBRID_TOURING_RE.test(combined)) {
-    return 'Передний (FWD)'
-  }
-
-  if (brand === 'Honda' && HONDA_CRV_RE.test(combined) && HONDA_CRV_2WD_RE.test(combined)) {
-    return 'Передний (FWD)'
-  }
-
-  if (brand === 'BMW' && BMW_IX3_RE.test(combined)) {
-    return 'Задний (RWD)'
-  }
-
-  if (brand === 'Kia' && KIA_CARNIVAL_RE.test(combined) && KIA_CARNIVAL_FWD_HINT_RE.test(combined)) {
-    return 'Передний (FWD)'
-  }
+  const tableFallback = inferDriveFromModelTable(combined)
+  if (tableFallback.value) return tableFallback.value
 
   return drive_type
 }
