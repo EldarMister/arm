@@ -26,6 +26,7 @@ import {
 
 const HANGUL_RE = /[\uAC00-\uD7A3]/u
 const MIN_CATALOG_YEAR = '2019'
+const CATALOG_FILTER_APPLY_DELAY_MS = 320
 const CATALOG_REQUEST_SETTLE_MS = 90
 const CATALOG_RETRY_DELAYS_MS = [1000, 2200, 4500]
 const CATALOG_PAGE_SIZE = 20
@@ -809,6 +810,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
   const [hasRetryableError, setHasRetryableError] = useState(false)
   const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 })
   const [filters, setFilters] = useState({ minYear: MIN_CATALOG_YEAR })
+  const [appliedFilters, setAppliedFilters] = useState({ minYear: MIN_CATALOG_YEAR })
   const [page, setPage] = useState(1)
   const [loadedPageEnd, setLoadedPageEnd] = useState(1)
   const sortRef = useRef(null)
@@ -830,13 +832,15 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
   const searchQuery = new URLSearchParams(location.search).get('q')?.trim() || ''
   const hasSearchQuery = Boolean(searchQuery)
   const activeSortOption = SORT_OPTIONS.find((option) => option.value === sort) || SORT_OPTIONS[0]
+  const filtersKey = appendFilterParams(new URLSearchParams(), filters).toString()
+  const appliedFiltersKey = appendFilterParams(new URLSearchParams(), appliedFilters).toString()
   const normalizedOriginFilters = normalizeOriginFilterValues(filters.origin)
   const hasImportedOriginFilter = normalizedOriginFilters.includes('imported')
   const hasKoreanOriginFilter = normalizedOriginFilters.includes('korean')
   const isImportedQuickFilterActive = hasImportedOriginFilter && !hasKoreanOriginFilter
   const isKoreanQuickFilterActive = hasKoreanOriginFilter && !hasImportedOriginFilter
   const isAllCarsQuickFilterActive = normalizedOriginFilters.length === 0 || (hasImportedOriginFilter && hasKoreanOriginFilter)
-  const catalogRequestKey = `${appendFilterParams(new URLSearchParams(), filters).toString()}|sort=${sort}|page=${page}|q=${searchQuery}`
+  const catalogRequestKey = `${appliedFiltersKey}|sort=${sort}|page=${page}|q=${searchQuery}`
   const visiblePageStart = Math.min(meta.page || 1, loadedPageEnd || 1)
   const visiblePageEnd = Math.max(meta.page || 1, loadedPageEnd || 1)
   const autoLoadPageLimit = Math.min(meta.pages || 1, (meta.page || 1) + CATALOG_AUTOLOAD_MAX_PAGES - 1)
@@ -866,6 +870,17 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
       autoLoadPageLimit,
     }
   }, [autoLoadPageLimit, canAutoLoadMore, meta.pages, visiblePageEnd])
+
+  useEffect(() => {
+    if (filtersKey === appliedFiltersKey) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      setPage(1)
+      setAppliedFilters(filters)
+    }, CATALOG_FILTER_APPLY_DELAY_MS)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [appliedFiltersKey, filters, filtersKey])
 
   const clearScheduledRetry = useCallback(() => {
     if (!retryTimerRef.current) return
@@ -904,7 +919,6 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
       delete next.origin
       return next
     })
-    setPage(1)
   }, [])
 
   const fetchCarsFallback = useCallback(async ({ signal, requestId } = {}) => {
@@ -916,7 +930,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
     for (let currentPage = 1; currentPage <= fallbackPages; currentPage += 1) {
       if (signal?.aborted || requestId !== activeCatalogRequestRef.current) return false
 
-      const params = appendFilterParams(new URLSearchParams(), filters)
+      const params = appendFilterParams(new URLSearchParams(), appliedFilters)
       params.set('listingType', section.listingType)
       params.set('sort', sort)
       params.set('page', String(currentPage))
@@ -943,7 +957,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
 
     const filteredCars = filterCarsByOriginSelection(
       fallbackCars.filter((car) => carMatchesSearch(car, searchQuery)),
-      filters.origin
+      appliedFilters.origin
     )
     setCars(filteredCars)
     setMeta({ total: filteredCars.length, page: 1, pages: 1 })
@@ -951,7 +965,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
     setHasRetryableError(false)
     setError(filteredCars.length ? null : '\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e')
     return true
-  }, [sort, filters, searchQuery, section.listingType])
+  }, [sort, appliedFilters, searchQuery, section.listingType])
 
   const runCatalogEnrichment = useCallback(async ({ carsToEnrich, requestId, append = false } = {}) => {
     if (!Array.isArray(carsToEnrich) || !carsToEnrich.some(needsEncarEnrichment)) return
@@ -1132,7 +1146,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
         if (isStale()) return
       }
 
-      const params = appendFilterParams(new URLSearchParams(), filters)
+      const params = appendFilterParams(new URLSearchParams(), appliedFilters)
       params.set('listingType', section.listingType)
       params.set('sort', sort)
       params.set('page', String(targetPage))
@@ -1148,7 +1162,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
       }
       const data = await res.json()
 
-      const mappedCars = filterCarsByOriginSelection(data.cars.map(mapCar), filters.origin)
+      const mappedCars = filterCarsByOriginSelection(data.cars.map(mapCar), appliedFilters.origin)
       if (searchQuery && data.total === 0 && !append) {
         await fetchCarsFallback({ signal: controller.signal, requestId })
         return
@@ -1205,7 +1219,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
         setIsAutoLoadingMore(false)
       }
     }
-  }, [sort, page, filters, searchQuery, fetchCarsFallback, clearScheduledRetry, scheduleCatalogRetry, catalogRequestKey, runCatalogEnrichment, section.listingType])
+  }, [sort, page, appliedFilters, searchQuery, fetchCarsFallback, clearScheduledRetry, scheduleCatalogRetry, catalogRequestKey, runCatalogEnrichment, section.listingType])
 
   useEffect(() => {
     fetchCarsRef.current = fetchCars
@@ -1341,7 +1355,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
             filters={filters}
             catalogCars={cars}
             listingType={section.listingType}
-            onFiltersChange={(f) => { setFilters(f); setPage(1) }}
+            onFiltersChange={setFilters}
             onClose={() => setSidebarOpen(false)}
           />
         </aside>

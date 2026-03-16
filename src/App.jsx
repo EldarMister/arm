@@ -1,44 +1,97 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import HomePage from './pages/HomePage'
-import CatalogPage from './pages/CatalogPage'
-import CarDetailsPage from './pages/CarDetailsPage'
-import ContactsPage from './pages/ContactsPage'
-import AdminPage from './pages/AdminPage'
-import PartsCatalogPage from './pages/PartsCatalogPage'
-import PartDetailsPage from './pages/PartDetailsPage'
-import DeliveryPriceListPage from './pages/DeliveryPriceListPage'
 import DamagedStockTabs from './components/catalog/DamagedStockTabs.jsx'
 import { CAR_SECTION_CONFIG } from './lib/catalogSections.js'
+
+const CatalogPage = lazy(() => import('./pages/CatalogPage'))
+const CarDetailsPage = lazy(() => import('./pages/CarDetailsPage'))
+const ContactsPage = lazy(() => import('./pages/ContactsPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const PartsCatalogPage = lazy(() => import('./pages/PartsCatalogPage'))
+const PartDetailsPage = lazy(() => import('./pages/PartDetailsPage'))
+const DeliveryPriceListPage = lazy(() => import('./pages/DeliveryPriceListPage'))
+
+function LazyRoute({ children }) {
+  return (
+    <Suspense fallback={null}>
+      {children}
+    </Suspense>
+  )
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/admin" element={<AdminPage />} />
+        <Route
+          path="/admin"
+          element={(
+            <LazyRoute>
+              <AdminPage />
+            </LazyRoute>
+          )}
+        />
         <Route path="/" element={<Layout><HomePage /></Layout>} />
-        <Route path="/delivery-price-list" element={<Layout><DeliveryPriceListPage /></Layout>} />
-        <Route path="/catalog" element={<Layout><CatalogPage section={CAR_SECTION_CONFIG.main} /></Layout>} />
-        <Route path="/catalog/:id" element={<Layout><CarDetailsPage section={CAR_SECTION_CONFIG.main} /></Layout>} />
-        <Route path="/urgent-sale" element={<Layout><CatalogPage section={CAR_SECTION_CONFIG.urgent} /></Layout>} />
-        <Route path="/urgent-sale/:id" element={<Layout><CarDetailsPage section={CAR_SECTION_CONFIG.urgent} /></Layout>} />
+        <Route
+          path="/delivery-price-list"
+          element={<Layout><LazyRoute><DeliveryPriceListPage /></LazyRoute></Layout>}
+        />
+        <Route
+          path="/catalog"
+          element={<Layout><LazyRoute><CatalogPage section={CAR_SECTION_CONFIG.main} /></LazyRoute></Layout>}
+        />
+        <Route
+          path="/catalog/:id"
+          element={<Layout><LazyRoute><CarDetailsPage section={CAR_SECTION_CONFIG.main} /></LazyRoute></Layout>}
+        />
+        <Route
+          path="/urgent-sale"
+          element={<Layout><LazyRoute><CatalogPage section={CAR_SECTION_CONFIG.urgent} /></LazyRoute></Layout>}
+        />
+        <Route
+          path="/urgent-sale/:id"
+          element={<Layout><LazyRoute><CarDetailsPage section={CAR_SECTION_CONFIG.urgent} /></LazyRoute></Layout>}
+        />
         <Route
           path="/damaged-stock"
-          element={<Layout><CatalogPage section={CAR_SECTION_CONFIG.damaged} introContent={<DamagedStockTabs active="cars" />} /></Layout>}
+          element={(
+            <Layout>
+              <LazyRoute>
+                <CatalogPage section={CAR_SECTION_CONFIG.damaged} introContent={<DamagedStockTabs active="cars" />} />
+              </LazyRoute>
+            </Layout>
+          )}
         />
         <Route
           path="/damaged-stock/:id"
-          element={<Layout><CarDetailsPage section={CAR_SECTION_CONFIG.damaged} /></Layout>}
+          element={<Layout><LazyRoute><CarDetailsPage section={CAR_SECTION_CONFIG.damaged} /></LazyRoute></Layout>}
         />
         <Route
           path="/damaged-stock/parts"
-          element={<Layout><PartsCatalogPage introContent={<DamagedStockTabs active="parts" />} /></Layout>}
+          element={(
+            <Layout>
+              <LazyRoute>
+                <PartsCatalogPage introContent={<DamagedStockTabs active="parts" />} />
+              </LazyRoute>
+            </Layout>
+          )}
         />
         <Route
           path="/damaged-stock/parts/:id"
-          element={<Layout><PartDetailsPage introContent={<DamagedStockTabs active="parts" />} /></Layout>}
+          element={(
+            <Layout>
+              <LazyRoute>
+                <PartDetailsPage introContent={<DamagedStockTabs active="parts" />} />
+              </LazyRoute>
+            </Layout>
+          )}
         />
-        <Route path="/contacts" element={<Layout><ContactsPage /></Layout>} />
+        <Route
+          path="/contacts"
+          element={<Layout><LazyRoute><ContactsPage /></LazyRoute></Layout>}
+        />
       </Routes>
     </BrowserRouter>
   )

@@ -224,6 +224,29 @@ function normalizeRangePair(minValue, maxValue) {
   return Number(min) <= Number(max) ? [min, max] : [max, min]
 }
 
+function buildAppliedFilters(localFilters) {
+  const out = {}
+  const [minPrice, maxPrice] = normalizeRangePair(localFilters.minPrice, localFilters.maxPrice)
+  const [minYear, maxYear] = normalizeRangePair(localFilters.minYear, localFilters.maxYear)
+  const [minMileage, maxMileage] = normalizeRangePair(localFilters.minMileage, localFilters.maxMileage)
+
+  if (minPrice) out.minPrice = minPrice
+  if (maxPrice) out.maxPrice = maxPrice
+  if (minYear) out.minYear = minYear
+  if (maxYear) out.maxYear = maxYear
+  if (minMileage) out.minMileage = minMileage
+  if (maxMileage) out.maxMileage = maxMileage
+  if (localFilters.origin.length) out.origin = localFilters.origin.join(',')
+  if (localFilters.brands.length) out.brand = localFilters.brands.join(',')
+  if (localFilters.fuel.length) out.fuel = localFilters.fuel.join(',')
+  if (localFilters.drive.length) out.drive = localFilters.drive.join(',')
+  if (localFilters.body.length) out.body = localFilters.body.join(',')
+  if (localFilters.bodyColor.length) out.color = localFilters.bodyColor.join(',')
+  if (localFilters.interiorColor.length) out.interiorColor = localFilters.interiorColor.join(',')
+
+  return out
+}
+
 function sortOptionItems(items, order = []) {
   if (!Array.isArray(items)) return []
   const rank = new Map(order.map((name, index) => [name, index]))
@@ -602,8 +625,7 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
   const [options, setOptions] = useState(FALLBACK)
   const [loadingOpts, setLoadingOpts] = useState(true)
 
-  // Local filter state
-  const [local, setLocal] = useState(() => buildLocalFilters(filters))
+  const local = useMemo(() => buildLocalFilters(filters), [filters])
 
   const liveBrands = useMemo(
     () => buildLiveOptionCounts(catalogCars, (car) => normalizeBrandName(car?.name || car?.model || '')),
@@ -658,32 +680,24 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
     () => (options.interiorColors?.length ? mergeOptionItems(options.interiorColors, liveInteriorColors) : liveInteriorColors),
     [liveInteriorColors, options.interiorColors]
   )
-  const effectiveYearRange = useMemo(() => {
-    const rawMin = Number(options?.yearRange?.min_year) || liveYearRange?.min || MIN_FILTER_YEAR
-    const rawMax = Number(options?.yearRange?.max_year) || liveYearRange?.max || new Date().getFullYear()
-    return {
-      min: Math.max(rawMin, MIN_FILTER_YEAR),
-      max: Math.max(rawMax, MIN_FILTER_YEAR),
-    }
-  }, [liveYearRange, options?.yearRange])
-  const effectivePriceRange = useMemo(() => ({
+  const rawMinYear = Number(options?.yearRange?.min_year) || liveYearRange?.min || MIN_FILTER_YEAR
+  const rawMaxYear = Number(options?.yearRange?.max_year) || liveYearRange?.max || new Date().getFullYear()
+  const effectiveYearRange = {
+    min: Math.max(rawMinYear, MIN_FILTER_YEAR),
+    max: Math.max(rawMaxYear, MIN_FILTER_YEAR),
+  }
+  const effectivePriceRange = {
     min: Number(options?.priceRange?.min_price) || livePriceRange?.min || 0,
     max: Number(options?.priceRange?.max_price) || livePriceRange?.max || 100000,
-  }), [livePriceRange, options?.priceRange])
-  const effectiveMileageRange = useMemo(() => ({
+  }
+  const effectiveMileageRange = {
     min: Number(options?.mileageRange?.min_mileage) || liveMileageRange?.min || 0,
     max: Number(options?.mileageRange?.max_mileage) || liveMileageRange?.max || 500000,
-  }), [liveMileageRange, options?.mileageRange])
-  const years = useMemo(() => {
-    const min = effectiveYearRange.min
-    const max = effectiveYearRange.max
-    const length = Math.max(0, max - min + 1)
-    return Array.from({ length }, (_, i) => max - i)
-  }, [effectiveYearRange])
-
-  useEffect(() => {
-    setLocal(buildLocalFilters(filters))
-  }, [filters])
+  }
+  const years = Array.from(
+    { length: Math.max(0, effectiveYearRange.max - effectiveYearRange.min + 1) },
+    (_, i) => effectiveYearRange.max - i
+  )
 
   // Fetch filter options from backend
   useEffect(() => {
@@ -711,43 +725,22 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
 
   const toggle = (key) => setOpen(s => ({ ...s, [key]: !s[key] }))
 
-  const setL = (k, v) => setLocal(s => ({ ...s, [k]: v }))
+  const setL = (k, v) => {
+    onFiltersChange(buildAppliedFilters({ ...local, [k]: v }))
+  }
 
   const toggleItem = (group, name) => {
-    setLocal(s => ({
-      ...s,
-      [group]: normalizeArrayFilterValue(s[group]).includes(name)
-        ? normalizeArrayFilterValue(s[group]).filter(x => x !== name)
-        : [...normalizeArrayFilterValue(s[group]), name],
+    const nextGroupValues = normalizeArrayFilterValue(local[group]).includes(name)
+      ? normalizeArrayFilterValue(local[group]).filter(x => x !== name)
+      : [...normalizeArrayFilterValue(local[group]), name]
+
+    onFiltersChange(buildAppliedFilters({
+      ...local,
+      [group]: nextGroupValues,
     }))
   }
 
-  const applyFilters = () => {
-    const out = {}
-    const [minPrice, maxPrice] = normalizeRangePair(local.minPrice, local.maxPrice)
-    const [minYear, maxYear] = normalizeRangePair(local.minYear, local.maxYear)
-    const [minMileage, maxMileage] = normalizeRangePair(local.minMileage, local.maxMileage)
-
-    if (minPrice) out.minPrice = minPrice
-    if (maxPrice) out.maxPrice = maxPrice
-    if (minYear) out.minYear = minYear
-    if (maxYear) out.maxYear = maxYear
-    if (minMileage) out.minMileage = minMileage
-    if (maxMileage) out.maxMileage = maxMileage
-    if (local.origin.length) out.origin = local.origin.join(',')
-    if (local.brands.length) out.brand = local.brands.join(',')
-    if (local.fuel.length) out.fuel = local.fuel.join(',')
-    if (local.drive.length) out.drive = local.drive.join(',')
-    if (local.body.length) out.body = local.body.join(',')
-    if (local.bodyColor.length) out.color = local.bodyColor.join(',')
-    if (local.interiorColor.length) out.interiorColor = local.interiorColor.join(',')
-    onFiltersChange(out)
-    onClose?.()
-  }
-
   const resetFilters = () => {
-    const empty = { ...EMPTY_LOCAL_FILTERS }
-    setLocal(empty)
     onFiltersChange({ minYear: String(MIN_FILTER_YEAR) })
   }
 
@@ -1000,14 +993,14 @@ export default function FilterSidebar({ filters, onFiltersChange, onClose, catal
         )}
       </div>
 
-      {/* Apply / Reset buttons */}
+      {/* Reset / auto-apply */}
       <div className="filter-actions">
         <button type="button" className="filter-reset-btn" onClick={resetFilters}>
           Сбросить
         </button>
-        <button type="button" className="filter-apply-btn" onClick={applyFilters}>
-          Применить
-        </button>
+        <div className="filter-auto-apply-note" aria-live="polite">
+          Применяется автоматически
+        </div>
       </div>
     </div>
   )
