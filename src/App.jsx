@@ -2,10 +2,10 @@ import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import HomePage from './pages/HomePage'
+import CatalogPage from './pages/CatalogPage'
 import DamagedStockTabs from './components/catalog/DamagedStockTabs.jsx'
 import { CAR_SECTION_CONFIG } from './lib/catalogSections.js'
 
-const CatalogPage = lazy(() => import('./pages/CatalogPage'))
 const CarDetailsPage = lazy(() => import('./pages/CarDetailsPage'))
 const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))

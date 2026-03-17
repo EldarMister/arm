@@ -964,7 +964,7 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
     const nextSort = normalizeCatalogSort(new URLSearchParams(location.search).get('sort'))
     const nextFiltersKey = appendFilterParams(new URLSearchParams(), nextFilters).toString()
 
-    if (nextFiltersKey !== filtersKey) {
+    if (nextFiltersKey !== appliedFiltersKey) {
       setFilters(nextFilters)
       setAppliedFilters(nextFilters)
       setPage(1)
@@ -976,10 +976,10 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
       setPage(1)
       setLoadedPageEnd(1)
     }
-  }, [filtersKey, location.search, sort])
+  }, [appliedFiltersKey, location.search, sort])
 
   useEffect(() => {
-    const nextSearch = buildCatalogSearchParams(location.search, filters, sort).toString()
+    const nextSearch = buildCatalogSearchParams(location.search, appliedFilters, sort).toString()
     const currentSearch = location.search.startsWith('?') ? location.search.slice(1) : location.search
 
     if (nextSearch === currentSearch) return
@@ -988,13 +988,14 @@ export default function CatalogPage({ section = CAR_SECTION_CONFIG.main, introCo
       pathname: location.pathname,
       search: nextSearch ? `?${nextSearch}` : '',
     }, { replace: true })
-  }, [filters, sort, location.pathname, location.search, navigate])
+  }, [appliedFilters, sort, location.pathname, location.search, navigate])
 
   useEffect(() => {
     if (filtersKey === appliedFiltersKey) return undefined
 
     const timeoutId = window.setTimeout(() => {
       setPage(1)
+      setLoadedPageEnd(1)
       setAppliedFilters(filters)
     }, CATALOG_FILTER_APPLY_DELAY_MS)
 
