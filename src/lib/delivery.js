@@ -230,19 +230,24 @@ export function resolveDeliveryPriceList({ settings, countryCode } = {}) {
   const items = (normalized.delivery_profiles || [])
     .filter((profile) => activeCountryCode === 'kg' || !KG_ONLY_PRICE_LIST_PROFILES.has(profile.code))
     .map((profile) => {
-    const countryPrice = toNumber(profile?.prices?.[activeCountryCode], null)
-    const legacyPrice = activeCountryCode === defaultCountryCode ? toNumber(profile?.price, null) : null
-    const resolvedPrice = Number.isFinite(countryPrice) && countryPrice > 0 ? countryPrice : legacyPrice
-    const priceSource = Number.isFinite(countryPrice) && countryPrice > 0
-      ? 'profile'
-      : (Number.isFinite(legacyPrice) && legacyPrice > 0 ? 'legacy' : 'missing')
+      const countryPrice = toNumber(profile?.prices?.[activeCountryCode], null)
+      const legacyPrice = activeCountryCode === defaultCountryCode ? toNumber(profile?.price, null) : null
+      const resolvedPrice = Number.isFinite(countryPrice) && countryPrice > 0 ? countryPrice : legacyPrice
+      const priceSource = Number.isFinite(countryPrice) && countryPrice > 0
+        ? 'profile'
+        : (Number.isFinite(legacyPrice) && legacyPrice > 0 ? 'legacy' : 'missing')
 
-    return {
-      ...profile,
-      resolvedPrice,
-      priceSource,
-    }
-  })
+      const displayLabel = activeCountryCode !== 'kg' && profile.code === 'sedan_bishkek'
+        ? 'SEDAN'
+        : profile.label
+
+      return {
+        ...profile,
+        label: displayLabel,
+        resolvedPrice,
+        priceSource,
+      }
+    })
 
   return {
     country,
