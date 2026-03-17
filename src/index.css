@@ -9227,6 +9227,10 @@ body {
 }
 
 @media (max-width: 767px) {
+  .cat-layout {
+    padding: 14px 8px 18px;
+  }
+
   .car-card {
     border-radius: 14px;
   }
@@ -9265,17 +9269,23 @@ body {
 
   .car-info {
     padding: 12px 12px 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.88fr);
+    column-gap: 12px;
+    display: grid;
+    row-gap: 0;
   }
 
   .car-name {
     margin-bottom: 1px;
     font-size: 14px;
     line-height: 1.25;
+    grid-column: 1 / -1;
   }
 
   .car-model {
     font-size: 11px;
     line-height: 1.35;
+    grid-column: 1 / -1;
   }
 
   .car-quick-meta {
@@ -9284,6 +9294,16 @@ body {
     flex-wrap: wrap;
     font-size: 11px;
     line-height: 1.35;
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .car-quick-meta:first-of-type {
+    grid-row: 3;
+  }
+
+  .car-quick-meta:nth-of-type(2) {
+    grid-row: 4;
   }
 
   .car-meta {
@@ -9291,12 +9311,14 @@ body {
     gap: 5px;
     font-size: 12px;
     line-height: 1.35;
+    grid-column: 1 / -1;
   }
 
   .car-tags,
   .car-service-badges {
     margin-top: 8px;
     gap: 4px;
+    grid-column: 1 / -1;
   }
 
   .car-tag,
@@ -9310,6 +9332,7 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     margin-top: 8px;
+    grid-column: 1 / -1;
   }
 
   .car-feature-pill {
@@ -9322,14 +9345,14 @@ body {
   }
 
   .car-color-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 12px;
-    margin-top: 8px;
-  }
-
-  .car-color-row .car-detail:last-child {
-    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    grid-column: 2;
+    grid-row: 3 / span 3;
+    align-self: start;
+    min-width: 0;
   }
 
   .car-detail {
@@ -9344,11 +9367,23 @@ body {
     min-width: 0;
   }
 
+  .car-color-row .car-detail {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .car-color-row .car-detail-value {
+    font-size: 11px;
+  }
+
   .car-location {
     gap: 5px;
-    margin-top: 8px;
-    font-size: 12px;
-    line-height: 1.35;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.25;
+    grid-column: 1;
+    grid-row: 5;
+    min-width: 0;
   }
 
   .car-price-col {
@@ -9397,10 +9432,6 @@ body {
   .car-price-row span:last-child {
     white-space: nowrap;
     font-weight: 700;
-  }
-
-  .car-price-vat {
-    grid-column: 1 / -1;
   }
 
   .car-price-total {
