@@ -5176,13 +5176,14 @@ body {
 /* Offices */
 .cnt-offices-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 320px));
   gap: 18px;
+  justify-content: center;
 }
 
 @media (max-width: 900px) {
   .cnt-offices-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
   }
 }
 

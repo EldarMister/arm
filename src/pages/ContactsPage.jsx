@@ -177,10 +177,10 @@ export default function ContactsPage() {
       {/* Ways to connect */}
       <section className="cnt-section">
         <div className="cnt-inner">
-          <h2 className="cnt-section-title reveal">Способы связи</h2>
+          <h2 className="cnt-section-title">Способы связи</h2>
           <div className="cnt-ways-grid">
-            {CONTACT_CARDS.map((card, i) => (
-              <a key={card.title} href={card.href} target="_blank" rel="noreferrer" className={`cnt-way-card reveal reveal-delay-${i + 1}`}>
+            {CONTACT_CARDS.map((card) => (
+              <a key={card.title} href={card.href} target="_blank" rel="noreferrer" className="cnt-way-card">
                 <div className="cnt-way-icon">
                   {card.icon}
                 </div>
