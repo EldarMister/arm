@@ -3809,6 +3809,38 @@ body {
   color: #9a3412;
 }
 
+.car-details-customs-alert {
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #f3c86b;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff4cc 0%, #fffbeb 100%);
+  color: #8a4b08;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.car-details-customs-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #d97706;
+}
+
+@media (max-width: 760px) {
+  .car-details-customs-alert {
+    font-size: 11px;
+    padding: 9px 10px;
+  }
+}
+
 .car-details-specs-card {
   padding: 15px 16px;
 }
@@ -6810,6 +6842,16 @@ body {
   border-color: #7c4a20;
   background: #3b2418;
   color: #ffd4b8;
+}
+
+[data-theme="dark"] .car-details-customs-alert {
+  border-color: #8a6512;
+  background: linear-gradient(180deg, #43300f 0%, #2d2413 100%);
+  color: #f8ddb2;
+}
+
+[data-theme="dark"] .car-details-customs-alert-icon {
+  color: #f59e0b;
 }
 
 /* Contacts page */
@@ -10617,6 +10659,338 @@ body {
   border-color: transparent;
   color: #fff;
   box-shadow: 0 12px 24px rgba(185, 28, 28, 0.28);
+}
+
+.adm-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .adm-layout {
+    position: relative;
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
+  .adm-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(84vw, 280px);
+    z-index: 80;
+    box-shadow: 20px 0 36px rgba(2, 6, 23, 0.48);
+    transition: transform 0.24s ease, opacity 0.24s ease, width 0.24s ease;
+  }
+
+  .adm-sidebar.adm-sidebar-col {
+    width: min(84vw, 280px);
+    transform: translateX(calc(-100% - 14px));
+  }
+
+  .adm-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    border: 0;
+    background: rgba(2, 6, 23, 0.46);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .adm-sidebar-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .adm-main {
+    width: 100%;
+  }
+
+  .adm-topbar {
+    height: 56px;
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .adm-topbar-title {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .adm-badge {
+    display: none;
+  }
+
+  .adm-content {
+    padding: 14px 12px 24px;
+  }
+
+  .adm-page-hd {
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .adm-page-hd > div:last-child {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  .adm-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .adm-search-form {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .adm-search-wrap {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .adm-toolbar > .adm-select,
+  .adm-toolbar > .adm-btn {
+    width: 100%;
+  }
+
+  .adm-section-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adm-section-switcher-btn {
+    min-width: 0;
+  }
+
+  .adm-export-controls {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .adm-export-limit {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .adm-export-limit-input {
+    min-width: 0;
+    width: 128px;
+  }
+
+  .adm-pagination {
+    gap: 8px;
+  }
+
+  .adm-pg-info {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .adm-fields-row {
+    flex-direction: column;
+  }
+
+  .adm-price-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adm-form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .adm-form-actions .adm-btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .adm-modal-overlay {
+    padding: 12px;
+  }
+
+  .adm-modal,
+  .adm-modal-wide {
+    border-radius: 16px;
+    max-width: 100%;
+  }
+
+  .adm-modal-hd {
+    padding: 14px 14px 12px;
+  }
+
+  .adm-modal-body {
+    padding: 14px;
+  }
+
+  .adm-tag-add {
+    flex-wrap: wrap;
+  }
+
+  .adm-tag-add .adm-btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .adm-toast-stack {
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px;
+  }
+
+  .adm-toast {
+    max-width: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .adm-table-wrap {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  .adm-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .adm-table thead {
+    display: none;
+  }
+
+  .adm-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .adm-table tbody tr {
+    display: block;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.46);
+    padding: 10px 12px;
+  }
+
+  .adm-table tbody tr:hover {
+    background: rgba(30, 41, 59, 0.66);
+  }
+
+  .adm-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    border: 0;
+    padding: 7px 0;
+  }
+
+  .adm-table td::before {
+    content: attr(data-label);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex: 0 0 42%;
+    max-width: 42%;
+  }
+
+  .adm-table td[data-label=""]::before {
+    content: none;
+  }
+
+  .adm-table td[data-label="Фото"],
+  .adm-table td[data-label="Теги"],
+  .adm-table td[data-label="Действия"],
+  .adm-table td[data-label="Наличие"],
+  .adm-table td[data-label="Раздел"] {
+    align-items: center;
+  }
+
+  .adm-table td[data-label="Автомобиль"],
+  .adm-table td[data-label="Запчасть"],
+  .adm-table td[data-label="Совместимость"],
+  .adm-table td[data-label="Год / Пробег"] {
+    display: block;
+  }
+
+  .adm-table td[data-label="Автомобиль"]::before,
+  .adm-table td[data-label="Запчасть"]::before,
+  .adm-table td[data-label="Совместимость"]::before,
+  .adm-table td[data-label="Год / Пробег"]::before {
+    display: block;
+    margin-bottom: 4px;
+    max-width: none;
+  }
+
+  .adm-table td[data-label="Фото"] .adm-thumb-wrap {
+    margin-left: auto;
+    width: 78px;
+  }
+
+  .adm-table td[data-label="Фото"] .adm-thumb,
+  .adm-table td[data-label="Фото"] .adm-thumb-empty {
+    width: 78px;
+    height: 58px;
+  }
+
+  .adm-table td[data-label=""] {
+    justify-content: flex-end;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .adm-table td[data-label=""] input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  .adm-row-acts {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .adm-tags-cell {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .adm-topbar {
+    padding: 0 10px;
+  }
+
+  .adm-content {
+    padding: 12px 10px 18px;
+  }
+
+  .adm-section-switcher {
+    grid-template-columns: 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .adm-btn {
+    padding: 9px 12px;
+  }
+
+  .adm-btn-sm {
+    min-height: 36px;
+  }
+
+  .adm-price-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 [data-theme="dark"] .car-details-section-badge {

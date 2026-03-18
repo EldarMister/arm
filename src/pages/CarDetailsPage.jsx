@@ -2174,6 +2174,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
         : customsMode === 'az'
           ? ` (${selectedCountry?.label || 'Азербайджан'})`
         : ''
+  const showTransitMonthCustomsNotice = customsMode === 'kg' && calcYearValue === 2019
   const utilFeeResult = useMemo(() => resolveUtilFeeCalculation({
     countryCode: customsCountryCode,
     year: calcYearValue,
@@ -2427,6 +2428,12 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
                   ) : null}
                   {customsResult.status !== 'success' && customsResult.message ? (
                     <p className="car-details-customs-note is-warning">{customsResult.message}</p>
+                  ) : null}
+                  {showTransitMonthCustomsNotice ? (
+                    <div className="car-details-customs-alert" role="note">
+                      <span className="car-details-customs-alert-icon" aria-hidden="true"><WarningSmallIcon /></span>
+                      <span>Растаможку уточняйте по WhatsApp, так как для автомобилей 2019 года расчет зависит от месяца (значения могут отличаться).</span>
+                    </div>
                   ) : null}
                 </>
               ) : (

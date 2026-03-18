@@ -67,6 +67,7 @@ const BACKFILL_MODE_OPTIONS = [
 ]
 const DEFAULT_CATALOG_EXPORT_LIMIT = 5000
 const MAX_CATALOG_EXPORT_LIMIT = 50000
+const MOBILE_ADMIN_BREAKPOINT = 900
 const DEFAULT_CATALOG_EXPORT_START = 1
 const MAX_CATALOG_EXPORT_START = 1000000
 const ADMIN_LOGIN_MAX_ATTEMPTS = 3
@@ -1923,9 +1924,9 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                 <tbody>
                     {cars.map(part => (
                         <tr key={part.id} className={selected.has(part.id) ? 'adm-tr-sel' : ''}>
-                            <td><input type="checkbox" checked={selected.has(part.id)} onChange={() => toggleSel(part.id)} style={{ accentColor: '#6366f1' }} /></td>
-                            <td className="adm-td-id">#{part.id}</td>
-                            <td>
+                            <td data-label=""><input type="checkbox" checked={selected.has(part.id)} onChange={() => toggleSel(part.id)} style={{ accentColor: '#6366f1' }} /></td>
+                            <td className="adm-td-id" data-label="ID">#{part.id}</td>
+                            <td data-label="Фото">
                                 <div className="adm-thumb-wrap">
                                     {part.images?.length > 0
                                         ? <img className="adm-thumb" src={part.images[0].url} alt="" loading="lazy" />
@@ -1933,22 +1934,22 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                     <span className="adm-thumb-cnt">{(part.images || []).length}</span>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Запчасть">
                                 <div className="adm-car-name">{part.title || '-'}</div>
                                 <div className="adm-car-model">{part.category || 'Запчасть'}</div>
                                 {part.article_number && <div className="adm-car-vin">Артикул: {part.article_number}</div>}
                             </td>
-                            <td>
+                            <td data-label="Совместимость">
                                 <div>{[part.brand, part.model].filter(Boolean).join(' ') || '-'}</div>
                                 <div className="adm-car-sub">{[part.generation_body, part.year_range].filter(Boolean).join(' • ') || 'Совместимость не указана'}</div>
                             </td>
-                            <td className="adm-td-usd">{fmtU(part.price)}</td>
-                            <td>
+                            <td className="adm-td-usd" data-label="Цена">{fmtU(part.price)}</td>
+                            <td data-label="Наличие">
                                 <span className={`adm-tag-sm${part.in_stock ? '' : ' adm-tag-more'}`}>
                                     {part.availability_text || (part.in_stock ? 'В наличии' : 'Нет в наличии')}
                                 </span>
                             </td>
-                            <td>
+                            <td data-label="Действия">
                                 <div className="adm-row-acts">
                                     <button className="adm-act adm-act-edit" title="Редактировать" onClick={() => { setEditPart(part); setAdding(false) }}><Ic d={IC.edit} s={14} /></button>
                                     <button className="adm-act adm-act-img" title="Фото" onClick={() => setImgPart(part)}><Ic d={IC.photo} s={14} /></button>
@@ -1975,9 +1976,9 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                             const displayModel = normalizeAdminVehicleTitle(car.model, { keepBrand: false }) || car.model
                             return (
                                 <tr key={car.id} className={selected.has(car.id) ? 'adm-tr-sel' : ''}>
-                                    <td><input type="checkbox" checked={selected.has(car.id)} onChange={() => toggleSel(car.id)} style={{ accentColor: '#6366f1' }} /></td>
-                                    <td className="adm-td-id">#{car.id}</td>
-                                    <td>
+                                    <td data-label=""><input type="checkbox" checked={selected.has(car.id)} onChange={() => toggleSel(car.id)} style={{ accentColor: '#6366f1' }} /></td>
+                                    <td className="adm-td-id" data-label="ID">#{car.id}</td>
+                                    <td data-label="Фото">
                                         <div className="adm-thumb-wrap">
                                             {car.images?.length > 0
                                                 ? <img className="adm-thumb" src={car.images[0].url} alt="" loading="lazy" />
@@ -1985,23 +1986,23 @@ function Cars({ toast, initAdd, pricingSettings, pricingRevision }) {
                                             <span className="adm-thumb-cnt">{(car.images || []).length}</span>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Автомобиль">
                                         <div className="adm-car-name">{displayName}</div>
                                         <div className="adm-car-model">{displayModel}</div>
                                         {car.vin && <div className="adm-car-vin">VIN: {car.vin}</div>}
                                     </td>
-                                    <td><span className="adm-tag-sm">{getCarListingBadge(car.listing_type || section)}</span></td>
-                                    <td><div>{car.year}</div><div className="adm-car-sub">{Number(car.mileage || 0).toLocaleString()} км</div></td>
-                                    <td className="adm-td-krw">{fmtK(car.price_krw)}</td>
-                                    <td className="adm-td-usd">{fmtU(car.price_usd)}</td>
-                                    <td className="adm-td-total">{fmtU(car.total)}</td>
-                                    <td>
+                                    <td data-label="Раздел"><span className="adm-tag-sm">{getCarListingBadge(car.listing_type || section)}</span></td>
+                                    <td data-label="Год / Пробег"><div>{car.year}</div><div className="adm-car-sub">{Number(car.mileage || 0).toLocaleString()} км</div></td>
+                                    <td className="adm-td-krw" data-label="Цена KRW">{fmtK(car.price_krw)}</td>
+                                    <td className="adm-td-usd" data-label="Цена USD">{fmtU(car.price_usd)}</td>
+                                    <td className="adm-td-total" data-label="До Бишкека">{fmtU(car.total)}</td>
+                                    <td data-label="Теги">
                                         <div className="adm-tags-cell">
                                             {(car.tags || []).slice(0, 2).map(t => <span key={t} className="adm-tag-sm">{t}</span>)}
                                             {(car.tags || []).length > 2 && <span className="adm-tag-sm adm-tag-more">+{car.tags.length - 2}</span>}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Действия">
                                         <div className="adm-row-acts">
                                             <button className="adm-act adm-act-edit" title="Редактировать" onClick={() => { setEditCar(car); setAdding(false) }}><Ic d={IC.edit} s={14} /></button>
                                             <button className="adm-act adm-act-price" title="Цены" onClick={() => setPriceCar(car)}><Ic d={IC.calc} s={14} /></button>
@@ -2599,7 +2600,10 @@ function Login({ onLogin }) {
 export default function AdminPage() {
     const [auth, setAuth] = useState(() => Boolean(readAdminSessionToken()))
     const [tab, setTab] = useState('dashboard')
-    const [sidebar, setSidebar] = useState(true)
+    const [sidebar, setSidebar] = useState(() => {
+        if (typeof window === 'undefined') return true
+        return !window.matchMedia(`(max-width: ${MOBILE_ADMIN_BREAKPOINT}px)`).matches
+    })
     const { list: toasts, add: toast } = useToast()
     const [initAdd, setInitAdd] = useState(false)
     const [pricingSettings, setPricingSettings] = useState(PRICING_FALLBACK)
@@ -2638,6 +2642,21 @@ export default function AdminPage() {
         }
     }, [auth])
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+        const media = window.matchMedia(`(max-width: ${MOBILE_ADMIN_BREAKPOINT}px)`)
+        const handleViewportChange = event => {
+            if (event.matches) setSidebar(false)
+        }
+        if (media.matches) setSidebar(false)
+        if (typeof media.addEventListener === 'function') {
+            media.addEventListener('change', handleViewportChange)
+            return () => media.removeEventListener('change', handleViewportChange)
+        }
+        media.addListener(handleViewportChange)
+        return () => media.removeListener(handleViewportChange)
+    }, [])
+
     if (!auth) return <Login onLogin={(token) => {
         if (!token) return
         sessionStorage.setItem('adm', 'ok')
@@ -2654,7 +2673,13 @@ export default function AdminPage() {
         { id: 'settings',  label: 'Настройки',    icon: IC.set  },
     ]
 
-    const goTo = id => { setTab(id); if (id === 'cars') { setInitAdd(false) } }
+    const goTo = id => {
+        setTab(id)
+        if (id === 'cars') setInitAdd(false)
+        if (typeof window !== 'undefined' && window.matchMedia(`(max-width: ${MOBILE_ADMIN_BREAKPOINT}px)`).matches) {
+            setSidebar(false)
+        }
+    }
     const handlePricingSaved = (value) => {
         setPricingSettings(normalizePricingSettingsClient(value))
         setPricingLoaded(true)
@@ -2679,6 +2704,12 @@ export default function AdminPage() {
                     </button>
                 </div>
             </aside>
+            <button
+                type="button"
+                className={`adm-sidebar-backdrop${sidebar ? ' is-open' : ''}`}
+                onClick={() => setSidebar(false)}
+                aria-label="Закрыть меню"
+            />
 
             <div className="adm-main">
                 <header className="adm-topbar">
@@ -2702,7 +2733,7 @@ export default function AdminPage() {
                 </main>
             </div>
 
-            <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="adm-toast-stack" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {toasts.map(t => (
                     <div key={t.id} className={`adm-toast adm-toast-${t.type}`}>
                         <Ic d={t.type === 'error' ? IC.warn : IC.ok} s={15} />{t.msg}

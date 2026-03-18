@@ -109,6 +109,9 @@ const MAIN_ROW_BY_YEAR = new Map([
   [2014, '2014'],
 ])
 
+const KG_PASS_THROUGH_WARNING_YEAR = 2019
+const KG_PASS_THROUGH_BASE_YEAR = 2020
+
 const UNDER_THREE_ROW_BY_YEAR = new Map([
   [2026, '2026'],
   [2025, '2025'],
@@ -246,6 +249,12 @@ function getMainRowKey(year) {
   return MAIN_ROW_BY_YEAR.get(Number(year)) || null
 }
 
+function resolveKgCalculationYear(year) {
+  const numericYear = Number(year)
+  if (!Number.isFinite(numericYear)) return numericYear
+  return numericYear === KG_PASS_THROUGH_WARNING_YEAR ? KG_PASS_THROUGH_BASE_YEAR : numericYear
+}
+
 function getUnderThreeRowLabel(year) {
   return UNDER_THREE_ROW_BY_YEAR.get(Number(year)) || null
 }
@@ -283,6 +292,7 @@ export function resolveCustomsCalculation(input, currentDate = new Date()) {
   const year = Number(input?.year)
   const fuel = String(input?.fuel || 'gasoline')
   const direction = String(input?.direction || '')
+  const calculationYear = resolveKgCalculationYear(year)
 
   if (!Number.isInteger(year) || year < 1900) {
     return buildManualResult({
@@ -305,12 +315,12 @@ export function resolveCustomsCalculation(input, currentDate = new Date()) {
     })
   }
 
-  const age = resolveAgeFlags(year, currentDate)
+  const age = resolveAgeFlags(calculationYear, currentDate)
   const fuelLabel = getCustomsFuelLabel(fuel)
   const isGasolineFamily = fuel === 'gasoline' || fuel === 'lpg'
 
   if (fuel === 'hybrid') {
-    const rowLabel = getUnderThreeRowLabel(year)
+    const rowLabel = getUnderThreeRowLabel(calculationYear)
     const volume = resolveSpecialCcColumn(input?.engine, ['1801', '2000', '2500', '3000'])
 
     if (!volume) {
@@ -355,7 +365,7 @@ export function resolveCustomsCalculation(input, currentDate = new Date()) {
 
   if (isGasolineFamily) {
     const specialVolume = resolveSpecialCcColumn(input?.engine, ['3000'])
-    const specialRowLabel = getUnderThreeRowLabel(year)
+    const specialRowLabel = getUnderThreeRowLabel(calculationYear)
 
     if (specialVolume && specialRowLabel && age.notOlderThan3Years) {
       if (!DIRECTION_LABELS[direction]) {
@@ -380,7 +390,7 @@ export function resolveCustomsCalculation(input, currentDate = new Date()) {
     }
   }
 
-  const rowKey = getMainRowKey(year)
+  const rowKey = getMainRowKey(calculationYear)
   if (!rowKey) {
     return buildManualResult({
       fuel: fuelLabel,
