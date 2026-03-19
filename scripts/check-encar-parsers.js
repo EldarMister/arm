@@ -260,7 +260,7 @@ function run() {
     body_type: 'Седан',
     vehicle_class: '',
   })
-  assert.equal(rayNormalized.body_type, BODY_TYPE_LABELS.minivan)
+  assert.equal(rayNormalized.body_type, BODY_TYPE_LABELS.microvan)
   assert.equal(
     inferDeliveryProfileCode({
       ...rayNormalized,

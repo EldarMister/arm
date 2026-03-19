@@ -21,6 +21,7 @@ export const BODY_TYPE_LABELS = Object.freeze({
   liftback: 'Лифтбек',
   hatchback: 'Хэтчбек',
   wagon: 'Универсал',
+  microvan: 'Микровэн',
   suv: 'Кроссовер / внедорожник',
   minivan: 'Минивэн',
   pickup: 'Пикап',
@@ -103,6 +104,7 @@ export function normalizeBodyTypeLabel(value) {
   const legacyBody = normalizeLegacyBodyClassToBody(text)
   if (legacyBody) return legacyBody
 
+  if (low === 'микровэн' || low === 'microvan') return BODY_TYPE_LABELS.microvan
   if (low === 'минивэны' || low === 'minivans') return BODY_TYPE_LABELS.minivan
   if (low === 'хэтчбеки') return BODY_TYPE_LABELS.hatchback
   if (low === 'универсалы') return BODY_TYPE_LABELS.wagon
@@ -186,7 +188,7 @@ function inferVehicleClassFromContext(bodyType, ...values) {
   if (!text) return ''
 
   if (A_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.aClass
-  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.minivan].includes(normalizedBody)) {
+  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.minivan, BODY_TYPE_LABELS.microvan].includes(normalizedBody)) {
     return ''
   }
   if (EXECUTIVE_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.executive

@@ -20,6 +20,7 @@ const CANONICAL_BODY_FILTER_ITEMS = [
   { name: BODY_TYPE_LABELS.liftback, count: 0 },
   { name: BODY_TYPE_LABELS.hatchback, count: 0 },
   { name: BODY_TYPE_LABELS.wagon, count: 0 },
+  { name: BODY_TYPE_LABELS.microvan, count: 0 },
   { name: BODY_TYPE_LABELS.minivan, count: 0 },
   { name: BODY_TYPE_LABELS.pickup, count: 0 },
   { name: BODY_TYPE_LABELS.truck, count: 0 },

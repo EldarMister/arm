@@ -404,6 +404,7 @@ export function inferDeliveryProfileCode(vehicle = {}, settings = DEFAULT_PRICIN
   }
 
   if (bodyType === 'Мини') return findProfile(settings, 'mini_car') ? 'mini_car' : ''
+  if (bodyType === BODY_TYPE_LABELS.microvan) return findProfile(settings, 'mini_car') ? 'mini_car' : ''
   if (HEAVY_BODY_TYPES.has(bodyType) || CANONICAL_HEAVY_BODY_TYPES.has(bodyType)) {
     return findProfile(settings, 'suv_big') ? 'suv_big' : ''
   }

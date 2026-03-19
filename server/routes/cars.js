@@ -221,7 +221,8 @@ function bodyPatterns(value) {
   }
   if (low.includes('хэтч') || low.includes('hatch')) return ['%hatch%', '%хэтч%', `%${KO.hatchback}%`]
   if (low.includes('универсал') || low.includes('wagon')) return ['%wagon%', '%универсал%', `%${KO.wagon}%`]
-  if (low.includes('минивэн') || low.includes('van')) return ['%van%', '%minivan%', '%минивэн%', `%${KO.minivan}%`, `%${KO.van}%`]
+  if (low.includes('микровэн') || low.includes('microvan')) return ['%microvan%', '%микровэн%', '%van%', '%minivan%', '%минивэн%', `%${KO.minivan}%`, `%${KO.van}%`]
+  if (low.includes('минивэн') || low.includes('van')) return ['%van%', '%minivan%', '%минивэн%', '%microvan%', '%микровэн%', `%${KO.minivan}%`, `%${KO.van}%`]
   if (low.includes('купе') || low.includes('спорт') || low.includes('coupe')) return ['%coupe%', '%купе%', '%спорт%', `%${KO.coupe}%`]
   if (low.includes('груз') || low.includes('truck')) return ['%truck%', '%груз%', `%${KO.truck}%`, `%${KO.cargo}%`]
 

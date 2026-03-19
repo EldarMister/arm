@@ -129,7 +129,7 @@ const EXECUTIVE_SEDAN_MODEL_RE = [
 ]
 
 const BODY_TYPE_MODEL_OVERRIDES = [
-  { pattern: /\bKia\s+RAY\b/i, body: BODY_TYPE_LABELS.minivan },
+  { pattern: /\bRay\b/i, body: BODY_TYPE_LABELS.microvan },
   { pattern: /\bPorsche\s+Taycan\b/i, body: BODY_TYPE_LABELS.liftback },
   { pattern: /\bAudi\s+e-?tron\s+GT\b/i, body: BODY_TYPE_LABELS.liftback },
   { pattern: /\bAudi\s+RS7\b/i, body: BODY_TYPE_LABELS.liftback },
