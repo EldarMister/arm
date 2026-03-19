@@ -16,6 +16,8 @@ import {
   resolveKeyInfoEvidence,
   resolveVinEvidence,
 } from '../server/lib/encarVehicle.js'
+import { DEFAULT_PRICING_SETTINGS, inferDeliveryProfileCode } from '../server/lib/pricingSettings.js'
+import { BODY_TYPE_LABELS, VEHICLE_CLASS_LABELS } from '../shared/vehicleTaxonomy.js'
 
 const cardFixture = `
   <section>
@@ -214,6 +216,79 @@ function run() {
     extractInteriorColorFromText('Two-tone interior / black and beige leather seats', ''),
     '\u0414\u0432\u0443\u0445\u0446\u0432\u0435\u0442\u043D\u044B\u0439',
   )
+
+  const morningNormalized = normalizeCarTextFields({
+    name: 'Kia Morning 1.0 Prestige',
+    model: 'Morning',
+    trim_level: 'Prestige',
+    body_type: 'Седан',
+    vehicle_class: '',
+  })
+  assert.equal(morningNormalized.body_type, BODY_TYPE_LABELS.hatchback)
+  assert.equal(morningNormalized.vehicle_class, VEHICLE_CLASS_LABELS.aClass)
+  assert.equal(
+    inferDeliveryProfileCode({
+      ...morningNormalized,
+      pricing_locked: false,
+      delivery_profile_code: 'sedan_bishkek',
+    }, DEFAULT_PRICING_SETTINGS),
+    'mini_car',
+  )
+
+  const sparkNormalized = normalizeCarTextFields({
+    name: 'Chevrolet Spark 1.0 LT',
+    model: 'Spark',
+    trim_level: 'LT',
+    body_type: 'Седан',
+    vehicle_class: '',
+  })
+  assert.equal(sparkNormalized.body_type, BODY_TYPE_LABELS.hatchback)
+  assert.equal(sparkNormalized.vehicle_class, VEHICLE_CLASS_LABELS.aClass)
+  assert.equal(
+    inferDeliveryProfileCode({
+      ...sparkNormalized,
+      pricing_locked: false,
+      delivery_profile_code: 'sedan_bishkek',
+    }, DEFAULT_PRICING_SETTINGS),
+    'mini_car',
+  )
+
+  const rayNormalized = normalizeCarTextFields({
+    name: 'Kia Ray 1.0 Prestige',
+    model: 'Ray',
+    trim_level: 'Prestige',
+    body_type: 'Седан',
+    vehicle_class: '',
+  })
+  assert.equal(rayNormalized.body_type, BODY_TYPE_LABELS.minivan)
+  assert.equal(
+    inferDeliveryProfileCode({
+      ...rayNormalized,
+      pricing_locked: false,
+      delivery_profile_code: 'sedan_bishkek',
+    }, DEFAULT_PRICING_SETTINGS),
+    'mini_car',
+  )
+
+  const morningVanNormalized = normalizeCarTextFields({
+    name: 'Kia Morning Urban (JA) Van',
+    model: 'Morning Urban (JA) Van',
+    trim_level: 'Van',
+    body_type: 'Van',
+    vehicle_class: '',
+  })
+  assert.equal(morningVanNormalized.body_type, BODY_TYPE_LABELS.hatchback)
+  assert.equal(morningVanNormalized.vehicle_class, VEHICLE_CLASS_LABELS.aClass)
+
+  const sparkVanNormalized = normalizeCarTextFields({
+    name: 'Chevrolet Spark Van',
+    model: 'Spark Van',
+    trim_level: 'Van',
+    body_type: 'Van',
+    vehicle_class: '',
+  })
+  assert.equal(sparkVanNormalized.body_type, BODY_TYPE_LABELS.hatchback)
+  assert.equal(sparkVanNormalized.vehicle_class, VEHICLE_CLASS_LABELS.aClass)
 
   const apiVin = resolveVinEvidence(createResolverContext({
     primaryPayload: {

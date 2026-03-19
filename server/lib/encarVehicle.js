@@ -2453,6 +2453,7 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     name,
     model,
     body_type: bodyType,
+    vehicle_class: vehicleClass,
     trim_level: trimLevel,
     drive_type: driveType,
     pricing_locked: false,

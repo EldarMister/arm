@@ -12,6 +12,7 @@
     "start": "node server/index.js",
     "build:railway": "npm run build && node server/index.js",
     "normalize:cars": "node scripts/normalize-existing-cars.js",
+    "backfill:mini-car": "node scripts/backfill-mini-car-rules.js",
     "backfill:encar": "node scripts/backfill-encar-enrichment.js",
     "check:encar-parser": "node scripts/check-encar-parsers.js",
     "fix:catalog": "node scripts/fix-catalog-issues.js",

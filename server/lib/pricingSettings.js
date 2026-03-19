@@ -75,7 +75,7 @@ export const DEFAULT_DELIVERY_PROFILES = [
   {
     code: 'mini_car',
     label: 'Малолитражка',
-    description: 'Morning, Spark',
+    description: 'Morning, Spark, Ray',
     price: 1000,
     prices: { kg: 1000 },
     sort_order: 10,
@@ -182,6 +182,7 @@ export const DEFAULT_PRICING_SETTINGS = {
 }
 
 const PREMIUM_SEDAN_HINT_RE = /\b(k8|k9|g80|g90|eq900|grandeur|genesis|s-class|e-class|7\s*series|5\s*series|a6|a7|a8|es300h|es350|ls500|k7)\b/i
+const MINI_CAR_HINT_RE = /\b(ray|morning|spark|matiz|picanto|casper)\b/i
 const BIG_SUV_HINT_RE = /\b(highlander|carnival|staria|starex|palisade|telluride|mohave|mohabi|traverse|tahoe|escalade|rexton\s*w|santa\s*cruz)\b/i
 const SMALL_SUV_HINT_RE = /\b(tivoli|seltos|kona|niro|venue|stonic|trax|trailblazer|encore|xm3|korando\s?c)\b/i
 const MIDDLE_SUV_HINT_RE = /\b(santa\s*fe|santafe|sorento|sportage|tucson|qm6|torres|korando|captiva|equinox|rav4|cr-v|x-trail|rogue)\b/i
@@ -378,6 +379,8 @@ function buildVehicleSearchText(vehicle = {}) {
 }
 
 export function inferDeliveryProfileCode(vehicle = {}, settings = DEFAULT_PRICING_SETTINGS) {
+  const vehicleClass = toText(vehicle.vehicle_class)
+  const pricingLocked = Boolean(vehicle.pricing_locked)
   const bodyType = resolveBodyType(
     vehicle.body_type,
     vehicle.name,
@@ -389,6 +392,10 @@ export function inferDeliveryProfileCode(vehicle = {}, settings = DEFAULT_PRICIN
   if (bodyType === BODY_TYPE_LABELS.businessSedan || bodyType === BODY_TYPE_LABELS.executiveSedan) {
     if (findProfile(settings, 'sedan_lux')) return 'sedan_lux'
     if (findProfile(settings, 'sedan_bishkek')) return 'sedan_bishkek'
+  }
+
+  if (!pricingLocked && (vehicleClass === 'A-класс' || MINI_CAR_HINT_RE.test(haystack)) && findProfile(settings, 'mini_car')) {
+    return 'mini_car'
   }
 
   const explicitCode = toText(vehicle.delivery_profile_code)

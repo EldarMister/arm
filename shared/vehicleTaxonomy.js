@@ -28,6 +28,7 @@ export const BODY_TYPE_LABELS = Object.freeze({
 })
 
 export const VEHICLE_CLASS_LABELS = Object.freeze({
+  aClass: 'A-класс',
   compact: 'Компактный класс',
   medium: 'Средний класс',
   business: 'Бизнес-класс',
@@ -37,6 +38,7 @@ export const VEHICLE_CLASS_LABELS = Object.freeze({
 const CANONICAL_BODY_TYPES = new Set(Object.values(BODY_TYPE_LABELS))
 const CANONICAL_VEHICLE_CLASSES = new Set(Object.values(VEHICLE_CLASS_LABELS))
 
+const RAW_A_CLASS_RE = /(?:a-класс|класс\s*a|mini(?:\s|-)?car|micro(?:\s|-)?car|city\s*car|kei\s*car|малолитражк|경차|초소형)/i
 const RAW_COMPACT_CLASS_RE = /(?:sohyeongcha|junjunghyeongcha|junjung[h]?yeongcha|compact(?:\s+class)?|small(?:\s+class)?|소형차|준중형차|мал(?:ого|ый)\s+класса|компакт(?:ный|-класс))/i
 const RAW_MEDIUM_CLASS_RE = /(?:junghyeongcha|middle(?:\s+class)?|mid[-\s]*size|중형차|средн(?:его|ий)\s+класса|средний\s+класс)/i
 const RAW_BUSINESS_CLASS_RE = /(?:daehyeongcha|business(?:\s+class)?|executive\s+sedan|large\s+sedan|대형차|бизнес(?:-| )класс|бизнес\s+класса)/i
@@ -58,9 +60,11 @@ const SEDAN_HINT_RE = /\b(sedan|7\s*series|5\s*series|3\s*series|2\s*series\s+gr
 const EXECUTIVE_CLASS_HINT_RE = /\b(7\s*series|740|745|750|760|i7\b|s[-\s]*class|s350|s400|s450|s500|s560|s580|maybach|a8\b|ls460|ls500|g90\b|eq900|k9\b|quoris|ct6\b|xj\b)\b/i
 const BUSINESS_CLASS_HINT_RE = /\b(5\s*series|520|523|525|528|530|535|540|550|e[-\s]*class|e200|e220|e250|e300|e350|a6\b|g80\b|s90\b|k8\b|k7\b|grandeur|azera|es300|es350|cts\b)\b/i
 const MEDIUM_CLASS_HINT_RE = /\b(3\s*series|320|323|325|328|330|335|340|c[-\s]*class|c180|c200|c220|c250|c300|a4\b|a5\b|s60\b|sonata|k5\b|sm6\b|malibu|camry|accord|passat|arteon|stinger|a7\b)\b/i
+const A_CLASS_HINT_RE = /\b(morning|spark|matiz|picanto|casper)\b/i
 const COMPACT_CLASS_HINT_RE = /\b(1\s*series|118|120|125|128|2\s*series|218|220|228|a[-\s]*class|cla\b|a3\b|a1\b|golf|avante|elantra|k3\b|sm3\b|i30|ceed|picanto|corolla|civic|jetta|focus)\b/i
 
 const CLASS_PRIORITY = new Map([
+  [VEHICLE_CLASS_LABELS.aClass, 0],
   [VEHICLE_CLASS_LABELS.compact, 1],
   [VEHICLE_CLASS_LABELS.medium, 2],
   [VEHICLE_CLASS_LABELS.business, 3],
@@ -167,6 +171,7 @@ export function normalizeVehicleClassLabel(value) {
   if (!text || text === '-') return ''
   if (CANONICAL_VEHICLE_CLASSES.has(text)) return text
 
+  if (RAW_A_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.aClass
   if (RAW_EXECUTIVE_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.executive
   if (RAW_BUSINESS_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.business
   if (RAW_MEDIUM_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.medium
@@ -177,13 +182,13 @@ export function normalizeVehicleClassLabel(value) {
 
 function inferVehicleClassFromContext(bodyType, ...values) {
   const normalizedBody = resolveBodyTypeLabel(bodyType, ...values)
-  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.minivan].includes(normalizedBody)) {
-    return ''
-  }
-
   const text = joinContext(normalizedBody, ...values).toLowerCase()
   if (!text) return ''
 
+  if (A_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.aClass
+  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.minivan].includes(normalizedBody)) {
+    return ''
+  }
   if (EXECUTIVE_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.executive
   if (BUSINESS_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.business
   if (MEDIUM_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.medium

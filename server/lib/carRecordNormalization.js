@@ -41,6 +41,8 @@ const EXECUTIVE_SEDAN_MODEL_RE = [
 
 const BODY_TYPE_MODEL_OVERRIDES = [
   { pattern: /\bKia\s+RAY\b/i, body: BODY_TYPE_LABELS.minivan },
+  { pattern: /\bKia\s+Morning\b/i, body: BODY_TYPE_LABELS.hatchback },
+  { pattern: /\bChevrolet\s+Spark\b/i, body: BODY_TYPE_LABELS.hatchback },
   { pattern: /\bPorsche\s+Taycan\b/i, body: BODY_TYPE_LABELS.liftback },
   { pattern: /\bAudi\s+e-?tron\s+GT\b/i, body: BODY_TYPE_LABELS.liftback },
   { pattern: /\bAudi\s+RS7\b/i, body: BODY_TYPE_LABELS.liftback },
@@ -297,18 +299,18 @@ export function normalizeCarTextFields(input = {}) {
     input.name ?? '',
     input.model ?? '',
   )
+  normalizedBodyType = applyBodyTypeOverrides(
+    normalizedBodyType,
+    [finalName ?? input.name ?? '', finalModel ?? input.model ?? '', finalTrim ?? rawTrimValue ?? ''].join(' ')
+  )
   const normalizedVehicleClass = resolveVehicleClass(
     input.vehicle_class ?? '',
-    input.body_type ?? normalizedBodyType ?? '',
+    normalizedBodyType || input.body_type || '',
     finalName ?? input.name ?? '',
     finalModel ?? input.model ?? '',
     finalTrim ?? rawTrimValue ?? '',
     input.name ?? '',
     input.model ?? '',
-  )
-  normalizedBodyType = applyBodyTypeOverrides(
-    normalizedBodyType,
-    [finalName ?? input.name ?? '', finalModel ?? input.model ?? '', finalTrim ?? rawTrimValue ?? ''].join(' ')
   )
   const shouldNormalizeTags =
     input.tags !== undefined ||
