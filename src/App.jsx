@@ -5,6 +5,7 @@ import Seo from './components/seo/Seo.jsx'
 import HomePage from './pages/HomePage'
 import CatalogPage from './pages/CatalogPage'
 import DamagedStockTabs from './components/catalog/DamagedStockTabs.jsx'
+import GoogleAnalytics from './components/analytics/GoogleAnalytics.jsx'
 import { CAR_SECTION_CONFIG } from './lib/catalogSections.js'
 import { buildStaticRouteSeo, SITE_URL } from '../shared/seo.js'
 
@@ -43,6 +44,7 @@ function AdminRoute() {
 function App() {
   return (
     <BrowserRouter>
+      <GoogleAnalytics />
       <Routes>
         <Route
           path="/admin"
