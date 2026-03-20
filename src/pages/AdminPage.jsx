@@ -58,6 +58,7 @@ const BACKFILL_TARGET_OPTIONS = [
     { value: 'trim', label: 'Комплектация' },
     { value: 'options', label: 'Опции' },
     { value: 'warranty', label: 'Гарантия' },
+    { value: 'price', label: 'Цена (KRW)' },
     { value: 'all', label: 'Все данные' },
 ]
 const BACKFILL_MODE_OPTIONS = [
@@ -202,6 +203,7 @@ function getBackfillEffectiveChanges(status) {
     if (status?.target === 'trim') return Number(metrics.trim_filled || 0)
     if (status?.target === 'options') return Number(metrics.option_features_filled || 0)
     if (status?.target === 'warranty') return Number(metrics.warranty_filled || 0)
+    if (status?.target === 'price') return Number(metrics.price_synced || 0)
     return Number(status?.updated || 0)
 }
 
@@ -213,6 +215,7 @@ function getBackfillEffectiveLabel(status) {
     if (status?.target === 'trim') return 'комплектация найдена'
     if (status?.target === 'options') return 'опции найдены'
     if (status?.target === 'warranty') return 'гарантия найдена'
+    if (status?.target === 'price') return 'цена синхронизирована'
     return 'данные найдены'
 }
 

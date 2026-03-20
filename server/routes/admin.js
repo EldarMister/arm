@@ -52,7 +52,7 @@ const ENRICH_SCOPE_LATEST = 'latest'
 const DEFAULT_LATEST_ENRICH_LIMIT = 50
 const MAX_LATEST_ENRICH_LIMIT = 50000
 const BACKFILL_TARGET_ALL = 'all'
-const BACKFILL_TARGET_VALUES = ['interior', 'drive', 'key', 'vin', 'trim', 'options', 'warranty', BACKFILL_TARGET_ALL]
+const BACKFILL_TARGET_VALUES = ['interior', 'drive', 'key', 'vin', 'trim', 'options', 'warranty', 'price', BACKFILL_TARGET_ALL]
 const BACKFILL_INTERIOR_MODE_VALUES = ['missing', 'invalid', 'missing_or_invalid']
 const DEFAULT_BACKFILL_TARGET = 'interior'
 const DEFAULT_BACKFILL_INTERIOR_MODE = 'missing'
@@ -634,7 +634,7 @@ function resetBackfillState(options) {
 
 function buildBackfillEnv(options) {
   const target = options.target === BACKFILL_TARGET_ALL
-    ? 'interior,drive,key,vin,trim,options,warranty'
+    ? 'interior,drive,key,vin,trim,options,warranty,price'
     : options.target
 
   return {

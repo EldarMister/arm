@@ -1,4 +1,5 @@
 import pool from '../server/db.js'
+import { computePricing, getExchangeRateSnapshot } from '../server/lib/exchangeRate.js'
 import { fetchEncarVehicleEnrichment } from '../server/lib/encarVehicle.js'
 import { buildStoredDetailFlags, normalizeInspectionFormats } from '../server/lib/carListingMetadata.js'
 import { normalizeCarTextFields } from '../server/lib/carRecordNormalization.js'
@@ -11,6 +12,7 @@ const DEFAULT_CONCURRENCY = (() => {
   return Math.min(Math.max(raw, 1), 8)
 })()
 const DEFAULT_TARGETS = ['interior', 'drive', 'key', 'vin', 'trim', 'options', 'warranty']
+const SUPPORTED_TARGETS = [...DEFAULT_TARGETS, 'price']
 const DRIVE_CANONICAL_VALUES = new Set([
   'Передний (FWD)',
   'Задний (RWD)',
@@ -29,7 +31,7 @@ const BACKFILL_TARGETS = (() => {
     .split(',')
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean)
-  const normalized = raw.filter((item) => DEFAULT_TARGETS.includes(item))
+  const normalized = raw.filter((item) => SUPPORTED_TARGETS.includes(item))
   return normalized.length ? normalized : [...DEFAULT_TARGETS]
 })()
 const BACKFILL_LIMIT = (() => {
@@ -213,6 +215,58 @@ function isWarrantyCandidate(row) {
   )
 }
 
+function isPriceCandidate(row) {
+  return hasTarget('price') && Boolean(cleanText(row?.encar_id))
+}
+
+function shouldRepairDerivedPricing(row) {
+  const currentPriceKrw = Math.round(Number(row?.price_krw) || 0)
+  if (currentPriceKrw <= 0) return true
+
+  return (
+    Number(row?.price_usd || 0) <= 0
+    || Number(row?.vat_refund || 0) < 0
+    || Number(row?.total || 0) <= 0
+  )
+}
+
+function buildPricePatch(row, nextPriceKrw, exchangeSnapshot) {
+  const normalizedNextPriceKrw = Math.round(Number(nextPriceKrw) || 0)
+  if (normalizedNextPriceKrw <= 0) return {}
+
+  const currentPriceKrw = Math.round(Number(row?.price_krw) || 0)
+  const hasPriceChanged = normalizedNextPriceKrw !== currentPriceKrw
+  const shouldRepairDerived = hasPriceChanged || shouldRepairDerivedPricing(row)
+  if (!shouldRepairDerived) return {}
+
+  const pricing = computePricing({
+    priceKrw: normalizedNextPriceKrw,
+    commission: row?.commission,
+    delivery: row?.delivery,
+    loading: row?.loading,
+    unloading: row?.unloading,
+    storage: row?.storage,
+  }, exchangeSnapshot)
+
+  const patch = {}
+  if (hasPriceChanged) patch.price_krw = normalizedNextPriceKrw
+  if (hasPriceChanged || Number(row?.price_usd) !== Number(pricing.price_usd)) {
+    patch.price_usd = pricing.price_usd
+  }
+  if (hasPriceChanged || Number(row?.vat_refund) !== Number(pricing.vat_refund)) {
+    patch.vat_refund = pricing.vat_refund
+  }
+  if (hasPriceChanged || Number(row?.total) !== Number(pricing.total)) {
+    patch.total = pricing.total
+  }
+
+  return patch
+}
+
+function isSameJsonValue(left, right) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
+}
+
 function isCandidateRow(row) {
   return (
     isInteriorCandidate(row) ||
@@ -221,7 +275,8 @@ function isCandidateRow(row) {
     isVinCandidate(row) ||
     isTrimCandidate(row) ||
     isOptionsCandidate(row) ||
-    isWarrantyCandidate(row)
+    isWarrantyCandidate(row) ||
+    isPriceCandidate(row)
   )
 }
 
@@ -258,6 +313,7 @@ async function fetchCandidates() {
   if (hasTarget('vin')) whereChecks.push(`COALESCE(BTRIM(vin), '') = ''`)
   if (hasTarget('trim')) whereChecks.push(`COALESCE(BTRIM(trim_level), '') = ''`)
   if (hasTarget('options')) whereChecks.push(`COALESCE(array_length(option_features, 1), 0) = 0`)
+  if (hasTarget('price')) whereChecks.push(`TRUE`)
   if (hasTarget('warranty')) whereChecks.push(`(
     COALESCE(BTRIM(warranty_company), '') = ''
     AND COALESCE(warranty_body_months, 0) = 0
@@ -270,7 +326,8 @@ async function fetchCandidates() {
 
   let sql = `
     SELECT id, encar_id, name, model, year, body_color, interior_color, drive_type, key_info, vin, trim_level, option_features,
-           warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km
+           warranty_company, warranty_body_months, warranty_body_km, warranty_transmission_months, warranty_transmission_km,
+           price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total, detail_flags, inspection_formats
     FROM cars
     WHERE encar_id IS NOT NULL
       AND encar_id != ''
@@ -346,6 +403,7 @@ async function main() {
     trim_filled: 0,
     option_features_filled: 0,
     warranty_filled: 0,
+    price_synced: 0,
   }
 
   console.log(`Backfill targets: ${BACKFILL_TARGETS.join(', ')}`)
@@ -359,6 +417,7 @@ async function main() {
 
   let nextIndex = 0
   const vinLookupCache = new Map()
+  const exchangeSnapshot = await getExchangeRateSnapshot()
 
   async function worker() {
     while (true) {
@@ -380,8 +439,14 @@ async function main() {
           interior_color: detail.interior_color ?? row.interior_color,
         })
         const patch = {}
-        patch.detail_flags = buildStoredDetailFlags(detail.flags)
-        patch.inspection_formats = normalizeInspectionFormats(detail.condition?.inspectionFormats)
+        const nextDetailFlags = buildStoredDetailFlags(detail.flags)
+        if (!isSameJsonValue(nextDetailFlags, row.detail_flags || {})) {
+          patch.detail_flags = nextDetailFlags
+        }
+        const nextInspectionFormats = normalizeInspectionFormats(detail.condition?.inspectionFormats)
+        if (!isSameJsonValue(nextInspectionFormats, row.inspection_formats || [])) {
+          patch.inspection_formats = nextInspectionFormats
+        }
         const nextInterior = normalizeInteriorColorName(
           cleanText(normalizedDetail.interior_color),
           row.body_color || '',
@@ -454,6 +519,14 @@ async function main() {
             patch.warranty_transmission_km !== undefined
           ) {
             stats.warranty_filled += 1
+          }
+        }
+
+        if (isPriceCandidate(row)) {
+          const pricePatch = buildPricePatch(row, detail.price_krw, exchangeSnapshot)
+          if (Object.keys(pricePatch).length) {
+            Object.assign(patch, pricePatch)
+            stats.price_synced += 1
           }
         }
 

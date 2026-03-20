@@ -574,11 +574,13 @@ async function getExistingEncarIdMap(encarIds = []) {
   if (!normalized.length) return new Map()
 
   const res = await pool.query(
-    'SELECT id, encar_id FROM cars WHERE encar_id = ANY($1::text[])',
+    `SELECT id, encar_id, name, model, price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total
+     FROM cars
+     WHERE encar_id = ANY($1::text[])`,
     [normalized],
   )
 
-  return new Map(res.rows.map((row) => [String(row.encar_id || '').trim(), row.id]))
+  return new Map(res.rows.map((row) => [String(row.encar_id || '').trim(), row]))
 }
 
 async function getExistingIdByVin(vin, cache = null) {
@@ -604,6 +606,87 @@ async function getExistingIdByVin(vin, cache = null) {
     id,
     fromCache: false,
     normalizedVin,
+  }
+}
+
+function buildPriceRefreshPatch(existingCar, nextPriceKrw, exchangeSnapshot) {
+  const normalizedNextPriceKrw = Math.round(Number(nextPriceKrw) || 0)
+  if (normalizedNextPriceKrw <= 0) return null
+
+  const currentPriceKrw = Math.round(Number(existingCar?.price_krw) || 0)
+  const hasPriceChanged = normalizedNextPriceKrw !== currentPriceKrw
+  const hasBrokenDerivedPricing = (
+    currentPriceKrw <= 0
+    || Number(existingCar?.price_usd || 0) <= 0
+    || Number(existingCar?.vat_refund || 0) < 0
+    || Number(existingCar?.total || 0) <= 0
+  )
+
+  if (!hasPriceChanged && !hasBrokenDerivedPricing) return null
+
+  const pricing = computePricing({
+    priceKrw: normalizedNextPriceKrw,
+    commission: existingCar?.commission,
+    delivery: existingCar?.delivery,
+    loading: existingCar?.loading,
+    unloading: existingCar?.unloading,
+    storage: existingCar?.storage,
+  }, exchangeSnapshot)
+
+  const patch = {}
+  if (hasPriceChanged) patch.price_krw = normalizedNextPriceKrw
+  if (hasPriceChanged || Number(existingCar?.price_usd) !== Number(pricing.price_usd)) {
+    patch.price_usd = pricing.price_usd
+  }
+  if (hasPriceChanged || Number(existingCar?.vat_refund) !== Number(pricing.vat_refund)) {
+    patch.vat_refund = pricing.vat_refund
+  }
+  if (hasPriceChanged || Number(existingCar?.total) !== Number(pricing.total)) {
+    patch.total = pricing.total
+  }
+
+  return Object.keys(patch).length ? patch : null
+}
+
+async function refreshKnownCarPricing(existingCar, nextPriceKrw, exchangeSnapshot) {
+  const patch = buildPriceRefreshPatch(existingCar, nextPriceKrw, exchangeSnapshot)
+  const previousPriceKrw = Math.round(Number(existingCar?.price_krw) || 0)
+  if (!patch) {
+    return {
+      updated: false,
+      previousPriceKrw,
+      nextPriceKrw: previousPriceKrw,
+      updatedFields: [],
+    }
+  }
+
+  const entries = Object.entries(patch)
+  const updates = []
+  const params = []
+  let index = 1
+
+  for (const [field, value] of entries) {
+    updates.push(`${field} = $${index++}`)
+    params.push(value)
+  }
+
+  updates.push('updated_at = NOW()')
+  params.push(existingCar.id)
+
+  await pool.query(
+    `UPDATE cars
+     SET ${updates.join(', ')}
+     WHERE id = $${index}`,
+    params,
+  )
+
+  Object.assign(existingCar, patch)
+
+  return {
+    updated: true,
+    previousPriceKrw,
+    nextPriceKrw: Math.round(Number(existingCar?.price_krw) || previousPriceKrw),
+    updatedFields: entries.map(([field]) => field),
   }
 }
 
@@ -1278,14 +1361,36 @@ export async function runScrapeJob(limit = 100, options = {}) {
           continue
         }
 
-        const existId = existingEncarIds.get(currentEncarId) || (seenEncarIds.has(currentEncarId) ? 'seen' : null)
-        if (existId) {
+        const existingCar = existingEncarIds.get(currentEncarId) || null
+        const seenDuplicate = seenEncarIds.has(currentEncarId)
+        if (existingCar || seenDuplicate) {
+          const duplicateId = existingCar?.id || null
+          let duplicateDetails = existingCar
+            ? `existing car with encar_id=${currentEncarId}`
+            : `duplicate encounter in current scrape for encar_id=${currentEncarId}`
+
+          if (existingCar) {
+            try {
+              const refreshResult = await refreshKnownCarPricing(existingCar, car.price_krw, exchangeSnapshot)
+              if (refreshResult.updated) {
+                duplicateDetails = `${duplicateDetails}; price synced ${refreshResult.previousPriceKrw} -> ${refreshResult.nextPriceKrw}`
+                state.info(
+                  `KNOWN_PRICE_REFRESH | id=${duplicateId} | encar_id=${currentEncarId} | price_krw ${refreshResult.previousPriceKrw} -> ${refreshResult.nextPriceKrw}`,
+                )
+              }
+            } catch (refreshError) {
+              state.warn(
+                `KNOWN_PRICE_REFRESH_FAILED | id=${duplicateId || '-'} | encar_id=${currentEncarId} | error=${cleanText(refreshError?.message) || 'unknown error'}`,
+              )
+            }
+          }
+
           recordSkip(buildDuplicateDiagnostic(
             'duplicate_encar_id',
-            `existing car with encar_id=${currentEncarId}`,
+            duplicateDetails,
             car,
             raw,
-            existId,
+            duplicateId,
           ))
           continue
         }
