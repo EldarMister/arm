@@ -82,6 +82,13 @@ const CameraIcon = () => (
   </svg>
 )
 
+const ShareIcon = () => (
+  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.5 12a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm7 12a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0-9a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.5 10.5l4-2.5m-4 5l4 2.5" />
+  </svg>
+)
+
 const TAG_STYLES = [
   { bg: '#ede9fe', color: '#6d28d9' },
   { bg: '#dbeafe', color: '#1d4ed8' },
@@ -173,6 +180,7 @@ export default function CarCard({ car, detailsHref = `/catalog/${car?.id}`, list
   const selectedCountry = deliveryContext?.selectedCountry
   const [imgIdx, setImgIdx] = useState(0)
   const [failedUrls, setFailedUrls] = useState([])
+  const [shareState, setShareState] = useState('idle')
   const vatRefundPercent = Math.round(VAT_REFUND_RATE * 100)
 
   const images = useMemo(() => {
@@ -225,6 +233,12 @@ export default function CarCard({ car, detailsHref = `/catalog/${car?.id}`, list
     setFailedUrls([])
   }, [car.id, car.images])
 
+  useEffect(() => {
+    if (shareState === 'idle') return undefined
+    const timer = window.setTimeout(() => setShareState('idle'), 2200)
+    return () => window.clearTimeout(timer)
+  }, [shareState])
+
   const prev = () => setImgIdx((i) => Math.max(0, i - 1))
   const next = () => setImgIdx((i) => Math.min(imageCount - 1, i + 1))
 
@@ -238,6 +252,64 @@ export default function CarCard({ car, detailsHref = `/catalog/${car?.id}`, list
   }
 
   const openDetails = () => navigate(detailsHref, { state: { carPreview: car } })
+
+  const buildShareUrl = () => {
+    if (typeof window === 'undefined') return detailsHref
+    try {
+      return new URL(detailsHref, window.location.origin).toString()
+    } catch {
+      return detailsHref
+    }
+  }
+
+  const copyShareUrl = async (shareUrl) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl)
+      return
+    }
+
+    const helper = document.createElement('textarea')
+    helper.value = shareUrl
+    helper.setAttribute('readonly', '')
+    helper.style.position = 'absolute'
+    helper.style.left = '-9999px'
+    document.body.appendChild(helper)
+    helper.select()
+    document.execCommand('copy')
+    document.body.removeChild(helper)
+  }
+
+  const onShare = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const shareUrl = buildShareUrl()
+    const shareTitle = [car.name, car.year].filter(Boolean).join(' • ') || 'Машина'
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: car.model || car.name || 'Машина из каталога',
+          url: shareUrl,
+        })
+        setShareState('shared')
+        return
+      }
+
+      await copyShareUrl(shareUrl)
+      setShareState('copied')
+    } catch (error) {
+      if (error?.name === 'AbortError') return
+      setShareState('error')
+    }
+  }
+
+  const shareButtonLabel = shareState === 'copied'
+    ? 'Ссылка скопирована'
+    : (shareState === 'shared'
+        ? 'Отправлено'
+        : (shareState === 'error' ? 'Не удалось' : 'Поделиться'))
 
   const onCardClick = (e) => {
     if (e.defaultPrevented) return
@@ -427,6 +499,9 @@ export default function CarCard({ car, detailsHref = `/catalog/${car?.id}`, list
 
       <div className="car-card-actions">
         <Link to={detailsHref} state={{ carPreview: car }} className="btn-car-primary">Открыть детали</Link>
+        <button type="button" onClick={onShare} className="btn-car-outline">
+          <ShareIcon /> {shareButtonLabel}
+        </button>
         {car.encarUrl ? (
                         <a href={car.encarUrl} target="_blank" rel="noreferrer" className="btn-car-outline btn-car-encar">
                           Encar →

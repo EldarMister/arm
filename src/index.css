@@ -2718,10 +2718,19 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   transition: background 0.15s;
   z-index: 1;
+  touch-action: manipulation;
 }
 
 .car-img-btn:hover {
   background: #fff;
+}
+
+.car-img-btn::before {
+  content: '';
+  position: absolute;
+  top: -18px;
+  bottom: -18px;
+  background: transparent;
 }
 
 .car-img-btn:disabled {
@@ -2733,8 +2742,18 @@ body {
   left: 8px;
 }
 
+.car-img-btn-prev::before {
+  left: -10px;
+  right: -22px;
+}
+
 .car-img-btn-next {
   right: 8px;
+}
+
+.car-img-btn-next::before {
+  left: -22px;
+  right: -10px;
 }
 
 .car-img-counter {
@@ -9301,6 +9320,21 @@ body {
   .car-img-btn {
     width: 28px;
     height: 28px;
+  }
+
+  .car-img-btn::before {
+    top: -22px;
+    bottom: -22px;
+  }
+
+  .car-img-btn-prev::before {
+    left: -8px;
+    right: -26px;
+  }
+
+  .car-img-btn-next::before {
+    left: -26px;
+    right: -8px;
   }
 
   .car-img-btn-prev {
