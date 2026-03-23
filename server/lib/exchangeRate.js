@@ -11,11 +11,66 @@ export const DEFAULT_FEES = {
 }
 
 const RATE_CACHE_TTL_MS = 60 * 60 * 1000
+const MAX_RATE_SOURCE_STALENESS_MS = 12 * 60 * 60 * 1000
 const LAST_RESORT_CURRENT_RATE = Number(process.env.FALLBACK_KRW_PER_USD || 1485)
 
 let cachedSnapshot = null
 let cacheExpiresAt = 0
 let pendingSnapshotPromise = null
+
+function normalizeRateUpdatedAt(dateValue, timestampValue) {
+  const timestampMs = Number(timestampValue) > 0 ? Number(timestampValue) * 1000 : 0
+  if (timestampMs > 0) {
+    return {
+      updatedAt: new Date(timestampMs).toISOString(),
+      updatedAtMs: timestampMs,
+    }
+  }
+
+  const parsedMs = Date.parse(String(dateValue || ''))
+  if (Number.isFinite(parsedMs) && parsedMs > 0) {
+    return {
+      updatedAt: new Date(parsedMs).toISOString(),
+      updatedAtMs: parsedMs,
+    }
+  }
+
+  return {
+    updatedAt: dateValue || null,
+    updatedAtMs: 0,
+  }
+}
+
+async function fetchIntradayRate() {
+  const { data } = await axios.get('https://api.manana.kr/exchange/rate/KRW/KRW,USD.json', {
+    timeout: 15000,
+    proxy: false,
+  })
+
+  const quotes = Array.isArray(data)
+    ? data
+    : (Array.isArray(data?.value) ? data.value : [])
+  const usdKrwQuote = quotes.find((entry) => String(entry?.name || '').toUpperCase() === 'USDKRW=X')
+  const currentRate = Number(usdKrwQuote?.rate)
+  if (!Number.isFinite(currentRate) || currentRate <= 0) {
+    throw new Error('Intraday FX source returned invalid USD/KRW rate')
+  }
+
+  const { updatedAt, updatedAtMs } = normalizeRateUpdatedAt(usdKrwQuote?.date, usdKrwQuote?.timestamp)
+  if (updatedAtMs > 0 && (Date.now() - updatedAtMs) > MAX_RATE_SOURCE_STALENESS_MS) {
+    throw new Error('Intraday FX source returned stale USD/KRW rate')
+  }
+
+  return {
+    source: 'Yahoo Finance (intraday)',
+    provider: 'https://api.manana.kr',
+    documentation: 'https://finance.yahoo.com/quote/KRW=X',
+    terms: null,
+    updatedAt,
+    nextUpdateAt: null,
+    currentRate,
+  }
+}
 
 async function fetchPrimaryRate() {
   const { data } = await axios.get('https://open.er-api.com/v6/latest/USD', {
@@ -90,30 +145,38 @@ export async function getExchangeRateSnapshot({ force = false } = {}) {
 
   pendingSnapshotPromise = (async () => {
     try {
-      const fresh = buildSnapshot(await fetchPrimaryRate())
+      const fresh = buildSnapshot(await fetchIntradayRate())
       cachedSnapshot = fresh
       cacheExpiresAt = Date.now() + RATE_CACHE_TTL_MS
       return fresh
     } catch {
       try {
-        const fallback = buildSnapshot(await fetchFallbackRate())
-        cachedSnapshot = fallback
+        const dailyPrimary = buildSnapshot(await fetchPrimaryRate())
+        cachedSnapshot = dailyPrimary
         cacheExpiresAt = Date.now() + RATE_CACHE_TTL_MS
-        return fallback
+        return dailyPrimary
       } catch {
         if (cachedSnapshot) return cachedSnapshot
-        const degraded = buildSnapshot({
-          source: 'last-resort',
-          provider: null,
-          documentation: null,
-          terms: null,
-          updatedAt: null,
-          nextUpdateAt: null,
-          currentRate: LAST_RESORT_CURRENT_RATE,
-        })
-        cachedSnapshot = degraded
-        cacheExpiresAt = Date.now() + RATE_CACHE_TTL_MS
-        return degraded
+        try {
+          const fallback = buildSnapshot(await fetchFallbackRate())
+          cachedSnapshot = fallback
+          cacheExpiresAt = Date.now() + RATE_CACHE_TTL_MS
+          return fallback
+        } catch {
+          if (cachedSnapshot) return cachedSnapshot
+          const degraded = buildSnapshot({
+            source: 'last-resort',
+            provider: null,
+            documentation: null,
+            terms: null,
+            updatedAt: null,
+            nextUpdateAt: null,
+            currentRate: LAST_RESORT_CURRENT_RATE,
+          })
+          cachedSnapshot = degraded
+          cacheExpiresAt = Date.now() + RATE_CACHE_TTL_MS
+          return degraded
+        }
       }
     } finally {
       pendingSnapshotPromise = null

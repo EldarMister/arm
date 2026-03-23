@@ -245,6 +245,20 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
 
 CREATE INDEX IF NOT EXISTS idx_admin_login_attempts_blocked_until ON admin_login_attempts(blocked_until);
 
+CREATE TABLE IF NOT EXISTS maintenance_jobs (
+  job_key         VARCHAR(80) PRIMARY KEY,
+  status          VARCHAR(20) NOT NULL DEFAULT 'idle',
+  last_started_at TIMESTAMPTZ,
+  last_finished_at TIMESTAMPTZ,
+  last_success_at TIMESTAMPTZ,
+  last_error      TEXT,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO maintenance_jobs (job_key)
+VALUES ('weekly_catalog_maintenance')
+ON CONFLICT (job_key) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS app_users (
   id            SERIAL PRIMARY KEY,
   login         VARCHAR(32) NOT NULL UNIQUE,

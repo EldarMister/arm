@@ -14,6 +14,7 @@ import partsRouter from './routes/parts.js'
 import pricingRouter from './routes/pricing.js'
 import { startScheduler } from './scraper/scheduler.js'
 import { state as scraperState } from './scraper/state.js'
+import { startWeeklyCatalogMaintenance } from './lib/weeklyCatalogMaintenance.js'
 import {
   applyBasicSecurityHeaders,
   createCorsOptions,
@@ -213,6 +214,8 @@ async function start() {
     for (const warning of startupWarnings) {
       console.warn(`PRODUCTION_CONFIG_WARNING | ${warning}`)
     }
+
+    startWeeklyCatalogMaintenance()
 
     app.listen(PORT, () => {
       console.log(`Server started on http://localhost:${PORT}`)

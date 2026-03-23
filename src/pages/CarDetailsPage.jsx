@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { applyVehicleTitleFixes } from '../../shared/vehicleTextFixes.js'
 import { sanitizeVin } from '../../shared/vin.js'
@@ -1940,6 +1940,20 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
     setRetryNonce((value) => value + 1)
   }, [])
   useRecoverableErrorRetry(error, retryLoad)
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0 })
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+
+    resetScroll()
+    const frameId = window.requestAnimationFrame(resetScroll)
+    return () => window.cancelAnimationFrame(frameId)
+  }, [id, location.key])
 
   const updateCalc = (patch) => {
     calcDirtyRef.current = true
