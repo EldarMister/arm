@@ -55,7 +55,7 @@ const RAW_CROSSOVER_CLASS_RE = /^(?:crossover|кроссовер)$/i
 const RAW_SUV_CLASS_RE = /^(?:suv|off[-\s]*road(?:er)?|внедорожник)$/i
 const RAW_MINIVAN_CLASS_RE = /^(?:minivan|mpv|минивэн)$/i
 
-const SUV_HINT_RE = /\b(suv|crossover|cross[-\s]*over|rv|sport\s*utility|santa[\s-]*fe|santafe|tucson|sorento|sportage|seltos|palisade|mohave|trailblazer|trax|qm6|gv60|gv70|gv80|korando|tivoli|niro|kona|stonic|venue|xm3|torres|xc60|xc90|x3\b|x5\b|x7\b|glc\b|gle\b|gls\b|q3\b|q5\b|q7\b|q8\b|tiguan|touareg|cr[-\s]*v|rav4|highlander|casper)\b/i
+const SUV_HINT_RE = /\b(suv|crossover|cross[-\s]*over|rv|sport\s*utility|santa[\s-]*fe|santafe|tucson|sorento|sportage|seltos|palisade|mohave|trailblazer|trax|qm6|gv60|gv70|gv80|korando|tivoli|niro|nexo|kona|ioniq\s*5|stonic|venue|xm3|torres|xc60|xc90|x3\b|x5\b|x7\b|glc\b|gle\b|gls\b|q3\b|q5\b|q7\b|q8\b|tiguan|touareg|cr[-\s]*v|rav4|highlander|casper)\b/i
 const MINIVAN_HINT_RE = /\b(minivan|van|mpv|carnival|staria|starex|orlando|master|alphard|sienna|odyssey)\b/i
 const PICKUP_HINT_RE = /\b(pickup|pick-up|korando\s+sports|rexton\s+sports|musso\s+sports|hilux|ranger|f[-\s]*150|ram\s*1500)\b/i
 const TRUCK_HINT_RE = /\b(truck|cargo|porter|bongo|dump|tractor|lorry)\b/i
@@ -76,7 +76,7 @@ const COMPACT_CLASS_HINT_RE = /\b(1\s*series|118|120|125|128|2\s*series|218|220|
 const MINIVAN_CLASS_HINT_RE = /\b(carnival|staria|starex|orlando|master|alphard|sienna|odyssey)\b/i
 const SUV_CLASS_HINT_RE = /\b(rexton|mohave|jimny|wrangler|defender|land\s*cruiser|bronco|patrol)\b/i
 const COMPACT_CROSSOVER_CLASS_HINT_RE = /\b(tucson|seltos|sportage|trax|venue|kona|niro|korando|tivoli|xm3|trailblazer)\b/i
-const MIDSIZE_CROSSOVER_CLASS_HINT_RE = /\b(ev6|qm6|santa[\s-]*fe|sorento|gv70|cr[-\s]*v|rav4)\b/i
+const MIDSIZE_CROSSOVER_CLASS_HINT_RE = /\b(ev6|qm6|nexo|ioniq\s*5|santa[\s-]*fe|sorento|gv70|cr[-\s]*v|rav4)\b/i
 const CROSSOVER_CLASS_HINT_RE = /\b(palisade|gv80|highlander|xc90|q7\b|q8\b|x5\b|x7\b|gle\b|gls\b)\b/i
 
 const CLASS_PRIORITY = new Map([

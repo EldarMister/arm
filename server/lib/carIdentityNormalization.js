@@ -201,6 +201,46 @@ const IDENTITY_MODEL_DRIVE_RULES = Object.freeze([
     drive: FWD,
     overrides: new Set(['', RWD]),
   },
+  {
+    matcher: /\bHyundai\b.*\bNexo\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bSanta\s*Fe\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bTucson\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bKia\b.*\bNiro\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bKia\b.*\bSorento\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bKia\b.*\bSeltos\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\b(?:KG\s+Mobility|SsangYong)\b.*\bKorando\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bChevrolet\b.*\bTrax\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
 ])
 const IDENTITY_2WD_DRIVE_RULES = Object.freeze([
   { matcher: /\bHonda\b.*\bAccord\b/i, drive: FWD },
@@ -212,7 +252,11 @@ const IDENTITY_2WD_DRIVE_RULES = Object.freeze([
   { matcher: /\bKia\b.*\bSportage\b/i, drive: FWD },
   { matcher: /\bKia\b.*\bNiro\b/i, drive: FWD },
   { matcher: /\bKia\b.*\bRAY\b/i, drive: FWD },
+  { matcher: /\bKia\b.*\bSorento\b/i, drive: FWD },
+  { matcher: /\bKia\b.*\bSeltos\b/i, drive: FWD },
+  { matcher: /\bHyundai\b.*\bSanta\s*Fe\b/i, drive: FWD },
   { matcher: /\bHyundai\b.*\bTucson\b/i, drive: FWD },
+  { matcher: /\bHyundai\b.*\bNexo\b/i, drive: FWD },
   { matcher: /\bGenesis\b.*\bG70\b/i, drive: RWD },
   { matcher: /\bGenesis\b.*\bG80\b/i, drive: RWD },
   { matcher: /\bGenesis\b.*\bG90\b/i, drive: RWD },
@@ -224,9 +268,11 @@ const IDENTITY_2WD_DRIVE_RULES = Object.freeze([
   { matcher: /\bRenault\s+Samsung\b.*\bXM3\b/i, drive: FWD },
   { matcher: /\bSsangYong\b.*\bTivoli\b/i, drive: FWD },
   { matcher: /\bSsangYong\b.*\bKORANDO\b/i, drive: FWD },
+  { matcher: /\bKG\s+Mobility\b.*\bKorando\b/i, drive: FWD },
   { matcher: /\bJeep\b.*\bCherokee\b/i, drive: FWD },
   { matcher: /\bJeep\b.*\bCompass\b/i, drive: FWD },
   { matcher: /\bChevrolet\b.*\bEquinox\b/i, drive: FWD },
+  { matcher: /\bChevrolet\b.*\bTrax\b/i, drive: FWD },
   { matcher: /\bChevrolet\b.*\bColorado\b/i, drive: RWD },
 ])
 

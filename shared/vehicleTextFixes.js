@@ -43,10 +43,15 @@ function relocateMarketingEdition(value) {
   if (match) return placeMarketingEdition(match[1], match[2], match[3])
 
   match = text.match(/^([A-Za-z0-9&.+/-]+)\s+\((The New|All New)\)\s+(.+)$/i)
-  if (match) return placeMarketingEdition(match[1], match[2], match[3])
+  if (match && knownBrands.test(match[1])) return placeMarketingEdition(match[1], match[2], match[3])
 
   match = text.match(/^([A-Za-z0-9&.+/-]+)\s+(EV|HEV|PHEV)\s+\((The New|All New)\)\s+(.+)$/i)
   if (match) return `${match[1]} ${match[2].toUpperCase()} (${normalizeMarketingPrefix(match[3])}) ${match[4]}`.replace(/\s+/g, ' ').trim()
+
+  match = text.match(/^([A-Za-z0-9&.+/-]+)\s+(.+)\s+\((The New|All New)\)$/i)
+  if (match && !knownBrands.test(text)) {
+    return `${match[1]} (${normalizeMarketingPrefix(match[3])}) ${match[2]}`.replace(/\s+/g, ' ').trim()
+  }
 
   let misplaced = text.match(/^([A-Za-z0-9&.+/-]+)\s+(.+)\s+\((The New|All New)\)\s+(.+)$/i)
   if (misplaced && !knownBrands.test(text)) {
@@ -98,6 +103,7 @@ const TITLE_REPLACEMENTS = [
   [/\bkolreoseu\b/gi, 'Koleos'],
   [/\bchevrolet\s*gm\s*daewoo\b/gi, 'Chevrolet'],
   [/\bchevroletgmdaewoo\b/gi, 'Chevrolet'],
+  [/\bSanta\s+\((The New|All New)\)\s+Fe\b/gi, 'Santa Fe ($1)'],
   [/\bdi\s+\((The New|All New)\)\s+niro\b/gi, 'Niro EV ($1)'],
   [/\bdi\s+niro\b/gi, 'Niro EV'],
   [/\bbyutipul\b/gi, 'Beautiful'],
@@ -136,6 +142,10 @@ const TITLE_REPLACEMENTS = [
   [/\bkei\s*(?=(?:3|5|7|8|9)\b)/gi, 'K'],
   [/\bkei(?=(?:3|5|7|8|9)\b)/gi, 'K'],
   [/\bpeuraideu\b/gi, 'Pride'],
+]
+
+const POST_MARKETING_TITLE_REPLACEMENTS = [
+  [/\bSanta\s+\((The New|All New)\)\s+Fe\b/gi, 'Santa Fe ($1)'],
 ]
 
 const TRIM_REPLACEMENTS = [
@@ -349,7 +359,8 @@ export function applyTrimFixes(value) {
 export function applyVehicleTitleFixes(value) {
   let text = applyReplacementList(value, TITLE_REPLACEMENTS)
   text = applyTrimFixes(text)
-  return applyPremiumNameFixes(relocateMarketingEdition(text))
+  text = applyPremiumNameFixes(relocateMarketingEdition(text))
+  return applyReplacementList(text, POST_MARKETING_TITLE_REPLACEMENTS)
 }
 
 export function normalizeRequestedRomanizedColorAlias(value) {
