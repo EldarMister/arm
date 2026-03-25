@@ -6,9 +6,9 @@ export default function Layout({ children }) {
   useScrollReveal()
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="site-layout">
       <Header />
-      <main style={{ flex: 1 }}>
+      <main className="site-main">
         {children}
       </main>
       <Footer />

@@ -135,6 +135,13 @@ const CheckSmallIcon = () => (
   </svg>
 )
 
+const ShareSmallIcon = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.5 12a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm7 12a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0-9a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.5 10.5l4-2.5m-4 5l4 2.5" />
+  </svg>
+)
+
 function CustomsDropdown({ label, ariaLabel, value, options, onChange }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -1911,6 +1918,7 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
   const [car, setCar] = useState(() => previewCar)
   const [imgIdx, setImgIdx] = useState(0)
   const [inspectionOpen, setInspectionOpen] = useState(false)
+  const [shareState, setShareState] = useState('idle')
   const [retryNonce, setRetryNonce] = useState(0)
   const [calc, setCalc] = useState({
     year: String(DEFAULT_CALC_YEAR),
@@ -1955,10 +1963,75 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
     return () => window.cancelAnimationFrame(frameId)
   }, [id, location.key])
 
+  useEffect(() => {
+    setShareState('idle')
+  }, [id])
+
+  useEffect(() => {
+    if (shareState === 'idle') return undefined
+    const timer = window.setTimeout(() => setShareState('idle'), 2200)
+    return () => window.clearTimeout(timer)
+  }, [shareState])
+
   const updateCalc = (patch) => {
     calcDirtyRef.current = true
     setCalc((prev) => ({ ...prev, ...patch }))
   }
+
+  const buildShareUrl = () => {
+    if (typeof window === 'undefined') return location.pathname
+    try {
+      return new URL(location.pathname, window.location.origin).toString()
+    } catch {
+      return window.location.href
+    }
+  }
+
+  const copyShareUrl = async (shareUrl) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl)
+      return
+    }
+
+    const helper = document.createElement('textarea')
+    helper.value = shareUrl
+    helper.setAttribute('readonly', '')
+    helper.style.position = 'absolute'
+    helper.style.left = '-9999px'
+    document.body.appendChild(helper)
+    helper.select()
+    document.execCommand('copy')
+    document.body.removeChild(helper)
+  }
+
+  const onShare = async () => {
+    const shareUrl = buildShareUrl()
+    const shareTitle = [car?.name, car?.year].filter(Boolean).join(' • ') || 'Машина'
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: car?.model || car?.name || 'Машина из каталога',
+          url: shareUrl,
+        })
+        setShareState('shared')
+        return
+      }
+
+      await copyShareUrl(shareUrl)
+      setShareState('copied')
+    } catch (error) {
+      if (error?.name === 'AbortError') return
+      setShareState('error')
+    }
+  }
+
+  const shareButtonLabel = shareState === 'copied'
+    ? 'Ссылка скопирована'
+    : (shareState === 'shared'
+        ? 'Отправлено'
+        : (shareState === 'error' ? 'Не удалось' : 'Поделиться'))
 
   useEffect(() => {
     let active = true
@@ -2296,6 +2369,9 @@ export default function CarDetailsPage({ section = CAR_SECTION_CONFIG.main }) {
               <div className="car-details-actions">
                 <a href={`https://wa.me/821056650943?text=Хочу заказать: ${car.name} (${car.year}), VIN: ${car.vin || '-'}`} target="_blank" rel="noreferrer" className="btn-car-green">Заказать</a>
                 {car.encarUrl ? <a href={car.encarUrl} target="_blank" rel="noreferrer" className="btn-car-outline btn-car-encar">На Encar</a> : null}
+                <button type="button" onClick={onShare} className="btn-car-outline">
+                  <ShareSmallIcon /> {shareButtonLabel}
+                </button>
               </div>
             </div>
           </section>

@@ -31,6 +31,7 @@ html:has(::view-transition) *::after {
 /* ========= THEME VARIABLES ========= */
 :root {
   color-scheme: light;
+  --site-header-offset: 64px;
   --bg: #ffffff;
   --bg-alt: #f8fafc;
   --bg-card: #ffffff;
@@ -90,6 +91,17 @@ body {
   background-color: #ffffff;
 }
 
+.site-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-main {
+  flex: 1;
+  padding-top: var(--site-header-offset);
+}
+
 /* в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
    HEADER
 в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
@@ -102,9 +114,11 @@ body {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 50;
+  left: 0;
+  right: 0;
+  z-index: 200;
   width: 100%;
   transition: background-color 0.3s, box-shadow 0.3s, backdrop-filter 0.3s;
 }
@@ -486,6 +500,10 @@ body {
 }
 
 @media (max-width: 767px) {
+  :root {
+    --site-header-offset: 68px;
+  }
+
   .header-row {
     gap: 10px;
     height: auto;
@@ -11848,47 +11866,53 @@ body {
 
 @media (max-width: 640px) {
   .delivery-price-page {
-    padding: 20px 12px 44px;
+    padding: 18px 10px 32px;
   }
 
   .delivery-price-hero {
-    padding: 16px 18px;
-    border-radius: 22px;
+    padding: 14px 16px;
+    border-radius: 20px;
   }
 
+  .delivery-price-title {
+    font-size: clamp(28px, 7vw, 38px);
+    line-height: 0.98;
+  }
 
   .delivery-price-title-country {
-    gap: 10px;
+    gap: 8px;
   }
 
   .delivery-price-title-flag {
-    width: 38px;
-    height: 24px;
+    width: 34px;
+    height: 22px;
   }
 
   .delivery-price-flags {
-    gap: 10px;
+    margin-top: 16px;
+    gap: 8px;
   }
 
   .delivery-price-flag-button {
-    min-height: 58px;
-    padding: 10px 12px;
-    gap: 10px;
-    border-radius: 16px;
-    font-size: 13px;
+    min-height: 50px;
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 14px;
+    font-size: 12px;
   }
 
   .delivery-price-flag {
-    width: 42px;
-    height: 28px;
+    width: 36px;
+    height: 24px;
   }
 
   .delivery-price-board {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    padding: 14px;
-    border-radius: 20px;
+    gap: 8px;
+    padding: 10px;
+    margin-top: 16px;
+    border-radius: 18px;
   }
 
   .delivery-price-board-head {
@@ -11897,31 +11921,37 @@ body {
 
   .delivery-price-row {
     grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-    min-height: 132px;
-    padding: 14px 12px;
+    gap: 4px;
+    min-height: 0;
+    padding: 10px 10px 11px;
     border: 1px solid rgba(148, 163, 184, 0.14);
-    border-radius: 18px;
+    border-radius: 16px;
     background: rgba(255, 255, 255, 0.82);
     align-content: start;
     border-bottom: none;
   }
 
+  .delivery-price-row-copy {
+    display: grid;
+    gap: 3px;
+  }
+
   .delivery-price-row-title {
-    font-size: 16px;
-    line-height: 1.05;
+    font-size: 14px;
+    line-height: 1;
   }
 
   .delivery-price-row-description {
-    font-size: 12px;
-    line-height: 1.35;
+    margin-top: 0;
+    font-size: 10px;
+    line-height: 1.2;
   }
 
   .delivery-price-row-value {
     min-width: 0;
     text-align: left;
-    font-size: 22px;
-    margin-top: 4px;
+    font-size: 17px;
+    margin-top: 2px;
   }
 
   [data-theme="dark"] .delivery-price-row {
@@ -11930,8 +11960,48 @@ body {
   }
 }
 
+@media (min-width: 430px) and (max-width: 640px) {
+  .delivery-price-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .delivery-price-row {
+    padding: 9px 9px 10px;
+  }
+
+  .delivery-price-row-title {
+    font-size: 13px;
+  }
+
+  .delivery-price-row-description {
+    font-size: 9px;
+  }
+
+  .delivery-price-row-value {
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 390px) {
   .delivery-price-board {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .delivery-price-row {
+    padding: 9px;
+  }
+
+  .delivery-price-row-title {
+    font-size: 13px;
+  }
+
+  .delivery-price-row-description {
+    font-size: 9px;
+  }
+
+  .delivery-price-row-value {
+    font-size: 16px;
   }
 }
