@@ -650,9 +650,10 @@ export function normalizeFuel(value) {
   if (!text) return ''
   const low = text.toLowerCase()
   if (low.includes('diesel') || text.includes('디젤')) return 'Дизель'
+  if (low.includes('hybrid') || low.includes('hev') || low.includes('phev') || text.includes('하이브리드')) return 'Гибрид'
+  if (low.includes('hydrogen') || low.includes('fuel cell') || low.includes('suso') || low.includes('водород') || text.includes('수소') || text.includes('연료전지')) return 'Водород'
   if (low.includes('electric') || text.includes('전기')) return 'Электро'
   if (low.includes('lpg') || text.includes('엘피지')) return 'Газ (LPG)'
-  if (low.includes('hybrid') || text.includes('하이브리드')) return 'Гибрид'
   if (low.includes('gasoline') || text.includes('가솔린') || text.includes('휘발유')) return 'Бензин'
   return normalizeText(text)
 }

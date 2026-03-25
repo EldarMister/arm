@@ -884,6 +884,198 @@ function run() {
   assert.equal(k8HybridFuelFix.fuel_type, 'Гибрид')
   assert.deepEqual(k8HybridFuelFix.tags, ['Передний (FWD)', 'Гибрид'])
 
+  const sorentoHybridFuelFix = normalizeCarTextFields({
+    name: 'Kia Sorento (The New) 4th Gen HEV 1.6',
+    model: 'Sorento (The New) 4th Gen HEV 1.6',
+    trim_level: 'Signature',
+    fuel_type: 'Электро',
+  })
+  assert.equal(sorentoHybridFuelFix.fuel_type, 'Гибрид')
+
+  const palisadeHybridFuelFix = normalizeCarTextFields({
+    name: 'Hyundai Palisade (LX3) HEV 2.5T',
+    model: 'Palisade (LX3) HEV 2.5T',
+    trim_level: '9 seats',
+    fuel_type: 'Электро',
+  })
+  assert.equal(palisadeHybridFuelFix.fuel_type, 'Гибрид')
+
+  const santaFeHybridFuelFix = normalizeCarTextFields({
+    name: 'Hyundai Santa Fe (MX5) HEV 1.6',
+    model: 'Santa Fe (MX5) HEV 1.6',
+    trim_level: 'Плюс',
+    fuel_type: 'Электро',
+  })
+  assert.equal(santaFeHybridFuelFix.fuel_type, 'Гибрид')
+
+  const grandeurHybridFuelFix = normalizeCarTextFields({
+    name: 'Hyundai Grandeur Hybrid (GN7) Premium',
+    model: 'Grandeur Hybrid (GN7) Premium',
+    trim_level: 'Premium',
+    fuel_type: 'Электро',
+  })
+  assert.equal(grandeurHybridFuelFix.fuel_type, 'Гибрид')
+
+  const k3DriveFix = normalizeCarTextFields({
+    name: 'Kia K3 Signature',
+    model: 'K3 Signature',
+    trim_level: 'Signature',
+    drive_type: 'Задний (RWD)',
+  })
+  assert.equal(k3DriveFix.drive_type, 'Передний (FWD)')
+
+  const sonataDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Sonata Inspiration',
+    model: 'Sonata Inspiration',
+    trim_level: 'Inspiration',
+    drive_type: 'Задний (RWD)',
+  })
+  assert.equal(sonataDriveFix.drive_type, 'Передний (FWD)')
+
+  const sonataHybridDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Sonata Hybrid (DN8) Inspiration',
+    model: 'Sonata Hybrid (DN8) Inspiration',
+    trim_level: 'Inspiration',
+    drive_type: 'Задний (RWD)',
+  })
+  assert.equal(sonataHybridDriveFix.drive_type, 'Передний (FWD)')
+
+  const avanteDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Avante Hybrid (CN7) Modern',
+    model: 'Avante Hybrid (CN7) Modern',
+    trim_level: 'Modern',
+    drive_type: 'Задний (RWD)',
+  })
+  assert.equal(avanteDriveFix.drive_type, 'Передний (FWD)')
+
+  const casperDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Casper Modern',
+    model: 'Casper Modern',
+    trim_level: 'Modern',
+    drive_type: 'Задний (RWD)',
+  })
+  assert.equal(casperDriveFix.drive_type, 'Передний (FWD)')
+
+  const venueDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Venue 1.6 Premium',
+    model: 'Venue 1.6 Premium',
+    trim_level: 'Premium',
+    drive_type: '',
+  })
+  assert.equal(venueDriveFix.drive_type, 'Передний (FWD)')
+
+  const velosterDriveFix = normalizeCarTextFields({
+    name: 'Hyundai Veloster 2.0 N',
+    model: 'Veloster 2.0 N',
+    trim_level: '2.0 N',
+    drive_type: '',
+  })
+  assert.equal(velosterDriveFix.drive_type, 'Передний (FWD)')
+
+  const rextonClassFix = normalizeCarTextFields({
+    name: 'SsangYong Rexton Dynamic Edition',
+    model: 'Rexton Dynamic Edition',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(rextonClassFix.vehicle_class, VEHICLE_CLASS_LABELS.suv)
+
+  const tucsonClassFix = normalizeCarTextFields({
+    name: 'Hyundai Tucson Premium',
+    model: 'Tucson Premium',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(tucsonClassFix.vehicle_class, VEHICLE_CLASS_LABELS.compactCrossover)
+
+  const palisadeClassFix = normalizeCarTextFields({
+    name: 'Hyundai Palisade Calligraphy',
+    model: 'Palisade Calligraphy',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(palisadeClassFix.vehicle_class, VEHICLE_CLASS_LABELS.crossover)
+
+  const ev6ClassFix = normalizeCarTextFields({
+    name: 'Kia EV6 Air',
+    model: 'EV6 Air',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(ev6ClassFix.vehicle_class, VEHICLE_CLASS_LABELS.midsizeCrossover)
+
+  const gv80ClassFix = normalizeCarTextFields({
+    name: 'Genesis GV80 3.0 Diesel AWD',
+    model: 'GV80 3.0 Diesel AWD',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(gv80ClassFix.vehicle_class, VEHICLE_CLASS_LABELS.crossover)
+
+  const seltosClassFix = normalizeCarTextFields({
+    name: 'Kia Seltos Gravity',
+    model: 'Seltos Gravity',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(seltosClassFix.vehicle_class, VEHICLE_CLASS_LABELS.compactCrossover)
+
+  const qm6ClassFix = normalizeCarTextFields({
+    name: 'Renault Samsung QM6 2.0 LPe Premiere',
+    model: 'QM6 2.0 LPe Premiere',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(qm6ClassFix.vehicle_class, VEHICLE_CLASS_LABELS.midsizeCrossover)
+
+  const carnivalClassFix = normalizeCarTextFields({
+    name: 'Kia Carnival 9 seats Signature',
+    model: 'Carnival 9 seats Signature',
+    body_type: '',
+    vehicle_class: '',
+  })
+  assert.equal(carnivalClassFix.vehicle_class, VEHICLE_CLASS_LABELS.minivan)
+
+  const rayMarketingFix = normalizeCarTextFields({
+    name: 'Kia Kia (The New) Ray Signature',
+    model: 'Kia (The New) Ray Signature',
+  })
+  assert.equal(rayMarketingFix.name, 'Kia Ray (The New) Signature')
+  assert.equal(rayMarketingFix.model, 'Kia Ray (The New) Signature')
+
+  const niroEvFix = normalizeCarTextFields({
+    name: 'Kia Di Niro (All New) Trendy',
+    model: 'Di Niro (All New) Trendy',
+    fuel_type: 'Electric',
+  })
+  assert.equal(niroEvFix.name, 'Kia Niro EV (All New) Trendy')
+  assert.equal(niroEvFix.model, 'Niro EV (All New) Trendy')
+
+  const niroBrokenModelFix = normalizeCarTextFields({
+    name: 'Kia Di Niro (All New) Trendy',
+    model: 'Di (All New) Niro Trendy',
+    fuel_type: 'Electric',
+  })
+  assert.equal(niroBrokenModelFix.model, 'Niro EV (All New) Trendy')
+
+  const beautifulKorandoFix = normalizeCarTextFields({
+    name: 'KG Mobility Byutipul Korando Gasoline 1.5 C5 Plus',
+    model: 'Byutipul Korando Gasoline 1.5 C5 Plus',
+  })
+  assert.equal(beautifulKorandoFix.name, 'KG Mobility Beautiful Korando Gasoline 1.5 C5 Plus')
+  assert.equal(beautifulKorandoFix.model, 'Beautiful Korando Gasoline 1.5 C5 Plus')
+
+  const nexoHydrogenFix = normalizeCarTextFields({
+    name: 'Hyundai Neksso Premium',
+    model: 'Neksso Premium',
+    fuel_type: 'Suso',
+    tags: ['Suso'],
+  })
+  assert.equal(nexoHydrogenFix.name, 'Hyundai Nexo Premium')
+  assert.equal(nexoHydrogenFix.model, 'Nexo Premium')
+  assert.equal(nexoHydrogenFix.fuel_type, 'Водород')
+  assert.deepEqual(nexoHydrogenFix.tags, ['Водород'])
+
   const unrelatedTitle = normalizeCarTextFields({
     name: 'Generic Tueoring Package',
     trim_level: 'Tueoring Package',

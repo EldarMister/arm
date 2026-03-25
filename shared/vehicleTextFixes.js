@@ -39,12 +39,21 @@ function relocateMarketingEdition(value) {
   if (!text) return ''
   const knownBrands = /^(Kia|Hyundai|Genesis|Chevrolet|Renault|Renault Samsung|Renault Korea|KG|SsangYong|Mercedes-Benz|BMW|Audi|Toyota|Honda|Volkswagen|Nissan|Lexus)\b/i
 
+  let match = text.match(/^([A-Za-z0-9&.+/-]+)\s+\1\s+\((The New|All New)\)\s+(.+)$/i)
+  if (match) return placeMarketingEdition(match[1], match[2], match[3])
+
+  match = text.match(/^([A-Za-z0-9&.+/-]+)\s+\((The New|All New)\)\s+(.+)$/i)
+  if (match) return placeMarketingEdition(match[1], match[2], match[3])
+
+  match = text.match(/^([A-Za-z0-9&.+/-]+)\s+(EV|HEV|PHEV)\s+\((The New|All New)\)\s+(.+)$/i)
+  if (match) return `${match[1]} ${match[2].toUpperCase()} (${normalizeMarketingPrefix(match[3])}) ${match[4]}`.replace(/\s+/g, ' ').trim()
+
   let misplaced = text.match(/^([A-Za-z0-9&.+/-]+)\s+(.+)\s+\((The New|All New)\)\s+(.+)$/i)
   if (misplaced && !knownBrands.test(text)) {
     return `${misplaced[1]} (${normalizeMarketingPrefix(misplaced[3])}) ${misplaced[2]} ${misplaced[4]}`.replace(/\s+/g, ' ').trim()
   }
 
-  let match = text.match(/^(The New|All New)\s+([A-Za-z0-9&.+/-]+)\s+(.+)$/i)
+  match = text.match(/^(The New|All New)\s+([A-Za-z0-9&.+/-]+)\s+(.+)$/i)
   if (match) return `${match[2]} (${normalizeMarketingPrefix(match[1])}) ${match[3]}`.replace(/\s+/g, ' ').trim()
 
   match = text.match(/^([A-Za-z0-9&.+/-]+)\s+(The New|All New)\s+(.+)$/i)
@@ -89,6 +98,10 @@ const TITLE_REPLACEMENTS = [
   [/\bkolreoseu\b/gi, 'Koleos'],
   [/\bchevrolet\s*gm\s*daewoo\b/gi, 'Chevrolet'],
   [/\bchevroletgmdaewoo\b/gi, 'Chevrolet'],
+  [/\bdi\s+\((The New|All New)\)\s+niro\b/gi, 'Niro EV ($1)'],
+  [/\bdi\s+niro\b/gi, 'Niro EV'],
+  [/\bbyutipul\b/gi, 'Beautiful'],
+  [/\bneksso\b/gi, 'Nexo'],
   [/\brabo\b/gi, 'Labo'],
   [/\bmaseuteo\b/gi, 'Master'],
   [/\bseutarekseu\b/gi, 'Starex'],

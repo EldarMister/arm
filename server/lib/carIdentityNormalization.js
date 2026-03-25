@@ -171,6 +171,36 @@ const IDENTITY_MODEL_DRIVE_RULES = Object.freeze([
     drive: FWD,
     overrides: new Set(['']),
   },
+  {
+    matcher: /\bKia\b.*\bK3\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bSonata\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bAvante\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bCasper\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bVenue\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
+  {
+    matcher: /\bHyundai\b.*\bVeloster\b/i,
+    drive: FWD,
+    overrides: new Set(['', RWD]),
+  },
 ])
 const IDENTITY_2WD_DRIVE_RULES = Object.freeze([
   { matcher: /\bHonda\b.*\bAccord\b/i, drive: FWD },

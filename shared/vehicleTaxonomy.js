@@ -32,6 +32,11 @@ export const VEHICLE_CLASS_LABELS = Object.freeze({
   aClass: 'A-класс',
   compact: 'Компактный класс',
   medium: 'Средний класс',
+  compactCrossover: 'Кроссовер',
+  midsizeCrossover: 'Кроссовер',
+  crossover: 'Кроссовер',
+  suv: 'Внедорожник',
+  minivan: 'Минивэн',
   business: 'Бизнес-класс',
   executive: 'Представительский класс',
 })
@@ -44,6 +49,11 @@ const RAW_COMPACT_CLASS_RE = /(?:sohyeongcha|junjunghyeongcha|junjung[h]?yeongch
 const RAW_MEDIUM_CLASS_RE = /(?:junghyeongcha|middle(?:\s+class)?|mid[-\s]*size|중형차|средн(?:его|ий)\s+класса|средний\s+класс)/i
 const RAW_BUSINESS_CLASS_RE = /(?:daehyeongcha|business(?:\s+class)?|executive\s+sedan|large\s+sedan|대형차|бизнес(?:-| )класс|бизнес\s+класса)/i
 const RAW_EXECUTIVE_CLASS_RE = /(?:representative(?:\s+class)?|flagship|luxury\s+sedan|представительск(?:ий|ого)\s+класс)/i
+const RAW_COMPACT_CROSSOVER_CLASS_RE = /^(?:compact\s+crossover|компактный\s+кроссовер)$/i
+const RAW_MIDSIZE_CROSSOVER_CLASS_RE = /^(?:midsize\s+crossover|mid[-\s]*size\s+crossover|среднеразмерный\s+кроссовер)$/i
+const RAW_CROSSOVER_CLASS_RE = /^(?:crossover|кроссовер)$/i
+const RAW_SUV_CLASS_RE = /^(?:suv|off[-\s]*road(?:er)?|внедорожник)$/i
+const RAW_MINIVAN_CLASS_RE = /^(?:minivan|mpv|минивэн)$/i
 
 const SUV_HINT_RE = /\b(suv|crossover|cross[-\s]*over|rv|sport\s*utility|santa[\s-]*fe|santafe|tucson|sorento|sportage|seltos|palisade|mohave|trailblazer|trax|qm6|gv60|gv70|gv80|korando|tivoli|niro|kona|stonic|venue|xm3|torres|xc60|xc90|x3\b|x5\b|x7\b|glc\b|gle\b|gls\b|q3\b|q5\b|q7\b|q8\b|tiguan|touareg|cr[-\s]*v|rav4|highlander|casper)\b/i
 const MINIVAN_HINT_RE = /\b(minivan|van|mpv|carnival|staria|starex|orlando|master|alphard|sienna|odyssey)\b/i
@@ -63,13 +73,23 @@ const BUSINESS_CLASS_HINT_RE = /\b(5\s*series|520|523|525|528|530|535|540|550|e[
 const MEDIUM_CLASS_HINT_RE = /\b(3\s*series|320|323|325|328|330|335|340|c[-\s]*class|c180|c200|c220|c250|c300|a4\b|a5\b|s60\b|sonata|k5\b|sm6\b|malibu|camry|accord|passat|arteon|stinger|a7\b)\b/i
 const A_CLASS_HINT_RE = /\b(morning|spark|matiz|picanto|casper)\b/i
 const COMPACT_CLASS_HINT_RE = /\b(1\s*series|118|120|125|128|2\s*series|218|220|228|a[-\s]*class|cla\b|a3\b|a1\b|golf|avante|elantra|k3\b|sm3\b|i30|ceed|picanto|corolla|civic|jetta|focus)\b/i
+const MINIVAN_CLASS_HINT_RE = /\b(carnival|staria|starex|orlando|master|alphard|sienna|odyssey)\b/i
+const SUV_CLASS_HINT_RE = /\b(rexton|mohave|jimny|wrangler|defender|land\s*cruiser|bronco|patrol)\b/i
+const COMPACT_CROSSOVER_CLASS_HINT_RE = /\b(tucson|seltos|sportage|trax|venue|kona|niro|korando|tivoli|xm3|trailblazer)\b/i
+const MIDSIZE_CROSSOVER_CLASS_HINT_RE = /\b(ev6|qm6|santa[\s-]*fe|sorento|gv70|cr[-\s]*v|rav4)\b/i
+const CROSSOVER_CLASS_HINT_RE = /\b(palisade|gv80|highlander|xc90|q7\b|q8\b|x5\b|x7\b|gle\b|gls\b)\b/i
 
 const CLASS_PRIORITY = new Map([
   [VEHICLE_CLASS_LABELS.aClass, 0],
   [VEHICLE_CLASS_LABELS.compact, 1],
   [VEHICLE_CLASS_LABELS.medium, 2],
-  [VEHICLE_CLASS_LABELS.business, 3],
-  [VEHICLE_CLASS_LABELS.executive, 4],
+  [VEHICLE_CLASS_LABELS.compactCrossover, 3],
+  [VEHICLE_CLASS_LABELS.midsizeCrossover, 4],
+  [VEHICLE_CLASS_LABELS.crossover, 5],
+  [VEHICLE_CLASS_LABELS.suv, 6],
+  [VEHICLE_CLASS_LABELS.minivan, 7],
+  [VEHICLE_CLASS_LABELS.business, 8],
+  [VEHICLE_CLASS_LABELS.executive, 9],
 ])
 
 function normalizeLegacyBodyClassToBody(value) {
@@ -173,6 +193,11 @@ export function normalizeVehicleClassLabel(value) {
   if (!text || text === '-') return ''
   if (CANONICAL_VEHICLE_CLASSES.has(text)) return text
 
+  if (RAW_COMPACT_CROSSOVER_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
+  if (RAW_MIDSIZE_CROSSOVER_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
+  if (RAW_CROSSOVER_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
+  if (RAW_SUV_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.suv
+  if (RAW_MINIVAN_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.minivan
   if (RAW_A_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.aClass
   if (RAW_EXECUTIVE_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.executive
   if (RAW_BUSINESS_CLASS_RE.test(text)) return VEHICLE_CLASS_LABELS.business
@@ -188,9 +213,14 @@ function inferVehicleClassFromContext(bodyType, ...values) {
   if (!text) return ''
 
   if (A_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.aClass
-  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.minivan, BODY_TYPE_LABELS.microvan].includes(normalizedBody)) {
+  if (normalizedBody === BODY_TYPE_LABELS.minivan || MINIVAN_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.minivan
+  if ([BODY_TYPE_LABELS.pickup, BODY_TYPE_LABELS.truck, BODY_TYPE_LABELS.microvan].includes(normalizedBody)) {
     return ''
   }
+  if (SUV_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.suv
+  if (COMPACT_CROSSOVER_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
+  if (MIDSIZE_CROSSOVER_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
+  if (CROSSOVER_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.crossover
   if (EXECUTIVE_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.executive
   if (BUSINESS_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.business
   if (MEDIUM_CLASS_HINT_RE.test(text)) return VEHICLE_CLASS_LABELS.medium
