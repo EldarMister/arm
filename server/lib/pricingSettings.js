@@ -106,7 +106,7 @@ export const DEFAULT_DELIVERY_PROFILES = [
   },
   {
     code: 'suv_city',
-    label: 'Малый кроссовер',
+    label: 'Кроссовер',
     description: 'STONIC / KONA / NIRO / VENUE / XM3',
     price: 1550,
     prices: { kg: 1550 },
@@ -114,7 +114,7 @@ export const DEFAULT_DELIVERY_PROFILES = [
   },
   {
     code: 'suv_small',
-    label: 'Компактный кроссовер',
+    label: 'Кроссовер',
     description: 'SPORTAGE / TRAX / TIVOLI / CORANDO',
     price: 1600,
     prices: { kg: 1600 },
@@ -130,7 +130,7 @@ export const DEFAULT_DELIVERY_PROFILES = [
   },
   {
     code: 'suv_middle',
-    label: 'Средний кроссовер',
+    label: 'Кроссовер',
     description: 'SANTA FE / QM6',
     price: 1700,
     prices: { kg: 1700 },
@@ -138,7 +138,7 @@ export const DEFAULT_DELIVERY_PROFILES = [
   },
   {
     code: 'suv_big',
-    label: 'Большой кроссовер',
+    label: 'Кроссовер',
     description: 'REXTON (Sport / G4 / G5) / CARNIVAL / PALISADE',
     price: 1800,
     prices: { kg: 1800 },
