@@ -971,7 +971,10 @@ function recordRetryRecovered(stage, car, attempts, details = '') {
 }
 
 function shouldUseTailStopGuard(parseScope) {
-  return IMPORT_ONLY_SCOPES.has(parseScope)
+  void parseScope
+  // Encar feed is newest-first, so several consecutive low-yield pages
+  // are a reliable signal that we are already in the stale tail.
+  return true
 }
 
 function formatSourceFailures(sourceDiagnostics = []) {

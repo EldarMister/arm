@@ -188,7 +188,7 @@ function formatLogMessage(message) {
     case 'SCRAPER_FATAL':
       return `Критическая ошибка: ${fields.message || 'unknown error'}`
     case 'SESSION_SUMMARY':
-      return `Итог сеанса: найдено=${fields.found || 0}, импортировано=${fields.imported || 0}, пропущено всего=${fields.skipped_total || fields.skipped || 0}, уже в базе=${fields.already_known || 0}, ошибок=${fields.failed || 0}, фото=${fields.photos || 0}`
+      return `Итог сеанса: найдено=${fields.found || 0}, импортировано=${fields.imported || 0}, не импортировано всего=${fields.skipped_total || fields.skipped || 0}, уже в базе=${fields.already_known || 0}, отсев=${fields.skipped || 0}, ошибок=${fields.failed || 0}, фото=${fields.photos || 0}`
     case 'SESSION_REASON':
       return `Причина: ${fields.label || head} (${text.replace(/^SESSION_REASON \|\s*/, '').replace(/\s*\|\s*label=.*$/, '')})`
     default:
@@ -538,6 +538,10 @@ export default function AdminEncar() {
   const optimizationStats = sessionSummary.optimizationStats || {}
   const totalSkipped = progress.totalSkipped ?? ((progress.skipped || 0) + (progress.alreadyKnown || 0))
   const summaryTotalSkipped = sessionSummary.totalSkipped ?? ((sessionSummary.skipped || 0) + (sessionSummary.alreadyKnown || 0))
+  const rejectedCount = progress.skipped || 0
+  const alreadyKnownCount = progress.alreadyKnown || 0
+  const summaryRejectedCount = sessionSummary.skipped || 0
+  const summaryAlreadyKnownCount = sessionSummary.alreadyKnown || 0
 
   const scheduleLabel = {
     manual: 'Вручную',
@@ -620,7 +624,7 @@ export default function AdminEncar() {
       )}
 
       {/* ── Status + Stats Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '20px' }}>
         {/* Status card */}
         <div style={{
           gridColumn: '1 / 2',
@@ -661,10 +665,11 @@ export default function AdminEncar() {
           )}
         </div>
 
-        <StatBadge label="Добавлено за сеанс" value={progress.done}     color="#00b894" bg="rgba(0,184,148,0.08)" />
-        <StatBadge label="Фото скачано"       value={progress.photos}   color="#3b82f6" bg="rgba(59,130,246,0.08)" />
-        <StatBadge label="Ошибок / Пропущено" value={`${progress.failed} / ${totalSkipped}`} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
-        <StatBadge label="Retry recovered"    value={progress.retryRecovered || 0} color="#8b5cf6" bg="rgba(139,92,246,0.10)" />
+        <StatBadge label="Добавлено за сеанс" value={progress.done} color="#00b894" bg="rgba(0,184,148,0.08)" />
+        <StatBadge label="Фото скачано" value={progress.photos} color="#3b82f6" bg="rgba(59,130,246,0.08)" />
+        <StatBadge label="Уже в базе" value={alreadyKnownCount} color="#38bdf8" bg="rgba(56,189,248,0.10)" />
+        <StatBadge label="Ошибок / Отсев" value={`${progress.failed} / ${rejectedCount}`} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
+        <StatBadge label="Retry recovered" value={progress.retryRecovered || 0} color="#8b5cf6" bg="rgba(139,92,246,0.10)" />
       </div>
 
       {/* ── Progress bar (visible when running) ── */}
@@ -675,7 +680,7 @@ export default function AdminEncar() {
         }}>
           <ProgressBar done={progress.done} total={progress.total} failed={progress.failed} />
           <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569' }}>
-            Фото: {progress.photos} • Пропущено: {totalSkipped} • Уже в базе: {progress.alreadyKnown || 0} • Ошибок: {progress.failed}
+            Фото: {progress.photos} • Отсев: {rejectedCount} • Уже в базе: {alreadyKnownCount} • Не импортировано всего: {totalSkipped} • Ошибок: {progress.failed}
           </div>
         </div>
       )}
@@ -693,7 +698,7 @@ export default function AdminEncar() {
             <div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#f1f5f9' }}>Reason Summary</div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-              Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Пропущено всего: {summaryTotalSkipped} • Уже в базе: {sessionSummary.alreadyKnown || 0} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
+              Найдено: {sessionSummary.found || 0} • Импортировано: {sessionSummary.imported || 0} • Не импортировано всего: {summaryTotalSkipped} • Уже в базе: {summaryAlreadyKnownCount} • Отсев: {summaryRejectedCount} • Нормальные skip: {sessionSummary.normalSkipped || 0} • Финально отброшено: {sessionSummary.discarded || 0}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
               already known: <span style={{ color: '#cbd5e1' }}>{diagnosticBuckets.alreadyKnown || 0}</span> • duplicate: <span style={{ color: '#cbd5e1' }}>{diagnosticBuckets.duplicate || 0}</span> • temporary fail: <span style={{ color: '#fda4af' }}>{diagnosticBuckets.temporaryFail || 0}</span> • invalid page: <span style={{ color: '#fbbf24' }}>{diagnosticBuckets.invalidPage || 0}</span> • parse incomplete: <span style={{ color: '#93c5fd' }}>{diagnosticBuckets.parseIncomplete || 0}</span> • recovered: <span style={{ color: '#c4b5fd' }}>{diagnosticBuckets.recovered || 0}</span>
