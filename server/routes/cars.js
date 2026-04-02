@@ -629,16 +629,16 @@ router.get('/', async (req, res) => {
     const filterParams = [...params]
 
     const sortMap = {
-      newest: 'c.created_at DESC',
-      oldest: 'c.created_at ASC',
-      price_asc: `${priceUsdSql} ASC`,
-      price_desc: `${priceUsdSql} DESC`,
-      mileage: 'c.mileage ASC',
-      mileage_desc: 'c.mileage DESC',
-      year_desc: 'c.year DESC',
-      year_asc: 'c.year ASC',
+      newest: 'c.created_at DESC, c.id DESC',
+      oldest: 'c.created_at ASC, c.id ASC',
+      price_asc: `${priceUsdSql} ASC, c.created_at DESC, c.id DESC`,
+      price_desc: `${priceUsdSql} DESC, c.created_at DESC, c.id DESC`,
+      mileage: 'c.mileage ASC, c.created_at DESC, c.id DESC',
+      mileage_desc: 'c.mileage DESC, c.created_at DESC, c.id DESC',
+      year_desc: 'c.year DESC, c.created_at DESC, c.id DESC',
+      year_asc: 'c.year ASC, c.created_at DESC, c.id DESC',
     }
-    const orderBy = sortMap[sort] || 'c.created_at DESC'
+    const orderBy = sortMap[sort] || sortMap.newest
     let orderBySql = orderBy
 
     if (qText) {
@@ -686,31 +686,50 @@ router.get('/', async (req, res) => {
       END, ${orderBy}`
     }
 
-    const offset = (Number(page) - 1) * Number(limit)
+    const safeLimit = Math.min(Math.max(Number.parseInt(String(limit), 10) || 20, 1), 100)
+    const safePage = Math.max(Number.parseInt(String(page), 10) || 1, 1)
+    const offset = (safePage - 1) * safeLimit
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM cars c ${where}`, filterParams)
+    const countResult = await pool.query(`SELECT COUNT(*)::int AS count FROM cars c ${where}`, filterParams)
     const total = parseInt(countResult.rows[0].count, 10)
 
-    const carsResult = await pool.query(
-      `SELECT c.*,
-        COALESCE(
-          json_agg(ci ORDER BY ci.position ASC) FILTER (WHERE ci.id IS NOT NULL),
-          '[]'
-        ) AS images
+    const pageIdsResult = await pool.query(
+      `SELECT c.id
        FROM cars c
-       LEFT JOIN car_images ci ON ci.car_id = c.id
        ${where}
-       GROUP BY c.id
        ORDER BY ${orderBySql}
        LIMIT $${p++} OFFSET $${p++}`,
-      [...params, Number(limit), offset]
+      [...params, safeLimit, offset]
     )
+    const pageIds = pageIdsResult.rows
+      .map((row) => Number(row.id))
+      .filter((value) => Number.isFinite(value))
+
+    const carsResult = pageIds.length
+      ? await pool.query(
+        `WITH selected_ids AS (
+           SELECT *
+           FROM unnest($1::int[]) WITH ORDINALITY AS selected(id, ord)
+         )
+         SELECT c.*,
+           COALESCE(images.images, '[]'::json) AS images
+         FROM selected_ids selected
+         JOIN cars c ON c.id = selected.id
+         LEFT JOIN LATERAL (
+           SELECT json_agg(ci ORDER BY ci.position ASC) AS images
+           FROM car_images ci
+           WHERE ci.car_id = c.id
+         ) images ON true
+         ORDER BY selected.ord`,
+        [pageIds]
+      )
+      : { rows: [] }
 
     return res.json({
       total,
-      page: Number(page),
-      limit: Number(limit),
-      pages: Math.ceil(total / Number(limit)),
+      page: safePage,
+      limit: safeLimit,
+      pages: Math.ceil(total / safeLimit),
       exchange_rate_current: exchangeSnapshot.currentRate,
       exchange_rate_site: exchangeSnapshot.siteRate,
       exchange_rate_offset: exchangeSnapshot.offset,
@@ -846,7 +865,7 @@ router.post('/', adminMutationProtection, async (req, res) => {
   }
 })
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', adminMutationProtection, async (req, res) => {
   try {
     await ensureCarListingMetadataColumns()
     const payload = { ...(req.body || {}) }

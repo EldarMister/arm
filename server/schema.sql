@@ -123,6 +123,8 @@ CREATE INDEX IF NOT EXISTS idx_cars_year       ON cars(year);
 CREATE INDEX IF NOT EXISTS idx_cars_mileage    ON cars(mileage);
 CREATE INDEX IF NOT EXISTS idx_cars_encar_id   ON cars(encar_id);
 CREATE INDEX IF NOT EXISTS idx_cars_listing_type ON cars(listing_type);
+CREATE INDEX IF NOT EXISTS idx_cars_listing_type_created_at_id
+  ON cars(listing_type, created_at DESC, id DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cars_vin_unique
   ON cars (UPPER(BTRIM(vin)))
   WHERE vin IS NOT NULL

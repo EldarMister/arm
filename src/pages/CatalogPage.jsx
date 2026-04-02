@@ -42,6 +42,7 @@ const CATALOG_PATCH_PERSIST_CONCURRENCY = 2
 const CATALOG_IMPORTED_IMAGE_LIMIT = 8
 const CATALOG_SESSION_CACHE_TTL_MS = 10 * 60 * 1000
 const CATALOG_SESSION_CACHE_PREFIX = 'catalog-query-cache:v1:'
+const ADMIN_SESSION_STORAGE_KEY = 'tlv-admin-session-token'
 const TRANSIENT_CATALOG_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
 const CATALOG_QUERY_FILTER_KEYS = Object.freeze([
   'minPrice',
@@ -445,6 +446,10 @@ function writeCatalogSessionSnapshot(listingType, requestKey, snapshot) {
 
 async function persistCatalogPatches(patches) {
   if (!Array.isArray(patches) || !patches.length) return
+  if (typeof window === 'undefined') return
+
+  const adminToken = String(window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) || '').trim()
+  if (!adminToken) return
 
   const concurrency = Math.min(CATALOG_PATCH_PERSIST_CONCURRENCY, patches.length)
   await Promise.allSettled(
@@ -456,7 +461,10 @@ async function persistCatalogPatches(patches) {
         try {
           await fetch(`/api/cars/${entry.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Admin-Session': adminToken,
+            },
             body: JSON.stringify(entry.patch),
           })
         } catch {
