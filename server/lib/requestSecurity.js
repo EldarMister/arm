@@ -93,6 +93,8 @@ export function getProductionStartupWarnings(env = {}) {
   const rawAllowedOrigins = String(env.CORS_ALLOWED_ORIGINS || '').trim()
   const allowedOriginSet = parseAllowedOrigins(rawAllowedOrigins)
   const registrationEnabled = String(env.AUTH_ALLOW_REGISTRATION || 'true').trim().toLowerCase() !== 'false'
+  const turnstileSiteKey = String(env.TURNSTILE_SITE_KEY || '').trim()
+  const turnstileSecretKey = String(env.TURNSTILE_SECRET_KEY || '').trim()
 
   if (!rawAllowedOrigins) {
     warnings.push('CORS_ALLOWED_ORIGINS is not set; API CORS is open to any browser origin')
@@ -106,6 +108,10 @@ export function getProductionStartupWarnings(env = {}) {
 
   if (registrationEnabled) {
     warnings.push('AUTH_ALLOW_REGISTRATION is enabled; public user registration remains open')
+
+    if (!turnstileSiteKey || !turnstileSecretKey) {
+      warnings.push('Registration captcha is not fully configured; set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY')
+    }
   }
 
   if (!String(env.DATABASE_URL || '').trim()) {

@@ -10182,6 +10182,20 @@ body {
   color: #64748b;
 }
 
+.auth-modal-captcha {
+  min-height: 66px;
+}
+
+.auth-modal-note {
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 251, 235, 0.96);
+  color: #92400e;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .auth-modal-error {
   border: 1px solid rgba(220, 38, 38, 0.16);
   border-radius: 14px;
@@ -10266,6 +10280,12 @@ body {
 
 [data-theme="dark"] .auth-modal-hint {
   color: #7a96b0;
+}
+
+[data-theme="dark"] .auth-modal-note {
+  border-color: rgba(245, 158, 11, 0.22);
+  background: rgba(120, 53, 15, 0.28);
+  color: #fcd34d;
 }
 
 [data-theme="dark"] .auth-modal-error {

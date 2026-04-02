@@ -17,11 +17,19 @@ import {
   createRateLimitStore,
   getClientIp,
 } from '../lib/requestSecurity.js'
+import {
+  getTurnstileConfig,
+  verifyTurnstileToken,
+} from '../lib/turnstile.js'
 
 const router = Router()
 const authLoginRateLimitStore = createRateLimitStore('auth-login')
 const authRegisterRateLimitStore = createRateLimitStore('auth-register')
 const AUTH_ALLOW_REGISTRATION = String(globalThis.process?.env?.AUTH_ALLOW_REGISTRATION || 'true').trim().toLowerCase() !== 'false'
+const IS_PRODUCTION = String(globalThis.process?.env?.NODE_ENV || '').trim() === 'production'
+const TURNSTILE_CONFIG = getTurnstileConfig()
+const REGISTRATION_CAPTCHA_REQUIRED = AUTH_ALLOW_REGISTRATION && IS_PRODUCTION
+const REGISTRATION_AVAILABLE = AUTH_ALLOW_REGISTRATION && (!REGISTRATION_CAPTCHA_REQUIRED || TURNSTILE_CONFIG.configured)
 
 const loginRateLimit = createRateLimitMiddleware({
   store: authLoginRateLimitStore,
@@ -42,6 +50,19 @@ const registerRateLimit = createRateLimitMiddleware({
 })
 
 router.use(applyNoStoreHeaders)
+
+router.get('/config', (_req, res) => {
+  return res.json({
+    ok: true,
+    auth: {
+      registrationEnabled: AUTH_ALLOW_REGISTRATION,
+      registrationAvailable: REGISTRATION_AVAILABLE,
+      registerCaptchaEnabled: TURNSTILE_CONFIG.configured,
+      registerCaptchaRequired: REGISTRATION_CAPTCHA_REQUIRED,
+      turnstileSiteKey: TURNSTILE_CONFIG.configured ? TURNSTILE_CONFIG.siteKey : '',
+    },
+  })
+})
 
 function toAuthUser(row) {
   if (!row) return null
@@ -113,8 +134,16 @@ router.post('/register', registerRateLimit, async (req, res) => {
     return res.status(403).json({ ok: false, error: 'Публичная регистрация отключена' })
   }
 
+  if (REGISTRATION_CAPTCHA_REQUIRED && !TURNSTILE_CONFIG.configured) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Регистрация временно недоступна: каптча не настроена',
+    })
+  }
+
   const login = normalizeAuthLogin(req.body?.login)
   const password = String(req.body?.password || '')
+  const turnstileToken = String(req.body?.turnstileToken || '').trim()
 
   const loginError = validateAuthLogin(login)
   if (loginError) {
@@ -127,6 +156,24 @@ router.post('/register', registerRateLimit, async (req, res) => {
   }
 
   try {
+    if (TURNSTILE_CONFIG.configured) {
+      const verification = await verifyTurnstileToken({
+        token: turnstileToken,
+        remoteIp: getClientIp(req),
+      })
+
+      if (!verification.ok) {
+        const isTemporaryFailure = verification.reason === 'upstream-error' || verification.reason === 'network-error'
+
+        return res.status(isTemporaryFailure ? 502 : 400).json({
+          ok: false,
+          error: isTemporaryFailure
+            ? 'Не удалось проверить каптчу. Повторите позже.'
+            : 'Подтвердите, что вы не робот.',
+        })
+      }
+    }
+
     await cleanupExpiredSessions()
     const passwordHash = await hashPassword(password)
     const userResult = await pool.query(
