@@ -254,7 +254,6 @@ export default function AuthModal({ open, onClose, onSuccess }) {
 
           {mode === 'register' && authConfig.registerCaptchaEnabled && authConfig.turnstileSiteKey && (
             <div className="auth-modal-field">
-              <span>Защита от ботов</span>
               <TurnstileWidget
                 siteKey={authConfig.turnstileSiteKey}
                 onError={setTurnstileError}
