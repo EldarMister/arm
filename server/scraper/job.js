@@ -80,8 +80,14 @@ const IMPORT_ONLY_SCOPES = new Set([PARSE_SCOPE_IMPORTED, PARSE_SCOPE_JAPANESE, 
 const DETAIL_RETRY_ATTEMPTS = 3
 const DETAIL_SOFT_RECHECK_ATTEMPTS = 2
 const PHOTO_LIMIT = 8
-const DETAIL_SUCCESS_PACING_MIN_MS = 300
-const DETAIL_SUCCESS_PACING_MAX_MS = 900
+const DEFAULT_DETAIL_PACING = Object.freeze({
+  minMs: 300,
+  maxMs: 900,
+})
+const FRESH_LOW_ENGAGEMENT_DETAIL_PACING = Object.freeze({
+  minMs: 120,
+  maxMs: 220,
+})
 const STALE_KNOWN_PAGE_LIMIT = 2
 const LOW_YIELD_PAGE_LIMIT = 4
 const LOW_YIELD_MAX_FRESH = 1
@@ -92,6 +98,15 @@ const FRESH_LOW_ENGAGEMENT_FILTERS = Object.freeze({
   maxCallCount: 0,
   maxSubscribeCount: 0,
 })
+const FRESH_LEAD_LIGHTWEIGHT_TARGETS = Object.freeze({
+  vin: false,
+  interiorColor: false,
+  keyInfo: false,
+  driveType: false,
+  optionFeatures: false,
+})
+let activeDetailPacing = DEFAULT_DETAIL_PACING
+let ensureFreshLeadTablePromise = null
 const JAPANESE_BRAND_ALIASES = [
   'toyota',
   'lexus',
@@ -369,15 +384,26 @@ function normalizeRunPreset(runPreset) {
   return SUPPORTED_RUN_PRESETS.has(runPreset) ? runPreset : RUN_PRESET_DEFAULT
 }
 
+function isFreshLeadRun(runPreset) {
+  return runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT
+}
+
 function getLeadFiltersForRunPreset(runPreset) {
-  if (runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT) {
+  if (isFreshLeadRun(runPreset)) {
     return { ...FRESH_LOW_ENGAGEMENT_FILTERS }
   }
   return null
 }
 
+function getDetailPacingForRunPreset(runPreset) {
+  if (isFreshLeadRun(runPreset)) {
+    return FRESH_LOW_ENGAGEMENT_DETAIL_PACING
+  }
+  return DEFAULT_DETAIL_PACING
+}
+
 function formatRunPresetLabel(runPreset) {
-  if (runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT) {
+  if (isFreshLeadRun(runPreset)) {
     return 'fresh low engagement'
   }
   return 'default'
@@ -508,12 +534,15 @@ function evaluateLeadEngagement(leadMetrics, leadFilters) {
 }
 
 function getDetailSuccessPacingMs() {
-  if (DETAIL_SUCCESS_PACING_MAX_MS <= DETAIL_SUCCESS_PACING_MIN_MS) {
-    return DETAIL_SUCCESS_PACING_MIN_MS
+  const minMs = Math.max(0, Number(activeDetailPacing?.minMs) || 0)
+  const maxMs = Math.max(minMs, Number(activeDetailPacing?.maxMs) || minMs)
+
+  if (maxMs <= minMs) {
+    return minMs
   }
 
   return Math.round(
-    DETAIL_SUCCESS_PACING_MIN_MS + Math.random() * (DETAIL_SUCCESS_PACING_MAX_MS - DETAIL_SUCCESS_PACING_MIN_MS),
+    minMs + Math.random() * (maxMs - minMs),
   )
 }
 
@@ -742,13 +771,146 @@ async function getExistingEncarIdMap(encarIds = []) {
   if (!normalized.length) return new Map()
 
   const res = await pool.query(
-    `SELECT id, encar_id, name, model, price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total, detail_flags
+    `SELECT id, encar_id, name, model, year, mileage, location, encar_url, price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total, detail_flags
      FROM cars
      WHERE encar_id = ANY($1::text[])`,
     [normalized],
   )
 
   return new Map(res.rows.map((row) => [String(row.encar_id || '').trim(), row]))
+}
+
+async function ensureFreshLeadTable() {
+  if (!ensureFreshLeadTablePromise) {
+    ensureFreshLeadTablePromise = (async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS fresh_leads (
+          id                SERIAL PRIMARY KEY,
+          encar_id          VARCHAR(50) NOT NULL UNIQUE,
+          name              VARCHAR(255) NOT NULL,
+          year              VARCHAR(20),
+          mileage           INTEGER DEFAULT 0,
+          price_krw         BIGINT DEFAULT 0,
+          price_usd         NUMERIC(10,2) DEFAULT 0,
+          location          VARCHAR(100),
+          encar_url         TEXT NOT NULL,
+          parse_scope       VARCHAR(20) DEFAULT 'all',
+          source_preset     VARCHAR(40) DEFAULT 'fresh_low_engagement',
+          first_notified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          last_changed_at   TIMESTAMPTZ,
+          created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_fresh_leads_last_seen_at ON fresh_leads(last_seen_at DESC)')
+    })().catch((error) => {
+      ensureFreshLeadTablePromise = null
+      throw error
+    })
+  }
+
+  return ensureFreshLeadTablePromise
+}
+
+async function getExistingFreshLeadMap(encarIds = []) {
+  const normalized = [...new Set(encarIds.map((item) => String(item || '').trim()).filter(Boolean))]
+  if (!normalized.length) return new Map()
+
+  await ensureFreshLeadTable()
+
+  const res = await pool.query(
+    `SELECT id, encar_id, name, year, mileage, price_krw, price_usd, location, encar_url, parse_scope, source_preset
+     FROM fresh_leads
+     WHERE encar_id = ANY($1::text[])`,
+    [normalized],
+  )
+
+  return new Map(res.rows.map((row) => [String(row.encar_id || '').trim(), row]))
+}
+
+async function storeFreshLeadSnapshot(existingFreshLead, car, { parseScope, runPreset } = {}) {
+  await ensureFreshLeadTable()
+
+  const normalizedEncarId = cleanText(car?.encar_id)
+  const normalizedName = cleanText(car?.name || car?.model || 'Без названия')
+  const normalizedYear = cleanText(car?.year) || null
+  const normalizedMileage = Math.max(0, Math.round(Number(car?.mileage) || 0))
+  const normalizedPriceKrw = Math.max(0, Math.round(Number(car?.price_krw) || 0))
+  const normalizedPriceUsd = Number(car?.price_usd) > 0 ? Number(car.price_usd) : 0
+  const normalizedLocation = cleanText(car?.location) || null
+  const normalizedEncarUrl = cleanText(car?.encar_url) || `https://www.encar.com/dc/dc_cardetailview.do?carid=${normalizedEncarId}`
+  const normalizedParseScope = normalizeParseScope(parseScope)
+  const normalizedRunPreset = normalizeRunPreset(runPreset)
+
+  if (!existingFreshLead) {
+    const result = await pool.query(
+      `INSERT INTO fresh_leads
+         (encar_id, name, year, mileage, price_krw, price_usd, location, encar_url, parse_scope, source_preset)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING *`,
+      [
+        normalizedEncarId,
+        normalizedName,
+        normalizedYear,
+        normalizedMileage,
+        normalizedPriceKrw,
+        normalizedPriceUsd,
+        normalizedLocation,
+        normalizedEncarUrl,
+        normalizedParseScope,
+        normalizedRunPreset,
+      ],
+    )
+
+    return {
+      status: 'new',
+      previousPriceKrw: null,
+      nextPriceKrw: normalizedPriceKrw,
+      row: result.rows[0] || null,
+    }
+  }
+
+  const previousPriceKrw = Math.max(0, Math.round(Number(existingFreshLead.price_krw) || 0))
+  const priceChanged = normalizedPriceKrw > 0 && normalizedPriceKrw !== previousPriceKrw
+
+  const result = await pool.query(
+    `UPDATE fresh_leads
+     SET name = $1,
+         year = $2,
+         mileage = $3,
+         price_krw = $4,
+         price_usd = $5,
+         location = $6,
+         encar_url = $7,
+         parse_scope = $8,
+         source_preset = $9,
+         last_seen_at = NOW(),
+         last_changed_at = CASE WHEN $10 THEN NOW() ELSE last_changed_at END,
+         updated_at = NOW()
+     WHERE encar_id = $11
+     RETURNING *`,
+    [
+      normalizedName,
+      normalizedYear,
+      normalizedMileage,
+      normalizedPriceKrw,
+      normalizedPriceUsd,
+      normalizedLocation,
+      normalizedEncarUrl,
+      normalizedParseScope,
+      normalizedRunPreset,
+      priceChanged,
+      normalizedEncarId,
+    ],
+  )
+
+  return {
+    status: priceChanged ? 'changed' : 'seen',
+    previousPriceKrw,
+    nextPriceKrw: normalizedPriceKrw,
+    row: result.rows[0] || null,
+  }
 }
 
 async function getExistingIdByVin(vin, cache = null) {
@@ -1324,8 +1486,10 @@ export async function runScrapeJob(limit = 100, options = {}) {
   const parseScope = normalizeParseScope(options?.parseScope)
   const runPreset = normalizeRunPreset(options?.runPreset)
   const leadFilters = getLeadFiltersForRunPreset(runPreset)
+  activeDetailPacing = getDetailPacingForRunPreset(runPreset)
   const parseScopeLabel = formatParseScopeLabel(parseScope)
   const runPresetLabel = formatRunPresetLabel(runPreset)
+  const freshLeadRun = isFreshLeadRun(runPreset)
 
   state.isRunning = true
   state.stopReq = false
@@ -1348,7 +1512,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
     ? 'auto direct/proxy failover for list and detail'
     : 'direct Encar API + detail HTML fallback'
   state.info(`Source mode: ${sourceMode}`)
-  state.info(`Request pacing: ${DETAIL_SUCCESS_PACING_MIN_MS}-${DETAIL_SUCCESS_PACING_MAX_MS}ms between detail requests`)
+  state.info(`Request pacing: ${activeDetailPacing.minMs}-${activeDetailPacing.maxMs}ms between detail requests`)
   const exchangeSnapshot = await getExchangeRateSnapshot()
   const pricingSettings = await getPricingSettings()
   const seenEncarIds = new Set()
@@ -1404,11 +1568,16 @@ export async function runScrapeJob(limit = 100, options = {}) {
       state.info(`📦 Получено ${cars.length} машин из ${scanned} просмотренных (Encar всего: ${Number(total || 0).toLocaleString()})`)
       state.info(`LIST_FETCH_OK | cars=${cars.length} | scanned=${scanned} | total=${Number(total || 0).toLocaleString()} | scope=${parseScope} | source=${listResult.listSource || 'unknown'}`)
       const existingEncarIds = await getExistingEncarIdMap(cars.map((raw) => raw?.Id))
+      const existingFreshLeadIds = isFreshLeadRun(runPreset)
+        ? await getExistingFreshLeadMap(cars.map((raw) => raw?.Id))
+        : new Map()
       const pageFingerprint = buildListPageFingerprint(cars, scanned)
       const cachedPage = getListPageSnapshot(parseScope, offset)
       const pageKnownCars = cars.reduce((count, raw) => {
         const rawId = cleanText(raw?.Id)
-        return existingEncarIds.has(rawId) || seenEncarIds.has(rawId) ? count + 1 : count
+        return existingEncarIds.has(rawId) || existingFreshLeadIds.has(rawId) || seenEncarIds.has(rawId)
+          ? count + 1
+          : count
       }, 0)
       const pageFreshCars = Math.max(cars.length - pageKnownCars, 0)
       const isStableKnownOnlyPage = Boolean(
@@ -1597,6 +1766,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
                       changedFields: refreshResult.updatedFields,
                       parseScopeLabel,
                       runPresetLabel,
+                      notificationMode: freshLeadRun ? 'fresh_list' : 'full',
                     }),
                     { kind: 'changed_listing', encarId: currentEncarId },
                   )
@@ -1631,6 +1801,138 @@ export async function runScrapeJob(limit = 100, options = {}) {
         }
 
         seenEncarIds.add(currentEncarId)
+
+        if (freshLeadRun) {
+          let freshLeadCar = car
+          let freshLeadEnrichment = null
+
+          try {
+            const result = await retryOperation(
+              () => fetchEncarVehicleEnrichment(raw.Id, { targets: FRESH_LEAD_LIGHTWEIGHT_TARGETS }),
+              {
+                maxAttempts: DETAIL_RETRY_ATTEMPTS,
+                baseDelayMs: 900,
+                factor: 2,
+                classifyError: (error) => classifyDetailError(error, 'detail_fetch_failed'),
+                onRetry: async ({ attempt, nextAttempt, maxAttempts, delayMs, classification }) => {
+                  state.warn(
+                    [
+                      'RETRY',
+                      'stage=fresh_lead_detail',
+                      `carId=${currentEncarId}`,
+                      `reason=${classification.reason}`,
+                      `attempt=${attempt}/${maxAttempts}`,
+                      `next=${nextAttempt}`,
+                      `delayMs=${delayMs}`,
+                      classification.httpStatus ? `http=${classification.httpStatus}` : '',
+                      classification.details ? `details=${classification.details}` : '',
+                    ].filter(Boolean).join(' | '),
+                  )
+                },
+              },
+            )
+            freshLeadEnrichment = result.value
+            if (result.recovered) {
+              recordRetryRecovered('fresh_lead_detail', car, result.attempts, freshLeadEnrichment?.source || '')
+            }
+
+            freshLeadCar = applyPricingToCar({
+              ...car,
+              name: freshLeadEnrichment.name || car.name,
+              model: freshLeadEnrichment.model || car.model,
+              location: freshLeadEnrichment.location || car.location,
+              encar_url: freshLeadEnrichment.encar_url || car.encar_url,
+              price_krw: Number(freshLeadEnrichment.price_krw) > 0
+                ? Number(freshLeadEnrichment.price_krw)
+                : car.price_krw,
+            }, exchangeSnapshot, pricingSettings)
+          } catch (freshLeadError) {
+            recordSkip(buildDetailDiagnostic(freshLeadError, car, raw))
+            await paceAfterDetailFlow()
+            continue
+          }
+
+          const leadDecision = evaluateLeadEngagement(
+            extractLeadMetricsFromEnrichment(freshLeadEnrichment),
+            leadFilters,
+          )
+          if (!leadDecision.passed) {
+            recordSkip(buildFilterDiagnostic({
+              stage: 'post_detail_filter',
+              reason: 'filtered_lead_engagement',
+              details: leadDecision.details,
+              car: freshLeadCar,
+              raw,
+            }))
+            await paceAfterDetailFlow()
+            continue
+          }
+
+          const existingFreshLead = existingFreshLeadIds.get(currentEncarId) || null
+          const freshLeadSnapshot = await storeFreshLeadSnapshot(existingFreshLead, freshLeadCar, {
+            parseScope,
+            runPreset,
+          })
+
+          if (freshLeadSnapshot.row) {
+            existingFreshLeadIds.set(currentEncarId, freshLeadSnapshot.row)
+          }
+
+          if (freshLeadSnapshot.status === 'seen') {
+            recordSkip(buildDuplicateDiagnostic(
+              'duplicate_encar_id',
+              `fresh lead already notified for encar_id=${currentEncarId}`,
+              freshLeadCar,
+              raw,
+              freshLeadSnapshot.row?.id || null,
+            ))
+            await paceAfterDetailFlow()
+            continue
+          }
+
+          if (freshLeadSnapshot.status === 'changed') {
+            state.success(
+              `FRESH_LEAD_CHANGED | encar_id=${currentEncarId} | name=${freshLeadCar.name} | year=${freshLeadCar.year || '-'} | mileage=${Number(freshLeadCar.mileage || 0).toLocaleString()} | price_krw=${Math.round(Number(freshLeadCar.price_krw) || 0)} | encar_url=${freshLeadCar.encar_url}`,
+            )
+            queueTelegramNotification(
+              notifyTelegramChangedListing({
+                car: freshLeadCar,
+                previousPriceKrw: freshLeadSnapshot.previousPriceKrw,
+                nextPriceKrw: freshLeadSnapshot.nextPriceKrw,
+                changedFields: ['price_krw'],
+                parseScopeLabel,
+                runPresetLabel,
+                notificationMode: 'fresh_list',
+              }),
+              { kind: 'fresh_lead_changed', encarId: currentEncarId },
+            )
+          } else {
+            state.success(
+              `FRESH_LEAD_NEW | encar_id=${currentEncarId} | name=${freshLeadCar.name} | year=${freshLeadCar.year || '-'} | mileage=${Number(freshLeadCar.mileage || 0).toLocaleString()} | price_krw=${Math.round(Number(freshLeadCar.price_krw) || 0)} | encar_url=${freshLeadCar.encar_url}`,
+            )
+            queueTelegramNotification(
+              notifyTelegramNewListing({
+                car: freshLeadCar,
+                parseScopeLabel,
+                runPresetLabel,
+                notificationMode: 'fresh_list',
+              }),
+              { kind: 'fresh_lead_new', encarId: currentEncarId },
+            )
+          }
+
+          addedThisRun += 1
+          state.setProgress({ done: state.progress.done + 1 })
+
+          if (addedThisRun >= limit) {
+            state.info(`LIMIT_REACHED | limit=${limit}`)
+            state.info(`✅ Достигнут лимит новых машин: ${limit}`)
+            break
+          }
+
+          await paceAfterDetailFlow()
+          continue
+        }
 
         let preparedCar = car
         let enrichment = null
@@ -1927,6 +2229,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
     state.error(`SCRAPER_FATAL | message=${cleanText(err?.message || 'unknown error')}`)
     state.error(`💥 Критическая ошибка: ${cleanText(err?.message || 'unknown error')}`)
   } finally {
+    activeDetailPacing = DEFAULT_DETAIL_PACING
     state.finishSession()
     state.isRunning = false
     state.stopReq = false

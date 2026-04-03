@@ -167,6 +167,27 @@ ALTER TABLE scraper_config ADD COLUMN IF NOT EXISTS parse_scope VARCHAR(20) DEFA
 -- Единственная строка конфига
 INSERT INTO scraper_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS fresh_leads (
+  id                SERIAL PRIMARY KEY,
+  encar_id          VARCHAR(50) NOT NULL UNIQUE,
+  name              VARCHAR(255) NOT NULL,
+  year              VARCHAR(20),
+  mileage           INTEGER DEFAULT 0,
+  price_krw         BIGINT DEFAULT 0,
+  price_usd         NUMERIC(10,2) DEFAULT 0,
+  location          VARCHAR(100),
+  encar_url         TEXT NOT NULL,
+  parse_scope       VARCHAR(20) DEFAULT 'all',
+  source_preset     VARCHAR(40) DEFAULT 'fresh_low_engagement',
+  first_notified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_changed_at   TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fresh_leads_last_seen_at ON fresh_leads(last_seen_at DESC);
+
 CREATE TABLE IF NOT EXISTS pricing_settings (
   id                INTEGER PRIMARY KEY DEFAULT 1,
   commission        NUMERIC(10,2) DEFAULT 200,

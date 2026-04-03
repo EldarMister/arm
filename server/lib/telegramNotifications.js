@@ -99,10 +99,23 @@ function buildHeader(tag, car) {
   return year ? `${tag}\n${title} (${year})` : `${tag}\n${title}`
 }
 
-function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabel }) {
+function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabel, notificationMode = 'full' }) {
   const config = getTelegramConfig()
   const leadMetrics = buildLeadMetrics(car)
   const lines = [buildHeader(tag, car)]
+
+  if (notificationMode === 'fresh_list') {
+    const priceLine = formatKrw(car?.price_krw)
+    if (priceLine) lines.push(`Цена: ${priceLine}`)
+
+    const mileageLine = formatMileage(car?.mileage)
+    if (mileageLine) lines.push(`Пробег: ${mileageLine}`)
+
+    const encarUrl = cleanText(car?.encar_url)
+    if (encarUrl) lines.push(`Encar: ${encarUrl}`)
+
+    return lines
+  }
 
   const idLine = [
     importedId ? `AVT ID: ${importedId}` : '',
@@ -213,6 +226,7 @@ export function notifyTelegramNewListing({
   importedId,
   parseScopeLabel = '',
   runPresetLabel = '',
+  notificationMode = 'full',
 } = {}) {
   const lines = buildCommonLines({
     tag: 'Новое объявление',
@@ -220,6 +234,7 @@ export function notifyTelegramNewListing({
     importedId,
     parseScopeLabel,
     runPresetLabel,
+    notificationMode,
   })
 
   return sendTelegramText(lines.join('\n'))
@@ -233,6 +248,7 @@ export function notifyTelegramChangedListing({
   changedFields = [],
   parseScopeLabel = '',
   runPresetLabel = '',
+  notificationMode = 'full',
 } = {}) {
   const lines = buildCommonLines({
     tag: 'Измененное объявление',
@@ -240,17 +256,27 @@ export function notifyTelegramChangedListing({
     importedId,
     parseScopeLabel,
     runPresetLabel,
+    notificationMode,
   })
 
   const changedFieldsLabel = formatChangedFields(changedFields)
-  if (changedFieldsLabel) {
+  if (changedFieldsLabel && notificationMode !== 'fresh_list') {
     lines.splice(2, 0, `Изменения: ${changedFieldsLabel}`)
   }
 
   const previousLine = formatKrw(previousPriceKrw)
   const nextLine = formatKrw(nextPriceKrw)
   if (previousLine || nextLine) {
-    lines.splice(3, 0, `Цена: ${previousLine || '-'} -> ${nextLine || '-'}`)
+    const priceDiffLine = `Цена: ${previousLine || '-'} -> ${nextLine || '-'}`
+    if (notificationMode === 'fresh_list') {
+      if (lines.length >= 2) {
+        lines[1] = priceDiffLine
+      } else {
+        lines.push(priceDiffLine)
+      }
+    } else {
+      lines.splice(3, 0, priceDiffLine)
+    }
   }
 
   return sendTelegramText(lines.join('\n'))
