@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const ADMIN_SESSION_STORAGE_KEY = 'tlv-admin-session-token'
+const RUN_PRESET_DEFAULT = 'default'
+const RUN_PRESET_FRESH_LOW_ENGAGEMENT = 'fresh_low_engagement'
 
 function getAdminSessionToken() {
   if (typeof window === 'undefined') return ''
@@ -320,6 +322,7 @@ export default function AdminEncar() {
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(false)
   const [starting, setStarting]     = useState(false)
+  const [startingPreset, setStartingPreset] = useState(null)
   const [error, setError]           = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -385,6 +388,7 @@ export default function AdminEncar() {
             ...(data.sessionSummary ? { sessionSummary: data.sessionSummary } : {}),
           } : prev)
           setStarting(false)
+          setStartingPreset(null)
           loadStatus()
         }
       } catch { /* ignore parse errors */ }
@@ -454,8 +458,9 @@ export default function AdminEncar() {
   }, [cfgHour, cfgInterval, cfgLimit, cfgParseScope, cfgSchedule])
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  const handleStart = async () => {
+  const handleStart = async (runPreset = RUN_PRESET_DEFAULT) => {
     setStarting(true)
+    setStartingPreset(runPreset)
     setError(null)
     try {
       if (hasPendingConfigChanges) {
@@ -464,15 +469,23 @@ export default function AdminEncar() {
       const res  = await fetch('/api/scraper/start', buildAdminRequestInit({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: cfgLimit, parseScope: cfgParseScope }),
+        body: JSON.stringify({ limit: cfgLimit, parseScope: cfgParseScope, runPreset }),
       }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка запуска')
-      setStatus(prev => prev ? { ...prev, isRunning: true } : prev)
+      setStatus(prev => prev ? {
+        ...prev,
+        isRunning: true,
+        sessionSummary: {
+          ...(prev.sessionSummary || {}),
+          runPreset,
+        },
+      } : prev)
       flash(`✅ ${data.message}`, 'success')
     } catch (e) {
       setError(e.message)
       setStarting(false)
+      setStartingPreset(null)
     }
   }
 
@@ -895,13 +908,14 @@ export default function AdminEncar() {
 
       {/* ── Control buttons ── */}
       <div style={{
-        display: 'flex', gap: '12px', marginBottom: '20px',
+        display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap',
         background: '#0f2030', borderRadius: '14px', padding: '16px 24px',
         border: '1px solid #1e3a52', alignItems: 'center',
       }}>
         {!isRunning ? (
+          <>
           <button
-            onClick={handleStart}
+            onClick={() => handleStart(RUN_PRESET_DEFAULT)}
             disabled={starting}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
@@ -916,6 +930,24 @@ export default function AdminEncar() {
             <PlayIcon />
             {starting ? 'Запускаю...' : `Запустить: ${parseScopeLabel.toLowerCase()} (${cfgLimit} машин)`}
           </button>
+          <button
+            onClick={() => handleStart(RUN_PRESET_FRESH_LOW_ENGAGEMENT)}
+            disabled={starting}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '11px 22px', borderRadius: '10px', cursor: starting ? 'wait' : 'pointer',
+              background: 'rgba(59,130,246,0.12)',
+              border: '1px solid rgba(59,130,246,0.35)', color: '#93c5fd',
+              fontSize: '14px', fontWeight: '700',
+              boxShadow: startingPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT ? '0 0 0 1px rgba(59,130,246,0.3)' : 'none',
+              transition: 'all 0.2s',
+              opacity: starting ? 0.7 : 1,
+            }}
+          >
+            <PlayIcon />
+            {startingPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT ? 'Подготавливаю свежие объявления...' : 'Свежие объявления: просмотры <= 20'}
+          </button>
+          </>
         ) : (
           <button
             onClick={handleStop}
@@ -945,7 +977,7 @@ export default function AdminEncar() {
           <SettingsIcon /> {saving ? 'Сохраняю...' : 'Сохранить настройки'}
         </button>
 
-        <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#475569' }}>
+        <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#475569', minWidth: '240px' }}>
           {isRunning && (
             <span style={{ color: '#00b894', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#00b894', boxShadow: '0 0 6px #00b894', animation: 'pulse 1.5s infinite' }} />

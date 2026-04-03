@@ -8,9 +8,14 @@ import { fetchEncarVehicleEnrichment } from '../lib/encarVehicle.js'
 import {
   buildStoredDetailFlags,
   ensureCarListingMetadataColumns,
+  normalizeDetailFlags,
   normalizeInspectionFormats,
 } from '../lib/carListingMetadata.js'
 import { getPricingSettings, resolveVehicleFees } from '../lib/pricingSettings.js'
+import {
+  notifyTelegramChangedListing,
+  notifyTelegramNewListing,
+} from '../lib/telegramNotifications.js'
 import { BODY_TYPE_LABELS } from '../../shared/vehicleTaxonomy.js'
 import {
   appendTitleTrimSuffix,
@@ -58,12 +63,18 @@ const PARSE_SCOPE_DOMESTIC = 'domestic'
 const PARSE_SCOPE_IMPORTED = 'imported'
 const PARSE_SCOPE_JAPANESE = 'japanese'
 const PARSE_SCOPE_GERMAN = 'german'
+const RUN_PRESET_DEFAULT = 'default'
+const RUN_PRESET_FRESH_LOW_ENGAGEMENT = 'fresh_low_engagement'
 const SUPPORTED_PARSE_SCOPES = new Set([
   PARSE_SCOPE_ALL,
   PARSE_SCOPE_DOMESTIC,
   PARSE_SCOPE_IMPORTED,
   PARSE_SCOPE_JAPANESE,
   PARSE_SCOPE_GERMAN,
+])
+const SUPPORTED_RUN_PRESETS = new Set([
+  RUN_PRESET_DEFAULT,
+  RUN_PRESET_FRESH_LOW_ENGAGEMENT,
 ])
 const IMPORT_ONLY_SCOPES = new Set([PARSE_SCOPE_IMPORTED, PARSE_SCOPE_JAPANESE, PARSE_SCOPE_GERMAN])
 const DETAIL_RETRY_ATTEMPTS = 3
@@ -76,6 +87,11 @@ const LOW_YIELD_PAGE_LIMIT = 4
 const LOW_YIELD_MAX_FRESH = 1
 const STABLE_KNOWN_PAGE_LIMIT = 2
 const STABLE_LOW_YIELD_PAGE_LIMIT = 3
+const FRESH_LOW_ENGAGEMENT_FILTERS = Object.freeze({
+  maxViewCount: 20,
+  maxCallCount: 0,
+  maxSubscribeCount: 0,
+})
 const JAPANESE_BRAND_ALIASES = [
   'toyota',
   'lexus',
@@ -349,6 +365,148 @@ function normalizeParseScope(parseScope) {
   return SUPPORTED_PARSE_SCOPES.has(parseScope) ? parseScope : PARSE_SCOPE_ALL
 }
 
+function normalizeRunPreset(runPreset) {
+  return SUPPORTED_RUN_PRESETS.has(runPreset) ? runPreset : RUN_PRESET_DEFAULT
+}
+
+function getLeadFiltersForRunPreset(runPreset) {
+  if (runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT) {
+    return { ...FRESH_LOW_ENGAGEMENT_FILTERS }
+  }
+  return null
+}
+
+function formatRunPresetLabel(runPreset) {
+  if (runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT) {
+    return 'fresh low engagement'
+  }
+  return 'default'
+}
+
+function readNonNegativeNumber(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null
+}
+
+function extractLeadMetricsFromEnrichment(enrichment) {
+  const manage = enrichment?.manage
+  if (!manage || typeof manage !== 'object' || Array.isArray(manage)) {
+    return {
+      available: false,
+      registDateTime: null,
+      firstAdvertisedDateTime: null,
+      modifyDateTime: null,
+      viewCount: 0,
+      subscribeCount: 0,
+      callCount: 0,
+      callCountSource: 'fallback_zero',
+    }
+  }
+
+  return {
+    available: true,
+    registDateTime: cleanText(manage.registDateTime) || null,
+    firstAdvertisedDateTime: cleanText(manage.firstAdvertisedDateTime) || null,
+    modifyDateTime: cleanText(manage.modifyDateTime) || null,
+    viewCount: readNonNegativeNumber(manage.viewCount) ?? 0,
+    subscribeCount: readNonNegativeNumber(manage.subscribeCount) ?? 0,
+    callCount: readNonNegativeNumber(manage.callCount) ?? 0,
+    callCountSource: cleanText(manage.callCountSource) || 'fallback_zero',
+  }
+}
+
+function buildListingSyncDetailFlags(detailFlags, {
+  leadMetrics = null,
+  listingEvent = '',
+  changedFields = [],
+  source = '',
+  lastPriceKrw = null,
+} = {}) {
+  const baseFlags = normalizeDetailFlags(detailFlags)
+  const currentListingSync = baseFlags.listingSync && typeof baseFlags.listingSync === 'object' && !Array.isArray(baseFlags.listingSync)
+    ? baseFlags.listingSync
+    : {}
+  const nowIso = new Date().toISOString()
+  const nextListingSync = {
+    ...currentListingSync,
+    lastSeenAt: nowIso,
+  }
+
+  if (!nextListingSync.firstSeenAt) nextListingSync.firstSeenAt = nowIso
+  if (source) nextListingSync.source = source
+
+  if (leadMetrics && typeof leadMetrics === 'object') {
+    nextListingSync.registDateTime = leadMetrics.registDateTime || currentListingSync.registDateTime || null
+    nextListingSync.firstAdvertisedDateTime = leadMetrics.firstAdvertisedDateTime || currentListingSync.firstAdvertisedDateTime || null
+    nextListingSync.modifyDateTime = leadMetrics.modifyDateTime || currentListingSync.modifyDateTime || null
+    nextListingSync.viewCount = readNonNegativeNumber(leadMetrics.viewCount) ?? 0
+    nextListingSync.subscribeCount = readNonNegativeNumber(leadMetrics.subscribeCount) ?? 0
+    nextListingSync.callCount = readNonNegativeNumber(leadMetrics.callCount) ?? 0
+    nextListingSync.callCountSource = cleanText(leadMetrics.callCountSource) || 'fallback_zero'
+  }
+
+  const normalizedLastPriceKrw = Math.round(Number(lastPriceKrw) || 0)
+  if (normalizedLastPriceKrw > 0) {
+    nextListingSync.lastPriceKrw = normalizedLastPriceKrw
+  }
+
+  if (Array.isArray(changedFields) && changedFields.length) {
+    nextListingSync.lastChangedFields = [...new Set(changedFields.map((item) => cleanText(item)).filter(Boolean))]
+  }
+
+  if (listingEvent) {
+    nextListingSync.lastListingEvent = listingEvent
+    nextListingSync.lastListingEventAt = nowIso
+  }
+
+  return buildStoredDetailFlags({
+    ...baseFlags,
+    listingSync: nextListingSync,
+  })
+}
+
+function evaluateLeadEngagement(leadMetrics, leadFilters) {
+  if (!leadFilters) {
+    return {
+      passed: true,
+      details: '',
+    }
+  }
+
+  if (!leadMetrics?.available) {
+    return {
+      passed: false,
+      details: 'lead metrics unavailable after detail enrichment',
+    }
+  }
+
+  if (leadMetrics.viewCount > leadFilters.maxViewCount) {
+    return {
+      passed: false,
+      details: `viewCount=${leadMetrics.viewCount} > ${leadFilters.maxViewCount}`,
+    }
+  }
+
+  if (leadMetrics.callCount > leadFilters.maxCallCount) {
+    return {
+      passed: false,
+      details: `callCount=${leadMetrics.callCount} > ${leadFilters.maxCallCount} (${leadMetrics.callCountSource})`,
+    }
+  }
+
+  if (leadMetrics.subscribeCount > leadFilters.maxSubscribeCount) {
+    return {
+      passed: false,
+      details: `subscribeCount=${leadMetrics.subscribeCount} > ${leadFilters.maxSubscribeCount}`,
+    }
+  }
+
+  return {
+    passed: true,
+    details: `viewCount=${leadMetrics.viewCount}, subscribeCount=${leadMetrics.subscribeCount}, callCount=${leadMetrics.callCount} (${leadMetrics.callCountSource})`,
+  }
+}
+
 function getDetailSuccessPacingMs() {
   if (DETAIL_SUCCESS_PACING_MAX_MS <= DETAIL_SUCCESS_PACING_MIN_MS) {
     return DETAIL_SUCCESS_PACING_MIN_MS
@@ -369,6 +527,16 @@ function formatParseScopeLabel(parseScope) {
   if (parseScope === PARSE_SCOPE_JAPANESE) return 'только японские'
   if (parseScope === PARSE_SCOPE_GERMAN) return 'только немецкие'
   return 'все машины'
+}
+
+function queueTelegramNotification(task, meta = {}) {
+  if (!task || typeof task.then !== 'function') return
+
+  void task.catch((error) => {
+    state.warn(
+      `TELEGRAM_NOTIFICATION_FAILED | kind=${cleanText(meta.kind) || 'unknown'} | encar_id=${cleanText(meta.encarId) || '-'} | error=${cleanText(error?.message) || 'unknown error'}`,
+    )
+  })
 }
 
 function normalizeBrandSignal(value) {
@@ -574,7 +742,7 @@ async function getExistingEncarIdMap(encarIds = []) {
   if (!normalized.length) return new Map()
 
   const res = await pool.query(
-    `SELECT id, encar_id, name, model, price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total
+    `SELECT id, encar_id, name, model, price_krw, price_usd, commission, delivery, loading, unloading, storage, vat_refund, total, detail_flags
      FROM cars
      WHERE encar_id = ANY($1::text[])`,
     [normalized],
@@ -648,7 +816,7 @@ function buildPriceRefreshPatch(existingCar, nextPriceKrw, exchangeSnapshot) {
   return Object.keys(patch).length ? patch : null
 }
 
-async function refreshKnownCarPricing(existingCar, nextPriceKrw, exchangeSnapshot) {
+async function refreshKnownCarPricing(existingCar, nextPriceKrw, exchangeSnapshot, options = {}) {
   const patch = buildPriceRefreshPatch(existingCar, nextPriceKrw, exchangeSnapshot)
   const previousPriceKrw = Math.round(Number(existingCar?.price_krw) || 0)
   if (!patch) {
@@ -657,8 +825,17 @@ async function refreshKnownCarPricing(existingCar, nextPriceKrw, exchangeSnapsho
       previousPriceKrw,
       nextPriceKrw: previousPriceKrw,
       updatedFields: [],
+      priceChanged: false,
     }
   }
+
+  const priceChanged = Object.prototype.hasOwnProperty.call(patch, 'price_krw')
+  patch.detail_flags = buildListingSyncDetailFlags(existingCar?.detail_flags, {
+    listingEvent: priceChanged ? 'changed_listing' : 'pricing_recalculated',
+    changedFields: Object.keys(patch),
+    source: cleanText(options.source) || 'list_price_refresh',
+    lastPriceKrw: nextPriceKrw,
+  })
 
   const entries = Object.entries(patch)
   const updates = []
@@ -687,6 +864,7 @@ async function refreshKnownCarPricing(existingCar, nextPriceKrw, exchangeSnapsho
     previousPriceKrw,
     nextPriceKrw: Math.round(Number(existingCar?.price_krw) || previousPriceKrw),
     updatedFields: entries.map(([field]) => field),
+    priceChanged,
   }
 }
 
@@ -768,6 +946,7 @@ function normalizeImportedCar(car) {
 }
 
 function mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings) {
+  const leadMetrics = extractLeadMetricsFromEnrichment(enrichment)
   const merged = normalizeImportedCar({
     ...car,
     name: enrichment.name || car.name,
@@ -805,12 +984,17 @@ function mergeCarEnrichment(car, enrichment, exchangeSnapshot, pricingSettings) 
       ? enrichment.image_urls
       : car.image_urls,
     encar_url: enrichment.encar_url || car.encar_url,
-    detail_flags: buildStoredDetailFlags({
+    detail_flags: buildListingSyncDetailFlags({
       ...(car.detail_flags || {}),
       ...(enrichment.flags || {}),
       galleryReady: Array.isArray(enrichment.image_urls) && enrichment.image_urls.length > 0
         ? true
         : (car.detail_flags?.galleryReady === true),
+    }, {
+      leadMetrics,
+      listingEvent: 'new_listing',
+      source: cleanText(enrichment.source) || 'detail_enrichment',
+      lastPriceKrw: Number(enrichment.price_krw) > 0 ? Number(enrichment.price_krw) : car.price_krw,
     }),
     inspection_formats: normalizeInspectionFormats(enrichment.condition?.inspectionFormats || car.inspection_formats),
   })
@@ -1138,17 +1322,27 @@ export async function runScrapeJob(limit = 100, options = {}) {
   if (state.isRunning) throw new Error('Парсер уже запущен')
 
   const parseScope = normalizeParseScope(options?.parseScope)
+  const runPreset = normalizeRunPreset(options?.runPreset)
+  const leadFilters = getLeadFiltersForRunPreset(runPreset)
+  const parseScopeLabel = formatParseScopeLabel(parseScope)
+  const runPresetLabel = formatRunPresetLabel(runPreset)
 
   state.isRunning = true
   state.stopReq = false
   state.startedAt = new Date().toISOString()
   state.lastRun = state.startedAt
   state.resetSession({ total: limit, parseScope, limit })
-  state.info(`Parse scope: ${formatParseScopeLabel(parseScope)}, limit=${limit}`)
-  state.info(`SCRAPER_START | scope=${parseScope} | limit=${limit}`)
+  state.info(`Parse scope: ${parseScopeLabel}, limit=${limit}`)
+  state.info(`Run preset: ${runPresetLabel}`)
+  if (leadFilters) {
+    state.info(
+      `LEAD_FILTERS | maxViewCount=${leadFilters.maxViewCount} | maxCallCount=${leadFilters.maxCallCount} | maxSubscribeCount=${leadFilters.maxSubscribeCount}`,
+    )
+  }
+  state.info(`SCRAPER_START | scope=${parseScope} | limit=${limit} | preset=${runPreset}`)
   await loadScraperRuntimeCache()
 
-  state.info(`🚀 Запуск парсера: режим ${formatParseScopeLabel(parseScope)}, лимит ${limit} новых машин`)
+  state.info(`🚀 Запуск парсера: режим ${parseScopeLabel}, лимит ${limit} новых машин`)
 
   const sourceMode = globalThis.process?.env?.ENCAR_PROXY_URL
     ? 'auto direct/proxy failover for list and detail'
@@ -1380,12 +1574,33 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
           if (existingCar) {
             try {
-              const refreshResult = await refreshKnownCarPricing(existingCar, car.price_krw, exchangeSnapshot)
+              const refreshResult = await refreshKnownCarPricing(existingCar, car.price_krw, exchangeSnapshot, {
+                source: runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT
+                  ? 'fresh_low_engagement_list_refresh'
+                  : 'list_price_refresh',
+              })
               if (refreshResult.updated) {
                 duplicateDetails = `${duplicateDetails}; price synced ${refreshResult.previousPriceKrw} -> ${refreshResult.nextPriceKrw}`
                 state.info(
                   `KNOWN_PRICE_REFRESH | id=${duplicateId} | encar_id=${currentEncarId} | price_krw ${refreshResult.previousPriceKrw} -> ${refreshResult.nextPriceKrw}`,
                 )
+                if (refreshResult.priceChanged) {
+                  state.success(
+                    `KNOWN_LISTING_CHANGED | kind=price | id=${duplicateId} | encar_id=${currentEncarId} | previous=${refreshResult.previousPriceKrw} | next=${refreshResult.nextPriceKrw}`,
+                  )
+                  queueTelegramNotification(
+                    notifyTelegramChangedListing({
+                      car: existingCar,
+                      importedId: duplicateId,
+                      previousPriceKrw: refreshResult.previousPriceKrw,
+                      nextPriceKrw: refreshResult.nextPriceKrw,
+                      changedFields: refreshResult.updatedFields,
+                      parseScopeLabel,
+                      runPresetLabel,
+                    }),
+                    { kind: 'changed_listing', encarId: currentEncarId },
+                  )
+                }
               }
             } catch (refreshError) {
               state.warn(
@@ -1542,6 +1757,22 @@ export async function runScrapeJob(limit = 100, options = {}) {
           continue
         }
 
+        if (leadFilters) {
+          const leadMetrics = extractLeadMetricsFromEnrichment(enrichment)
+          const leadDecision = evaluateLeadEngagement(leadMetrics, leadFilters)
+          if (!leadDecision.passed) {
+            recordSkip(buildFilterDiagnostic({
+              stage: 'post_detail_filter',
+              reason: 'filtered_lead_engagement',
+              details: leadDecision.details,
+              car: preparedCar,
+              raw,
+            }))
+            await paceAfterDetailFlow()
+            continue
+          }
+        }
+
         const vinLookup = await getExistingIdByVin(preparedCar.vin, vinLookupCache)
         if (vinLookup?.fromCache) {
           state.recordOptimizationHit('vinCacheHits')
@@ -1626,6 +1857,15 @@ export async function runScrapeJob(limit = 100, options = {}) {
             carId: currentEncarId,
             importedId: newId,
           })
+          queueTelegramNotification(
+            notifyTelegramNewListing({
+              car: preparedCar,
+              importedId: newId,
+              parseScopeLabel,
+              runPresetLabel,
+            }),
+            { kind: 'new_listing', encarId: currentEncarId },
+          )
         } catch (dbErr) {
           if (dbErr?.code === 'DUPLICATE_ENCAR') {
             recordSkip(buildDuplicateDiagnostic(

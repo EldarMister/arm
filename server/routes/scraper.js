@@ -12,12 +12,18 @@ const PARSE_SCOPE_DOMESTIC = 'domestic'
 const PARSE_SCOPE_IMPORTED = 'imported'
 const PARSE_SCOPE_JAPANESE = 'japanese'
 const PARSE_SCOPE_GERMAN = 'german'
+const RUN_PRESET_DEFAULT = 'default'
+const RUN_PRESET_FRESH_LOW_ENGAGEMENT = 'fresh_low_engagement'
 const PARSE_SCOPE_OPTIONS = new Set([
   PARSE_SCOPE_ALL,
   PARSE_SCOPE_DOMESTIC,
   PARSE_SCOPE_IMPORTED,
   PARSE_SCOPE_JAPANESE,
   PARSE_SCOPE_GERMAN,
+])
+const RUN_PRESET_OPTIONS = new Set([
+  RUN_PRESET_DEFAULT,
+  RUN_PRESET_FRESH_LOW_ENGAGEMENT,
 ])
 
 router.use(applyNoStoreHeaders)
@@ -27,12 +33,23 @@ function normalizeParseScope(value) {
   return PARSE_SCOPE_OPTIONS.has(value) ? value : PARSE_SCOPE_ALL
 }
 
+function normalizeRunPreset(value) {
+  return RUN_PRESET_OPTIONS.has(value) ? value : RUN_PRESET_DEFAULT
+}
+
 function formatParseScopeLabel(parseScope) {
   if (parseScope === PARSE_SCOPE_DOMESTIC) return 'только корейские (domestic)'
   if (parseScope === PARSE_SCOPE_IMPORTED) return 'только импортные'
   if (parseScope === PARSE_SCOPE_JAPANESE) return 'только японские'
   if (parseScope === PARSE_SCOPE_GERMAN) return 'только немецкие'
   return 'все машины'
+}
+
+function formatRunPresetLabel(runPreset) {
+  if (runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT) {
+    return 'свежие объявления с низким откликом'
+  }
+  return 'стандартный запуск'
 }
 
 router.get('/status', async (_req, res) => {
@@ -62,9 +79,10 @@ router.post('/start', (req, res) => {
 
   const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || state.config.dailyLimit, 5000))
   const parseScope = normalizeParseScope(req.body.parseScope ?? state.config.parseScope)
+  const runPreset = normalizeRunPreset(req.body.runPreset)
   state.config.parseScope = parseScope
 
-  runScrapeJob(limit, { parseScope }).catch((error) => {
+  runScrapeJob(limit, { parseScope, runPreset }).catch((error) => {
     state.error(`Необработанная ошибка запуска: ${error.message}`)
   })
 
@@ -74,9 +92,12 @@ router.post('/start', (req, res) => {
 
   return res.json({
     ok: true,
-    message: `Запущен режим "${formatParseScopeLabel(parseScope)}", лимит ${limit}`,
+    message: runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT
+      ? `Запущен пресет "${formatRunPresetLabel(runPreset)}": ${formatParseScopeLabel(parseScope)}, лимит ${limit}, view <= 20, calls = 0, subscribe = 0`
+      : `Запущен режим "${formatParseScopeLabel(parseScope)}", лимит ${limit}`,
     limit,
     parseScope,
+    runPreset,
   })
 })
 

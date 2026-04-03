@@ -33,6 +33,12 @@ export const REASON_DEFINITIONS = Object.freeze({
     temporary: false,
     retryable: false,
   },
+  filtered_lead_engagement: {
+    label: 'Filtered by lead engagement rules',
+    classification: 'normal',
+    temporary: false,
+    retryable: false,
+  },
   duplicate_encar_id: {
     label: 'Уже есть в базе по Encar ID',
     classification: 'normal',

@@ -155,6 +155,45 @@ function buildVehicleApiShape(data, source) {
   }
 }
 
+function readNonNegativeMetric(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null
+}
+
+function buildVehicleManageMetrics(manage = {}, contact = {}) {
+  const callMetricCandidates = [
+    ['manage.callCount', manage?.callCount],
+    ['manage.consultCount', manage?.consultCount],
+    ['manage.inquiryCount', manage?.inquiryCount],
+    ['manage.contactCount', manage?.contactCount],
+    ['contact.callCount', contact?.callCount],
+    ['contact.consultCount', contact?.consultCount],
+    ['contact.inquiryCount', contact?.inquiryCount],
+    ['contact.contactCount', contact?.contactCount],
+  ]
+
+  let callCount = 0
+  let callCountSource = 'fallback_zero'
+
+  for (const [source, rawValue] of callMetricCandidates) {
+    const numericValue = readNonNegativeMetric(rawValue)
+    if (numericValue === null) continue
+    callCount = numericValue
+    callCountSource = source
+    break
+  }
+
+  return {
+    registDateTime: manage?.registDateTime || null,
+    firstAdvertisedDateTime: manage?.firstAdvertisedDateTime || null,
+    modifyDateTime: manage?.modifyDateTime || null,
+    viewCount: readNonNegativeMetric(manage?.viewCount) ?? 0,
+    subscribeCount: readNonNegativeMetric(manage?.subscribeCount) ?? 0,
+    callCount,
+    callCountSource,
+  }
+}
+
 async function fetchEncarVehicleApiPayload(encarId) {
   const { data } = await apiClient.get(`/v1/readside/vehicle/${encodeURIComponent(encarId)}`)
   return buildVehicleApiShape(data, 'api')
@@ -2344,6 +2383,7 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
   const exchangeSnapshot = await getExchangeRateSnapshot()
   const pricingSettings = await getPricingSettings()
   const priceKRW = (Number(ad.price) || 0) * 10000
+  const manageMetrics = buildVehicleManageMetrics(manage, contact)
 
   const yearMonth = String(category.yearMonth || '')
   const year = yearMonth.length >= 6
@@ -2522,11 +2562,7 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
     images: imageUrls,
     photos: normalizedPhotos,
     manage: {
-      registDateTime: manage.registDateTime || null,
-      firstAdvertisedDateTime: manage.firstAdvertisedDateTime || null,
-      modifyDateTime: manage.modifyDateTime || null,
-      viewCount: Number(manage.viewCount) || 0,
-      subscribeCount: Number(manage.subscribeCount) || 0,
+      ...manageMetrics,
     },
     condition: {
       seizingCount: Number(condition?.seizing?.seizingCount) || 0,
@@ -2566,7 +2602,8 @@ export async function fetchEncarVehicleDetail(encarId, { includeInspection = fal
 export async function fetchEncarVehicleEnrichment(encarId, { targets = null } = {}) {
   const requestedTargets = normalizeEnrichmentTargets(targets)
   const vehiclePayload = await fetchEncarVehicleApiData(encarId)
-  const { data, category, spec, ad, contact, contents, options, source } = vehiclePayload
+  const { data, category, spec, ad, contact, manage, contents, options, source } = vehiclePayload
+  const manageMetrics = buildVehicleManageMetrics(manage, contact)
   const manufacturerRaw = category.manufacturerEnglishName || category.manufacturerName || ''
   const modelGroupRaw = category.modelGroupEnglishName || category.modelGroupName || category.modelName || ''
   const gradeNameRaw = category.gradeDetailEnglishName || category.gradeDetailName || category.gradeName || ''
@@ -2696,6 +2733,7 @@ export async function fetchEncarVehicleEnrichment(encarId, { targets = null } = 
     body_type: bodyType,
     vehicle_class: vehicleClass,
     trim_level: trimLevel,
+    manage: manageMetrics,
     vehicle_id: data?.vehicleId || data?.id || null,
     encar_url: `https://fem.encar.com/cars/detail/${encarId}`,
     source,
