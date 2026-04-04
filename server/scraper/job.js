@@ -1573,12 +1573,27 @@ export async function runScrapeJob(limit = 100, options = {}) {
         : new Map()
       const pageFingerprint = buildListPageFingerprint(cars, scanned)
       const cachedPage = getListPageSnapshot(parseScope, offset)
-      const pageKnownCars = cars.reduce((count, raw) => {
+      const pageKnownCounts = cars.reduce((counts, raw) => {
         const rawId = cleanText(raw?.Id)
-        return existingEncarIds.has(rawId) || existingFreshLeadIds.has(rawId) || seenEncarIds.has(rawId)
-          ? count + 1
-          : count
-      }, 0)
+        if (!rawId) return counts
+        if (existingEncarIds.has(rawId)) {
+          counts.db += 1
+          return counts
+        }
+        if (existingFreshLeadIds.has(rawId)) {
+          counts.freshLead += 1
+          return counts
+        }
+        if (seenEncarIds.has(rawId)) {
+          counts.currentRun += 1
+        }
+        return counts
+      }, {
+        db: 0,
+        freshLead: 0,
+        currentRun: 0,
+      })
+      const pageKnownCars = pageKnownCounts.db + pageKnownCounts.freshLead + pageKnownCounts.currentRun
       const pageFreshCars = Math.max(cars.length - pageKnownCars, 0)
       const isStableKnownOnlyPage = Boolean(
         cachedPage
@@ -1604,9 +1619,18 @@ export async function runScrapeJob(limit = 100, options = {}) {
           consecutiveKnownOnlyPages = 0
           consecutiveLowYieldPages = 0
         }
-        state.setProgress({
-          alreadyKnown: state.progress.alreadyKnown + pageKnownCars,
-        })
+        const transientKnownCount = pageKnownCounts.freshLead + pageKnownCounts.currentRun
+        const progressUpdate = {}
+        if (pageKnownCounts.db > 0) {
+          progressUpdate.alreadyKnown = state.progress.alreadyKnown + pageKnownCounts.db
+        }
+        if (transientKnownCount > 0) {
+          progressUpdate.skipped = state.progress.skipped + transientKnownCount
+          progressUpdate.normalSkipped = state.progress.normalSkipped + transientKnownCount
+        }
+        if (Object.keys(progressUpdate).length > 0) {
+          state.setProgress(progressUpdate)
+        }
         rememberListPageSnapshot(parseScope, offset, {
           fingerprint: pageFingerprint,
           knownOnly: true,
@@ -1615,7 +1639,9 @@ export async function runScrapeJob(limit = 100, options = {}) {
           total,
           source: listResult.listSource || 'unknown',
         })
-        state.info(`LIST_ALL_KNOWN_PAGE | scope=${parseScope} | offset=${offset} | known=${pageKnownCars} | consecutive=${consecutiveKnownOnlyPages}`)
+        state.info(
+          `LIST_ALL_KNOWN_PAGE | scope=${parseScope} | offset=${offset} | known=${pageKnownCars} | db=${pageKnownCounts.db} | fresh_leads=${pageKnownCounts.freshLead} | current_run=${pageKnownCounts.currentRun} | consecutive=${consecutiveKnownOnlyPages}`,
+        )
 
         if (useTailStopGuard && (consecutiveKnownOnlyPages >= STALE_KNOWN_PAGE_LIMIT || consecutiveLowYieldPages >= LOW_YIELD_PAGE_LIMIT)) {
           state.info(`LIST_STALE_STOP | scope=${parseScope} | offset=${offset} | consecutiveKnownPages=${consecutiveKnownOnlyPages} | consecutiveLowYield=${consecutiveLowYieldPages}`)
@@ -1737,6 +1763,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
         const seenDuplicate = seenEncarIds.has(currentEncarId)
         if (existingCar || seenDuplicate) {
           const duplicateId = existingCar?.id || null
+          const duplicateReason = existingCar ? 'duplicate_encar_id' : 'duplicate_seen_in_run'
           let duplicateDetails = existingCar
             ? `existing car with encar_id=${currentEncarId}`
             : `duplicate encounter in current scrape for encar_id=${currentEncarId}`
@@ -1780,7 +1807,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
           }
 
           recordSkip(buildDuplicateDiagnostic(
-            'duplicate_encar_id',
+            duplicateReason,
             duplicateDetails,
             car,
             raw,
@@ -1881,7 +1908,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
           if (freshLeadSnapshot.status === 'seen') {
             recordSkip(buildDuplicateDiagnostic(
-              'duplicate_encar_id',
+              'fresh_lead_already_notified',
               `fresh lead already notified for encar_id=${currentEncarId}`,
               freshLeadCar,
               raw,

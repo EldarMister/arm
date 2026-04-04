@@ -51,6 +51,18 @@ export const REASON_DEFINITIONS = Object.freeze({
     temporary: false,
     retryable: false,
   },
+  fresh_lead_already_notified: {
+    label: 'Уже отправлялось как fresh-объявление',
+    classification: 'normal',
+    temporary: false,
+    retryable: false,
+  },
+  duplicate_seen_in_run: {
+    label: 'Повтор объявления в текущем запуске',
+    classification: 'normal',
+    temporary: false,
+    retryable: false,
+  },
   detail_not_found: {
     label: 'Карточка недоступна или удалена',
     classification: 'normal',
