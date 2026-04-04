@@ -75,21 +75,24 @@ function buildCatalogUrl(siteUrl, importedId) {
 
 function buildLeadMetrics(car) {
   const listingSync = car?.detail_flags?.listingSync
-  if (!listingSync || typeof listingSync !== 'object' || Array.isArray(listingSync)) {
-    return null
-  }
+  const manageMetrics = car?.manage
+  const source = listingSync && typeof listingSync === 'object' && !Array.isArray(listingSync)
+    ? listingSync
+    : (manageMetrics && typeof manageMetrics === 'object' && !Array.isArray(manageMetrics) ? manageMetrics : null)
 
-  const viewCount = Number(listingSync.viewCount)
-  const subscribeCount = Number(listingSync.subscribeCount)
-  const callCount = Number(listingSync.callCount)
+  if (!source) return null
+
+  const viewCount = Number(source.viewCount)
+  const subscribeCount = Number(source.subscribeCount)
+  const callCount = Number(source.callCount)
 
   return {
     viewCount: Number.isFinite(viewCount) && viewCount >= 0 ? Math.round(viewCount) : null,
     subscribeCount: Number.isFinite(subscribeCount) && subscribeCount >= 0 ? Math.round(subscribeCount) : null,
     callCount: Number.isFinite(callCount) && callCount >= 0 ? Math.round(callCount) : null,
-    callCountSource: cleanText(listingSync.callCountSource) || 'fallback_zero',
-    firstAdvertisedDateTime: formatIsoDateTime(listingSync.firstAdvertisedDateTime),
-    modifyDateTime: formatIsoDateTime(listingSync.modifyDateTime),
+    callCountSource: cleanText(source.callCountSource) || 'fallback_zero',
+    firstAdvertisedDateTime: formatIsoDateTime(source.firstAdvertisedDateTime),
+    modifyDateTime: formatIsoDateTime(source.modifyDateTime),
   }
 }
 
@@ -97,6 +100,25 @@ function buildHeader(tag, car) {
   const title = cleanText(car?.name || car?.model || 'Без названия')
   const year = cleanText(car?.year)
   return year ? `${tag}\n${title} (${year})` : `${tag}\n${title}`
+}
+
+function buildFullLeadLine(leadMetrics) {
+  if (!leadMetrics) return ''
+
+  return [
+    leadMetrics.viewCount !== null ? `просмотры ${leadMetrics.viewCount}` : '',
+    leadMetrics.subscribeCount !== null ? `подписки ${leadMetrics.subscribeCount}` : '',
+    leadMetrics.callCount !== null ? `звонки ${leadMetrics.callCount}` : '',
+  ].filter(Boolean).join(' | ')
+}
+
+function buildFreshLeadLine(leadMetrics) {
+  if (!leadMetrics) return ''
+
+  return [
+    leadMetrics.viewCount !== null ? `просмотры ${leadMetrics.viewCount}` : '',
+    leadMetrics.callCount !== null ? `звонки ${leadMetrics.callCount}` : '',
+  ].filter(Boolean).join(' | ')
 }
 
 function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabel, notificationMode = 'full' }) {
@@ -110,6 +132,9 @@ function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabe
 
     const mileageLine = formatMileage(car?.mileage)
     if (mileageLine) lines.push(`Пробег: ${mileageLine}`)
+
+    const leadLine = buildFreshLeadLine(leadMetrics)
+    if (leadLine) lines.push(`Отклик: ${leadLine}`)
 
     const encarUrl = cleanText(car?.encar_url)
     if (encarUrl) lines.push(`Encar: ${encarUrl}`)
@@ -135,24 +160,15 @@ function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabe
   ].filter(Boolean).join(' | ')
   if (metaLine) lines.push(`Детали: ${metaLine}`)
 
-  if (leadMetrics) {
-    const leadLine = [
-      leadMetrics.viewCount !== null ? `просмотры ${leadMetrics.viewCount}` : '',
-      leadMetrics.subscribeCount !== null ? `подписки ${leadMetrics.subscribeCount}` : '',
-      leadMetrics.callCount !== null && leadMetrics.callCountSource !== 'fallback_zero'
-        ? `звонки ${leadMetrics.callCount}`
-        : '',
-    ].filter(Boolean).join(' | ')
+  const leadLine = buildFullLeadLine(leadMetrics)
+  if (leadLine) lines.push(`Отклик: ${leadLine}`)
 
-    if (leadLine) lines.push(`Отклик: ${leadLine}`)
+  if (leadMetrics?.firstAdvertisedDateTime) {
+    lines.push(`Первое размещение: ${leadMetrics.firstAdvertisedDateTime}`)
+  }
 
-    if (leadMetrics.firstAdvertisedDateTime) {
-      lines.push(`Первое размещение: ${leadMetrics.firstAdvertisedDateTime}`)
-    }
-
-    if (leadMetrics.modifyDateTime) {
-      lines.push(`Изменено: ${leadMetrics.modifyDateTime}`)
-    }
+  if (leadMetrics?.modifyDateTime) {
+    lines.push(`Изменено: ${leadMetrics.modifyDateTime}`)
   }
 
   const modeLine = [

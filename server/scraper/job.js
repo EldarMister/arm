@@ -1840,6 +1840,7 @@ export async function runScrapeJob(limit = 100, options = {}) {
               ...car,
               name: freshLeadEnrichment.name || car.name,
               model: freshLeadEnrichment.model || car.model,
+              manage: freshLeadEnrichment.manage || null,
               location: freshLeadEnrichment.location || car.location,
               encar_url: freshLeadEnrichment.encar_url || car.encar_url,
               price_krw: Number(freshLeadEnrichment.price_krw) > 0
