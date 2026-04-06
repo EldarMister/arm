@@ -71,7 +71,7 @@ class ScraperState extends EventEmitter {
     this.sessionSummary = createSessionSummary()
     this.skipDiagnostics = []
     this.logs = []
-    this.config = { schedule: 'manual', parseScope: 'all', dailyLimit: 100, hour: 10, intervalHours: 1 }
+    this.config = { schedule: 'manual', parseScope: 'all', runPreset: 'default', dailyLimit: 100, hour: 10, intervalHours: 1 }
     this.lastRun = null
     this.nextRun = null
     this.startedAt = null

@@ -331,6 +331,7 @@ export default function AdminEncar() {
   // Config form state
   const [cfgSchedule,   setCfgSchedule]   = useState('manual')
   const [cfgParseScope, setCfgParseScope] = useState('all')
+  const [cfgRunPreset,  setCfgRunPreset]  = useState(RUN_PRESET_DEFAULT)
   const [cfgLimit,      setCfgLimit]      = useState(100)
   const [cfgHour,       setCfgHour]       = useState(10)
   const [cfgInterval,   setCfgInterval]   = useState(1)
@@ -347,6 +348,7 @@ export default function AdminEncar() {
       if (data.config) {
         setCfgSchedule(data.config.schedule  || 'manual')
         setCfgParseScope(data.config.parseScope || data.config.parse_scope || 'all')
+        setCfgRunPreset(data.config.runPreset || data.config.run_preset || RUN_PRESET_DEFAULT)
         setCfgLimit(   data.config.dailyLimit || 100)
         setCfgHour(    data.config.hour       || 10)
         setCfgInterval(data.config.intervalHours || 1)
@@ -421,6 +423,7 @@ export default function AdminEncar() {
     status?.config && (
       status.config.schedule !== cfgSchedule ||
       (status.config.parseScope || 'all') !== cfgParseScope ||
+      (status.config.runPreset || RUN_PRESET_DEFAULT) !== cfgRunPreset ||
       Number(status.config.dailyLimit || 100) !== Number(cfgLimit || 100) ||
       Number(status.config.hour || 10) !== Number(cfgHour || 10) ||
       Number(status.config.intervalHours || 1) !== Number(cfgInterval || 1)
@@ -434,6 +437,7 @@ export default function AdminEncar() {
       body: JSON.stringify({
         schedule:      cfgSchedule,
         parseScope:    cfgParseScope,
+        runPreset:     cfgRunPreset,
         dailyLimit:    cfgLimit,
         hour:          cfgHour,
         intervalHours: cfgInterval,
@@ -455,7 +459,7 @@ export default function AdminEncar() {
     }
 
     return data
-  }, [cfgHour, cfgInterval, cfgLimit, cfgParseScope, cfgSchedule])
+  }, [cfgHour, cfgInterval, cfgLimit, cfgParseScope, cfgRunPreset, cfgSchedule])
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleStart = async (runPreset = RUN_PRESET_DEFAULT) => {
@@ -676,6 +680,7 @@ export default function AdminEncar() {
               <ClockIcon /> {scheduleLabel}
             </div>
           )}
+
         </div>
 
         <StatBadge label="Добавлено за сеанс" value={progress.done} color="#00b894" bg="rgba(0,184,148,0.08)" />
@@ -903,6 +908,28 @@ export default function AdminEncar() {
               <span style={{ fontSize: '13px', color: '#94a3b8' }}>каждый день</span>
             </div>
           )}
+          <label style={{
+            marginTop: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'rgba(59,130,246,0.08)',
+            border: '1px solid rgba(59,130,246,0.25)',
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={cfgRunPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT}
+              onChange={(e) => setCfgRunPreset(e.target.checked ? RUN_PRESET_FRESH_LOW_ENGAGEMENT : RUN_PRESET_DEFAULT)}
+              style={{ width: '16px', height: '16px', accentColor: '#3b82f6', cursor: 'pointer' }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span style={{ fontSize: '13px', color: '#e2e8f0', fontWeight: '600' }}>Свежие объявления</span>
+              <span style={{ fontSize: '12px', color: '#93c5fd' }}>Для расписания: просмотры &lt;= 6, calls = 0, subscribe = 0</span>
+            </div>
+          </label>
         </div>
       </div>
 
@@ -945,7 +972,7 @@ export default function AdminEncar() {
             }}
           >
             <PlayIcon />
-            {startingPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT ? 'Подготавливаю свежие объявления...' : 'Свежие объявления: просмотры <= 20'}
+            {startingPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT ? 'Подготавливаю свежие объявления...' : 'Свежие объявления: просмотры <= 6'}
           </button>
           </>
         ) : (

@@ -93,7 +93,7 @@ router.post('/start', (req, res) => {
   return res.json({
     ok: true,
     message: runPreset === RUN_PRESET_FRESH_LOW_ENGAGEMENT
-      ? `Запущен пресет "${formatRunPresetLabel(runPreset)}": ${formatParseScopeLabel(parseScope)}, лимит ${limit}, view <= 20, calls = 0, subscribe = 0`
+      ? `Запущен пресет "${formatRunPresetLabel(runPreset)}": ${formatParseScopeLabel(parseScope)}, лимит ${limit}, view <= 6, calls = 0, subscribe = 0`
       : `Запущен режим "${formatParseScopeLabel(parseScope)}", лимит ${limit}`,
     limit,
     parseScope,
@@ -114,6 +114,7 @@ router.put('/config', async (req, res) => {
   const {
     schedule,
     parseScope,
+    runPreset,
     dailyLimit,
     hour,
     intervalHours,
@@ -133,6 +134,13 @@ router.put('/config', async (req, res) => {
     state.config.parseScope = normalizeParseScope(parseScope)
   }
 
+  if (runPreset !== undefined) {
+    if (!RUN_PRESET_OPTIONS.has(runPreset)) {
+      return res.status(400).json({ error: 'РќРµРІРµСЂРЅС‹Р№ РїСЂРµСЃРµС‚ Р·Р°РїСѓСЃРєР°' })
+    }
+    state.config.runPreset = normalizeRunPreset(runPreset)
+  }
+
   if (dailyLimit !== undefined) {
     state.config.dailyLimit = Math.max(1, Math.min(parseInt(dailyLimit, 10) || 100, 5000))
   }
@@ -150,13 +158,15 @@ router.put('/config', async (req, res) => {
       `UPDATE scraper_config
        SET schedule = $1,
            parse_scope = $2,
-           daily_limit = $3,
-           start_hour = $4,
-           interval_hours = $5
+           run_preset = $3,
+           daily_limit = $4,
+           start_hour = $5,
+           interval_hours = $6
        WHERE id = 1`,
       [
         state.config.schedule,
         state.config.parseScope,
+        state.config.runPreset,
         state.config.dailyLimit,
         state.config.hour,
         state.config.intervalHours,

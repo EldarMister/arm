@@ -94,7 +94,7 @@ const LOW_YIELD_MAX_FRESH = 1
 const STABLE_KNOWN_PAGE_LIMIT = 2
 const STABLE_LOW_YIELD_PAGE_LIMIT = 3
 const FRESH_LOW_ENGAGEMENT_FILTERS = Object.freeze({
-  maxViewCount: 20,
+  maxViewCount: 6,
   maxCallCount: 0,
   maxSubscribeCount: 0,
 })

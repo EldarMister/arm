@@ -95,7 +95,10 @@ function scheduleNext(config = state.config) {
 
     state.info(`⏰ Автозапуск по расписанию (${formatParseScopeLabel(state.config)}, лимит: ${state.config.dailyLimit})`)
     try {
-      await runScrapeJob(state.config.dailyLimit, { parseScope: state.config.parseScope })
+      await runScrapeJob(state.config.dailyLimit, {
+        parseScope: state.config.parseScope,
+        runPreset: state.config.runPreset,
+      })
     } catch (err) {
       state.error(`Ошибка автозапуска: ${err.message}`)
     } finally {

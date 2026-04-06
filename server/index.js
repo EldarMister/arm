@@ -39,6 +39,7 @@ const app = express()
 const ENV = globalThis.process?.env || {}
 const PORT = ENV.PORT || 3001
 const PARSE_SCOPE_OPTIONS = new Set(['all', 'domestic', 'imported', 'japanese', 'german'])
+const RUN_PRESET_OPTIONS = new Set(['default', 'fresh_low_engagement'])
 const API_RATE_LIMIT_WINDOW_MS = 60 * 1000
 const API_RATE_LIMIT_MAX = 60
 const REQUEST_BODY_LIMIT = '256kb'
@@ -239,6 +240,7 @@ async function start() {
         const cfg = cfgResult.rows[0]
         scraperState.config.schedule = cfg.schedule || 'manual'
         scraperState.config.parseScope = PARSE_SCOPE_OPTIONS.has(cfg.parse_scope) ? cfg.parse_scope : 'all'
+        scraperState.config.runPreset = RUN_PRESET_OPTIONS.has(cfg.run_preset) ? cfg.run_preset : 'default'
         scraperState.config.dailyLimit = cfg.daily_limit || 100
         scraperState.config.hour = cfg.start_hour || 10
         scraperState.config.intervalHours = cfg.interval_hours || 1
