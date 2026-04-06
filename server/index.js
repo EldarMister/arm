@@ -14,6 +14,7 @@ import partsRouter from './routes/parts.js'
 import pricingRouter from './routes/pricing.js'
 import { startScheduler } from './scraper/scheduler.js'
 import { state as scraperState } from './scraper/state.js'
+import { startTelegramSubscriberSync } from './lib/telegramNotifications.js'
 import { startWeeklyCatalogMaintenance } from './lib/weeklyCatalogMaintenance.js'
 import {
   applyBasicSecurityHeaders,
@@ -260,6 +261,10 @@ async function start() {
 
     app.listen(PORT, () => {
       console.log(`Server started on http://localhost:${PORT}`)
+      const telegramSync = startTelegramSubscriberSync()
+      if (telegramSync.started) {
+        console.log(`Telegram subscriber sync started: every ${telegramSync.intervalMs}ms`)
+      }
     })
   } catch (error) {
     console.error('SERVER_START_ERROR |', error?.message || error)

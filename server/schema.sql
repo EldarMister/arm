@@ -188,6 +188,36 @@ CREATE TABLE IF NOT EXISTS fresh_leads (
 
 CREATE INDEX IF NOT EXISTS idx_fresh_leads_last_seen_at ON fresh_leads(last_seen_at DESC);
 
+CREATE TABLE IF NOT EXISTS telegram_subscribers (
+  chat_id             BIGINT PRIMARY KEY,
+  chat_type           VARCHAR(20) NOT NULL DEFAULT 'private',
+  username            VARCHAR(64),
+  first_name          VARCHAR(120),
+  last_name           VARCHAR(120),
+  is_active           BOOLEAN NOT NULL DEFAULT true,
+  subscribed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_update_id BIGINT,
+  last_delivered_at   TIMESTAMPTZ,
+  last_delivery_error TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_subscribers_active
+  ON telegram_subscribers(is_active, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS telegram_bot_state (
+  id             INTEGER PRIMARY KEY DEFAULT 1,
+  last_update_id BIGINT NOT NULL DEFAULT 0,
+  last_synced_at TIMESTAMPTZ,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO telegram_bot_state (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS pricing_settings (
   id                INTEGER PRIMARY KEY DEFAULT 1,
   commission        NUMERIC(10,2) DEFAULT 200,
