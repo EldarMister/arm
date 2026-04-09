@@ -1,6 +1,7 @@
 import axios from 'axios'
 import dotenv from 'dotenv'
 import pool from '../db.js'
+import { handleTelegramFreshControlUpdate } from './telegramFreshParser.js'
 
 const DEFAULT_SITE_URL = 'https://avt-autovtrade.com'
 const TELEGRAM_API_BASE = 'https://api.telegram.org'
@@ -150,6 +151,15 @@ function buildCommonLines({ tag, car, importedId, parseScopeLabel, runPresetLabe
   const lines = [buildHeader(tag, car)]
 
   if (notificationMode === 'fresh_list') {
+    const trimLine = cleanText(car?.trim_level || car?.key_info)
+    if (trimLine) lines.push(`Комплектация: ${trimLine}`)
+
+    const fuelLine = cleanText(car?.fuel_type)
+    if (fuelLine) lines.push(`Топливо: ${fuelLine}`)
+
+    const yearLine = cleanText(car?.year)
+    if (yearLine) lines.push(`Год: ${yearLine}`)
+
     const priceLine = formatKrw(car?.price_krw)
     if (priceLine) lines.push(`Цена: ${priceLine}`)
 
@@ -507,12 +517,32 @@ export async function syncTelegramSubscribers({ force = false } = {}) {
 
         registeredChats += 1
 
+        let freshControlResult = null
+        try {
+          freshControlResult = await handleTelegramFreshControlUpdate({
+            botToken: config.botToken,
+            chatId,
+            chatType,
+            message,
+            update,
+            action,
+            sender,
+            updateId,
+          })
+        } catch (error) {
+          console.warn(`TELEGRAM_FRESH_CONTROL_FAILED | chat_id=${chatId} | ${cleanText(error?.message) || 'unknown error'}`)
+        }
+
         if (action === 'subscribe') {
           subscribedChats += 1
-          await sendTelegramAck(config.botToken, chatId, action)
+          if (!freshControlResult?.skipDefaultAck) {
+            await sendTelegramAck(config.botToken, chatId, action)
+          }
         } else if (action === 'unsubscribe') {
           unsubscribedChats += 1
-          await sendTelegramAck(config.botToken, chatId, action)
+          if (!freshControlResult?.skipDefaultAck) {
+            await sendTelegramAck(config.botToken, chatId, action)
+          }
         }
 
         processedUpdates += 1
@@ -541,9 +571,22 @@ export async function syncTelegramSubscribers({ force = false } = {}) {
   }
 }
 
-async function resolveTelegramRecipients() {
+function normalizeRecipientIds(chatIds = []) {
+  return [...new Set(
+    (Array.isArray(chatIds) ? chatIds : [chatIds])
+      .map((value) => normalizeChatId(value))
+      .filter(Boolean),
+  )]
+}
+
+async function resolveTelegramRecipients(chatIds = null) {
   const config = getTelegramConfig()
   if (!config.enabled) return []
+
+  const explicitRecipients = normalizeRecipientIds(chatIds)
+  if (explicitRecipients.length) {
+    return explicitRecipients
+  }
 
   try {
     await syncTelegramSubscribers()
@@ -564,13 +607,13 @@ async function resolveTelegramRecipients() {
   return [...recipients]
 }
 
-async function sendTelegramMessageNow(text) {
+async function sendTelegramMessageNow(text, options = {}) {
   const config = getTelegramConfig()
   if (!config.enabled) {
     return { sent: false, skipped: true, reason: 'telegram_not_configured' }
   }
 
-  const recipients = await resolveTelegramRecipients()
+  const recipients = await resolveTelegramRecipients(options.recipientChatIds)
   if (!recipients.length) {
     return { sent: false, skipped: true, reason: 'telegram_no_recipients' }
   }
@@ -609,7 +652,7 @@ async function sendTelegramMessageNow(text) {
   }
 }
 
-export function sendTelegramText(text) {
+export function sendTelegramText(text, options = {}) {
   const normalizedText = String(text || '').trim()
   if (!normalizedText) {
     return Promise.resolve({ sent: false, skipped: true, reason: 'empty_text' })
@@ -617,7 +660,7 @@ export function sendTelegramText(text) {
 
   telegramQueue = telegramQueue
     .catch(() => null)
-    .then(() => sendTelegramMessageNow(normalizedText))
+    .then(() => sendTelegramMessageNow(normalizedText, options))
 
   return telegramQueue
 }
@@ -676,6 +719,7 @@ export function notifyTelegramNewListing({
   parseScopeLabel = '',
   runPresetLabel = '',
   notificationMode = 'full',
+  recipientChatIds = null,
 } = {}) {
   const lines = buildCommonLines({
     tag: 'Новое объявление',
@@ -686,7 +730,7 @@ export function notifyTelegramNewListing({
     notificationMode,
   })
 
-  return sendTelegramText(lines.join('\n'))
+  return sendTelegramText(lines.join('\n'), { recipientChatIds })
 }
 
 export function notifyTelegramChangedListing({
@@ -698,6 +742,7 @@ export function notifyTelegramChangedListing({
   parseScopeLabel = '',
   runPresetLabel = '',
   notificationMode = 'full',
+  recipientChatIds = null,
 } = {}) {
   const lines = buildCommonLines({
     tag: 'Измененное объявление',
@@ -728,5 +773,5 @@ export function notifyTelegramChangedListing({
     }
   }
 
-  return sendTelegramText(lines.join('\n'))
+  return sendTelegramText(lines.join('\n'), { recipientChatIds })
 }

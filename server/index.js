@@ -15,6 +15,7 @@ import pricingRouter from './routes/pricing.js'
 import { startScheduler } from './scraper/scheduler.js'
 import { state as scraperState } from './scraper/state.js'
 import { startTelegramSubscriberSync } from './lib/telegramNotifications.js'
+import { startTelegramFreshParserService } from './lib/telegramFreshParser.js'
 import { startWeeklyCatalogMaintenance } from './lib/weeklyCatalogMaintenance.js'
 import {
   applyBasicSecurityHeaders,
@@ -266,6 +267,10 @@ async function start() {
       const telegramSync = startTelegramSubscriberSync()
       if (telegramSync.started) {
         console.log(`Telegram subscriber sync started: every ${telegramSync.intervalMs}ms`)
+      }
+      const telegramFreshParser = startTelegramFreshParserService()
+      if (telegramFreshParser.started) {
+        console.log(`Telegram fresh parser started: every ${telegramFreshParser.intervalMs}ms`)
       }
     })
   } catch (error) {

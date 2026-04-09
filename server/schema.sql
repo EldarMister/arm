@@ -220,6 +220,22 @@ INSERT INTO telegram_bot_state (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS telegram_fresh_parser_sessions (
+  chat_id           BIGINT PRIMARY KEY,
+  parse_scope       VARCHAR(20) NOT NULL DEFAULT 'all',
+  is_active         BOOLEAN NOT NULL DEFAULT false,
+  started_at        TIMESTAMPTZ,
+  stopped_at        TIMESTAMPTZ,
+  last_requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_run_at       TIMESTAMPTZ,
+  last_error        TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_fresh_parser_active
+  ON telegram_fresh_parser_sessions(is_active, parse_scope, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS pricing_settings (
   id                INTEGER PRIMARY KEY DEFAULT 1,
   commission        NUMERIC(10,2) DEFAULT 200,

@@ -1485,11 +1485,56 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
   const parseScope = normalizeParseScope(options?.parseScope)
   const runPreset = normalizeRunPreset(options?.runPreset)
+  const telegramRecipientResolver = typeof options?.telegramRecipientResolver === 'function'
+    ? options.telegramRecipientResolver
+    : null
+  const suppressDefaultTelegramNotifications = Boolean(options?.suppressDefaultTelegramNotifications)
+  const onlyFreshLeadNotifications = Boolean(options?.onlyFreshLeadNotifications)
   const leadFilters = getLeadFiltersForRunPreset(runPreset)
   activeDetailPacing = getDetailPacingForRunPreset(runPreset)
   const parseScopeLabel = formatParseScopeLabel(parseScope)
   const runPresetLabel = formatRunPresetLabel(runPreset)
   const freshLeadRun = isFreshLeadRun(runPreset)
+
+  function normalizeRecipientChatIds(recipientChatIds) {
+    return [...new Set(
+      (Array.isArray(recipientChatIds) ? recipientChatIds : [recipientChatIds])
+        .map((value) => cleanText(value))
+        .filter(Boolean),
+    )]
+  }
+
+  function resolveTelegramRecipientChatIds(car, meta = {}) {
+    if (!telegramRecipientResolver) return null
+
+    try {
+      return normalizeRecipientChatIds(telegramRecipientResolver({
+        car,
+        parseScope,
+        runPreset,
+        parseScopeLabel,
+        runPresetLabel,
+        ...meta,
+      }))
+    } catch (error) {
+      state.warn(
+        `TELEGRAM_RECIPIENT_RESOLVER_FAILED | event=${cleanText(meta.event) || 'unknown'} | encar_id=${cleanText(car?.encar_id) || '-'} | error=${cleanText(error?.message) || 'unknown error'}`,
+      )
+      return []
+    }
+  }
+
+  function queueResolvedTelegramNotification(factory, meta, car, extra = {}) {
+    if (telegramRecipientResolver) {
+      const recipientChatIds = resolveTelegramRecipientChatIds(car, extra)
+      if (!recipientChatIds.length) return
+      queueTelegramNotification(factory(recipientChatIds), meta)
+      return
+    }
+
+    if (suppressDefaultTelegramNotifications) return
+    queueTelegramNotification(factory(null), meta)
+  }
 
   state.isRunning = true
   state.stopReq = false
@@ -1784,19 +1829,24 @@ export async function runScrapeJob(limit = 100, options = {}) {
                   state.success(
                     `KNOWN_LISTING_CHANGED | kind=price | id=${duplicateId} | encar_id=${currentEncarId} | previous=${refreshResult.previousPriceKrw} | next=${refreshResult.nextPriceKrw}`,
                   )
-                  queueTelegramNotification(
-                    notifyTelegramChangedListing({
-                      car: existingCar,
-                      importedId: duplicateId,
-                      previousPriceKrw: refreshResult.previousPriceKrw,
-                      nextPriceKrw: refreshResult.nextPriceKrw,
-                      changedFields: refreshResult.updatedFields,
-                      parseScopeLabel,
-                      runPresetLabel,
-                      notificationMode: freshLeadRun ? 'fresh_list' : 'full',
-                    }),
-                    { kind: 'changed_listing', encarId: currentEncarId },
-                  )
+                  if (!onlyFreshLeadNotifications) {
+                    queueResolvedTelegramNotification(
+                      (recipientChatIds) => notifyTelegramChangedListing({
+                        car: existingCar,
+                        importedId: duplicateId,
+                        previousPriceKrw: refreshResult.previousPriceKrw,
+                        nextPriceKrw: refreshResult.nextPriceKrw,
+                        changedFields: refreshResult.updatedFields,
+                        parseScopeLabel,
+                        runPresetLabel,
+                        notificationMode: freshLeadRun ? 'fresh_list' : 'full',
+                        recipientChatIds,
+                      }),
+                      { kind: 'changed_listing', encarId: currentEncarId },
+                      existingCar,
+                      { event: 'changed_listing' },
+                    )
+                  }
                 }
               }
             } catch (refreshError) {
@@ -1922,8 +1972,8 @@ export async function runScrapeJob(limit = 100, options = {}) {
             state.success(
               `FRESH_LEAD_CHANGED | encar_id=${currentEncarId} | name=${freshLeadCar.name} | year=${freshLeadCar.year || '-'} | mileage=${Number(freshLeadCar.mileage || 0).toLocaleString()} | price_krw=${Math.round(Number(freshLeadCar.price_krw) || 0)} | encar_url=${freshLeadCar.encar_url}`,
             )
-            queueTelegramNotification(
-              notifyTelegramChangedListing({
+            queueResolvedTelegramNotification(
+              (recipientChatIds) => notifyTelegramChangedListing({
                 car: freshLeadCar,
                 previousPriceKrw: freshLeadSnapshot.previousPriceKrw,
                 nextPriceKrw: freshLeadSnapshot.nextPriceKrw,
@@ -1931,21 +1981,27 @@ export async function runScrapeJob(limit = 100, options = {}) {
                 parseScopeLabel,
                 runPresetLabel,
                 notificationMode: 'fresh_list',
+                recipientChatIds,
               }),
               { kind: 'fresh_lead_changed', encarId: currentEncarId },
+              freshLeadCar,
+              { event: 'fresh_lead_changed' },
             )
           } else {
             state.success(
               `FRESH_LEAD_NEW | encar_id=${currentEncarId} | name=${freshLeadCar.name} | year=${freshLeadCar.year || '-'} | mileage=${Number(freshLeadCar.mileage || 0).toLocaleString()} | price_krw=${Math.round(Number(freshLeadCar.price_krw) || 0)} | encar_url=${freshLeadCar.encar_url}`,
             )
-            queueTelegramNotification(
-              notifyTelegramNewListing({
+            queueResolvedTelegramNotification(
+              (recipientChatIds) => notifyTelegramNewListing({
                 car: freshLeadCar,
                 parseScopeLabel,
                 runPresetLabel,
                 notificationMode: 'fresh_list',
+                recipientChatIds,
               }),
               { kind: 'fresh_lead_new', encarId: currentEncarId },
+              freshLeadCar,
+              { event: 'fresh_lead_new' },
             )
           }
 
@@ -2187,15 +2243,20 @@ export async function runScrapeJob(limit = 100, options = {}) {
             carId: currentEncarId,
             importedId: newId,
           })
-          queueTelegramNotification(
-            notifyTelegramNewListing({
-              car: preparedCar,
-              importedId: newId,
-              parseScopeLabel,
-              runPresetLabel,
-            }),
-            { kind: 'new_listing', encarId: currentEncarId },
-          )
+          if (!onlyFreshLeadNotifications) {
+            queueResolvedTelegramNotification(
+              (recipientChatIds) => notifyTelegramNewListing({
+                car: preparedCar,
+                importedId: newId,
+                parseScopeLabel,
+                runPresetLabel,
+                recipientChatIds,
+              }),
+              { kind: 'new_listing', encarId: currentEncarId },
+              preparedCar,
+              { event: 'new_listing' },
+            )
+          }
         } catch (dbErr) {
           if (dbErr?.code === 'DUPLICATE_ENCAR') {
             recordSkip(buildDuplicateDiagnostic(
