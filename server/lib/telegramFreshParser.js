@@ -1,13 +1,5 @@
 import axios from 'axios'
 import dotenv from 'dotenv'
-import pool from '../db.js'
-import { runScrapeJob } from '../scraper/job.js'
-import { state as scraperState } from '../scraper/state.js'
-import {
-  classifyVehicleOrigin,
-  normalizeManufacturer,
-  VEHICLE_ORIGIN_LABELS,
-} from './vehicleData.js'
 
 dotenv.config()
 
@@ -21,7 +13,6 @@ const PARSE_SCOPE_DOMESTIC = 'domestic'
 const PARSE_SCOPE_IMPORTED = 'imported'
 const PARSE_SCOPE_JAPANESE = 'japanese'
 const PARSE_SCOPE_GERMAN = 'german'
-const RUN_PRESET_FRESH_LOW_ENGAGEMENT = 'fresh_low_engagement'
 const SUPPORTED_PARSE_SCOPES = new Set([
   PARSE_SCOPE_ALL,
   PARSE_SCOPE_DOMESTIC,
@@ -73,9 +64,88 @@ let telegramFreshParserTimer = null
 let telegramFreshParserRunPromise = null
 let telegramFreshParserImmediateTimer = null
 let telegramFreshParserRerunRequested = false
+let telegramFreshParserDb = null
+let telegramFreshParserRunFreshScrapeJob = null
+let telegramFreshParserIsScraperRunning = null
+
+const VEHICLE_ORIGIN_LABELS = Object.freeze({
+  korean: 'Корейские авто',
+  imported: 'Импортные авто',
+})
+const KOREAN_VEHICLE_BRAND_RE = /\b(kia|gia|hyundai|hyeondae|genesis|jenesiseu|daewoo|renault(?:\s+korea|\s+samsung)|renault samsung|reunokoria|samsung|samseong|ssangyong|kg\s*mobility|kgmobilriti)\b/i
+const KOREAN_VEHICLE_BRAND_HANGUL_RE = /\uAE30\uC544|\uD604\uB300|\uC81C\uB124\uC2DC\uC2A4|\uB300\uC6B0|\uB974\uB178\uCF54\uB9AC\uC544|\uC0BC\uC131|\uC30D\uC6A9|\uBAA8\uBE4C\uB9AC\uD2F0/u
+const KOREAN_VEHICLE_MODEL_RE = /\b(sm3|sm5|sm6|sm7|qm3|qm5|qm6|xm3|k3|k5|k7|k8|k9|g70|g80|g90|gv60|gv70|gv80|eq900|avante|elantra|sonata|grandeur|azera|santafe|santa\s*fe|tucson|palisade|staria|starex|porter|bongo|casper|morning|ray|carnival|sorento|sportage|seltos|mohave|niro|kona|orlando|trailblazer|trax|malibu|spark|matiz|damas|labo|rexton|actyon|korando|tivoli|torres|musso|bolteu|bolt|ioniq|aionik|veloster|stinger|soul|ssoul|ev3|ev4|ev5|ev6|ev9)\b/i
 
 function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function normalizeText(value) {
+  return cleanText(value)
+}
+
+function normalizeManufacturer(value) {
+  const raw = cleanText(value)
+  if (!raw) return ''
+  if (/renault[-\s]*korea\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(raw)) return 'Renault Korea'
+  if (/reunokoria\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(raw)) return 'Renault Korea'
+
+  const text = normalizeText(raw)
+  if (!text) return ''
+  if (/renault[-\s]*korea\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(text)) return 'Renault Korea'
+  if (/renault\s*samsung/i.test(text)) return 'Renault Korea'
+  if (/reunokoria\s*\(?\s*(samseong|samsung)?\s*\)?/i.test(text)) return 'Renault Korea'
+  if (/kgmobilriti/i.test(text) || /kg mobility/i.test(text)) return 'KG Mobility'
+  if (/ssangyong/i.test(text)) return 'SsangYong'
+  return text
+}
+
+function classifyVehicleOrigin(...values) {
+  const text = values
+    .map((value) => cleanText(value))
+    .filter(Boolean)
+    .join(' ')
+
+  if (!text) return ''
+  if (
+    KOREAN_VEHICLE_BRAND_RE.test(text) ||
+    KOREAN_VEHICLE_BRAND_HANGUL_RE.test(text) ||
+    KOREAN_VEHICLE_MODEL_RE.test(text)
+  ) {
+    return VEHICLE_ORIGIN_LABELS.korean
+  }
+
+  return VEHICLE_ORIGIN_LABELS.imported
+}
+
+export function configureTelegramFreshParserService({
+  db = null,
+  runFreshScrapeJob = null,
+  isScraperRunning = null,
+} = {}) {
+  if (db) telegramFreshParserDb = db
+  if (typeof runFreshScrapeJob === 'function') telegramFreshParserRunFreshScrapeJob = runFreshScrapeJob
+  if (typeof isScraperRunning === 'function') telegramFreshParserIsScraperRunning = isScraperRunning
+}
+
+function getTelegramFreshParserDb() {
+  if (!telegramFreshParserDb?.query) {
+    throw new Error('telegram fresh parser db is not configured')
+  }
+  return telegramFreshParserDb
+}
+
+function getTelegramFreshParserRunFreshScrapeJob() {
+  if (typeof telegramFreshParserRunFreshScrapeJob !== 'function') {
+    throw new Error('telegram fresh parser runner is not configured')
+  }
+  return telegramFreshParserRunFreshScrapeJob
+}
+
+function isTelegramFreshParserScraperRunning() {
+  return typeof telegramFreshParserIsScraperRunning === 'function'
+    ? Boolean(telegramFreshParserIsScraperRunning())
+    : false
 }
 
 function readEnv() {
@@ -154,7 +224,7 @@ async function sendTelegramControlMessage(botToken, chatId, text) {
 async function ensureTelegramFreshParserTables() {
   if (!ensureTelegramFreshParserTablesPromise) {
     ensureTelegramFreshParserTablesPromise = (async () => {
-      await pool.query(`
+      await getTelegramFreshParserDb().query(`
         CREATE TABLE IF NOT EXISTS ${TELEGRAM_FRESH_TABLE} (
           chat_id           BIGINT PRIMARY KEY,
           parse_scope       VARCHAR(20) NOT NULL DEFAULT 'all',
@@ -185,13 +255,13 @@ async function getTelegramFreshParserSession(chatId) {
   const normalizedChatId = normalizeChatId(chatId)
   if (!normalizedChatId) return null
 
-  await pool.query(`
+  await getTelegramFreshParserDb().query(`
     INSERT INTO ${TELEGRAM_FRESH_TABLE} (chat_id)
     VALUES ($1::bigint)
     ON CONFLICT (chat_id) DO NOTHING
   `, [normalizedChatId])
 
-  const result = await pool.query(`
+  const result = await getTelegramFreshParserDb().query(`
     SELECT chat_id, parse_scope, is_active, started_at, stopped_at, last_requested_at, last_run_at, last_error
     FROM ${TELEGRAM_FRESH_TABLE}
     WHERE chat_id = $1::bigint
@@ -209,7 +279,7 @@ async function updateTelegramFreshParserSession(chatId, { parseScope, isActive, 
   const nextParseScope = normalizeParseScope(parseScope ?? current?.parse_scope)
   const nextIsActive = typeof isActive === 'boolean' ? isActive : Boolean(current?.is_active)
 
-  await pool.query(`
+  await getTelegramFreshParserDb().query(`
     INSERT INTO ${TELEGRAM_FRESH_TABLE} (
       chat_id,
       parse_scope,
@@ -256,7 +326,7 @@ async function setTelegramFreshParserLastRunSuccess(chatIds = []) {
   const normalizedChatIds = [...new Set(chatIds.map((value) => normalizeChatId(value)).filter(Boolean))]
   if (!normalizedChatIds.length) return
 
-  await pool.query(`
+  await getTelegramFreshParserDb().query(`
     UPDATE ${TELEGRAM_FRESH_TABLE}
     SET last_run_at = NOW(),
         last_error = NULL,
@@ -269,7 +339,7 @@ async function setTelegramFreshParserLastError(chatIds = [], errorMessage = '') 
   const normalizedChatIds = [...new Set(chatIds.map((value) => normalizeChatId(value)).filter(Boolean))]
   if (!normalizedChatIds.length) return
 
-  await pool.query(`
+  await getTelegramFreshParserDb().query(`
     UPDATE ${TELEGRAM_FRESH_TABLE}
     SET last_error = $2,
         updated_at = NOW()
@@ -279,7 +349,7 @@ async function setTelegramFreshParserLastError(chatIds = [], errorMessage = '') 
 
 async function getActiveTelegramFreshParserSessions() {
   await ensureTelegramFreshParserTables()
-  const result = await pool.query(`
+  const result = await getTelegramFreshParserDb().query(`
     SELECT chat_id, parse_scope
     FROM ${TELEGRAM_FRESH_TABLE}
     WHERE is_active = true
@@ -402,7 +472,7 @@ export async function runTelegramFreshParserCycle({ force = false } = {}) {
       return { started: false, reason: 'no_active_chats' }
     }
 
-    if (scraperState.isRunning) {
+    if (isTelegramFreshParserScraperRunning()) {
       if (force) {
         scheduleTelegramFreshParserImmediateRun(Math.min(config.intervalMs, 30000))
       }
@@ -410,12 +480,10 @@ export async function runTelegramFreshParserCycle({ force = false } = {}) {
     }
 
     try {
-      await runScrapeJob(config.runLimit, {
-        parseScope: PARSE_SCOPE_ALL,
-        runPreset: RUN_PRESET_FRESH_LOW_ENGAGEMENT,
-        suppressDefaultTelegramNotifications: true,
-        onlyFreshLeadNotifications: true,
-        telegramRecipientResolver: ({ car }) => resolveRecipientChatIdsForCar(activeSessions, car),
+      await getTelegramFreshParserRunFreshScrapeJob()({
+        limit: config.runLimit,
+        activeSessions,
+        recipientResolver: ({ car }) => resolveRecipientChatIdsForCar(activeSessions, car),
       })
 
       await setTelegramFreshParserLastRunSuccess(activeSessions.map((session) => session.chatId))

@@ -13,9 +13,13 @@ import scraperRouter from './routes/scraper.js'
 import partsRouter from './routes/parts.js'
 import pricingRouter from './routes/pricing.js'
 import { startScheduler } from './scraper/scheduler.js'
+import { runScrapeJob } from './scraper/job.js'
 import { state as scraperState } from './scraper/state.js'
 import { startTelegramSubscriberSync } from './lib/telegramNotifications.js'
-import { startTelegramFreshParserService } from './lib/telegramFreshParser.js'
+import {
+  configureTelegramFreshParserService,
+  startTelegramFreshParserService,
+} from './lib/telegramFreshParser.js'
 import { startWeeklyCatalogMaintenance } from './lib/weeklyCatalogMaintenance.js'
 import {
   applyBasicSecurityHeaders,
@@ -221,6 +225,18 @@ async function start() {
     const schemaSQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8')
     await pool.query(schemaSQL)
     console.log('Database schema is ready')
+
+    configureTelegramFreshParserService({
+      db: pool,
+      isScraperRunning: () => scraperState.isRunning,
+      runFreshScrapeJob: ({ limit, recipientResolver }) => runScrapeJob(limit, {
+        parseScope: 'all',
+        runPreset: 'fresh_low_engagement',
+        suppressDefaultTelegramNotifications: true,
+        onlyFreshLeadNotifications: true,
+        telegramRecipientResolver: recipientResolver,
+      }),
+    })
 
     const invalidVinCleanup = await pool.query(`
       UPDATE cars
