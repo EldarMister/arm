@@ -15,6 +15,7 @@ Standalone Telegram bot for Encar fresh listings.
 - No Postgres is required.
 - State is stored locally in `./data/state.json`.
 - Fresh parsing runs continuously while at least one chat has parsing enabled.
+- If `ENCAR_PROXY_URL` is set, the bot uses the same direct/proxy failover approach as the main project for list and detail requests.
 - Fresh rules are fixed to:
   - views `<= 6`
   - calls `= 0`

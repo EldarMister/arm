@@ -1,4 +1,15 @@
 import axios from 'axios'
+import {
+  buildEncarSourceDiagnostic,
+  decorateEncarSourceError,
+  fetchViaEncarProxy,
+  getPreferredEncarSource,
+  hasEncarProxy,
+  isEncarProxySuppressed,
+  rememberHealthyEncarSource,
+  shouldRetryViaAlternateEncarSource,
+  suppressEncarProxy,
+} from './encarSource.js'
 
 const LIST_PAGE_SIZE = 20
 const MIN_YEAR = 2019
@@ -44,6 +55,14 @@ const GERMAN_BRAND_ALIASES = [
   'smart',
   'maybach',
   'opel',
+]
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 ]
 
 const KOREAN_VEHICLE_BRAND_RE = /\b(kia|gia|hyundai|hyeondae|genesis|jenesiseu|daewoo|renault(?:\s+korea|\s+samsung)|renault samsung|reunokoria|samsung|samseong|ssangyong|kg\s*mobility|kgmobilriti)\b/i
@@ -371,6 +390,11 @@ const JONGSEONG = ['', 'k', 'k', 'ks', 'n', 'nj', 'nh', 't', 'l', 'lk', 'lm', 'l
 
 function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+let uaIdx = 0
+function nextUA() {
+  return USER_AGENTS[uaIdx++ % USER_AGENTS.length]
 }
 
 function escapeRegExp(value) {
@@ -860,12 +884,15 @@ export function createStandaloneEncarClient(env = {}) {
   const detailDelayMs = Math.max(0, Number.parseInt(String(env.TELEGRAM_FRESH_DETAIL_DELAY_MS || '150'), 10) || 150)
   const pageDelayMs = Math.max(0, Number.parseInt(String(env.TELEGRAM_FRESH_PAGE_DELAY_MS || '250'), 10) || 250)
 
-  async function fetchListPage(offset = 0) {
+  async function fetchListPageDirect(offset = 0) {
     const response = await apiClient.get('/search/car/list/premium', {
       params: {
         count: true,
         q: buildListQuery(),
         sr: `|ModifiedDate|${offset}|${LIST_PAGE_SIZE}`,
+      },
+      headers: {
+        'User-Agent': nextUA(),
       },
     })
 
@@ -875,9 +902,100 @@ export function createStandaloneEncarClient(env = {}) {
     }
   }
 
-  async function fetchVehicleDetail(encarId, fallbackRaw = {}) {
-    const response = await apiClient.get(`/v1/readside/vehicle/${encodeURIComponent(encarId)}`)
-    const data = response?.data || {}
+  async function fetchListPageViaProxy(offset = 0) {
+    const data = await fetchViaEncarProxy(
+      {
+        endpoint: 'list',
+        offset,
+        limit: LIST_PAGE_SIZE,
+        count: true,
+        q: buildListQuery(),
+        sr: `|ModifiedDate|${offset}|${LIST_PAGE_SIZE}`,
+        sort: 'ModifiedDate',
+      },
+      {
+        timeout: readPositiveInteger(env.ENCAR_REQUEST_TIMEOUT_MS, 25000),
+        headers: {
+          'User-Agent': nextUA(),
+        },
+      },
+      env,
+    )
+
+    return {
+      total: Number(data?.Count) || 0,
+      cars: Array.isArray(data?.SearchResults) ? data.SearchResults : [],
+    }
+  }
+
+  async function fetchListPage(offset = 0) {
+    const preferred = hasEncarProxy(env) && !isEncarProxySuppressed(env)
+      ? getPreferredEncarSource('list')
+      : 'direct'
+    const sourceDiagnostics = []
+    const fetchers = []
+
+    if (preferred === 'proxy' && hasEncarProxy(env) && !isEncarProxySuppressed(env)) {
+      fetchers.push({ name: 'proxy', run: () => fetchListPageViaProxy(offset) })
+    }
+    fetchers.push({ name: 'direct', run: () => fetchListPageDirect(offset) })
+    if (preferred !== 'proxy' && hasEncarProxy(env) && !isEncarProxySuppressed(env)) {
+      fetchers.push({ name: 'proxy', run: () => fetchListPageViaProxy(offset) })
+    }
+
+    let lastError = null
+
+    for (const fetcher of fetchers) {
+      try {
+        const page = await fetcher.run()
+        rememberHealthyEncarSource('list', fetcher.name)
+        return {
+          ...page,
+          source: fetcher.name,
+          sourceDiagnostics,
+          fallbackUsed: sourceDiagnostics.length > 0,
+        }
+      } catch (error) {
+        if (fetcher.name === 'proxy') {
+          suppressEncarProxy(Number(error?.response?.status) || 0)
+        }
+        sourceDiagnostics.push(buildEncarSourceDiagnostic(fetcher.name, error))
+        lastError = error
+      }
+    }
+
+    if (
+      hasEncarProxy(env)
+      && isEncarProxySuppressed(env)
+      && !sourceDiagnostics.some((item) => item?.source === 'proxy')
+      && shouldRetryViaAlternateEncarSource(lastError)
+    ) {
+      try {
+        const page = await fetchListPageViaProxy(offset)
+        rememberHealthyEncarSource('list', 'proxy')
+        return {
+          ...page,
+          source: 'proxy',
+          sourceDiagnostics,
+          fallbackUsed: true,
+        }
+      } catch (error) {
+        suppressEncarProxy(Number(error?.response?.status) || 0)
+        sourceDiagnostics.push(buildEncarSourceDiagnostic('proxy', error, 'suppressed_probe'))
+        lastError = error
+      }
+    }
+
+    if (lastError) {
+      lastError.fetchSourceDiagnostics = sourceDiagnostics
+      decorateEncarSourceError(lastError, 'list', env)
+      throw lastError
+    }
+
+    throw new Error('Failed to fetch Encar list')
+  }
+
+  function buildVehicleDetailResult(encarId, data, fallbackRaw = {}, source = 'direct') {
     const category = data?.category || {}
     const spec = data?.spec || {}
     const ad = data?.advertisement || {}
@@ -898,7 +1016,100 @@ export function createStandaloneEncarClient(env = {}) {
       priceKrw: Math.max(0, (Number(ad?.price) || Number(fallbackRaw?.Price) || 0) * 10000),
       manage: buildManageMetrics(manage, contact),
       encarUrl: `https://fem.encar.com/cars/detail/${encodeURIComponent(encarId)}`,
+      source,
     }
+  }
+
+  async function fetchVehicleDetailDirect(encarId, fallbackRaw = {}) {
+    const response = await apiClient.get(`/v1/readside/vehicle/${encodeURIComponent(encarId)}`, {
+      headers: {
+        'User-Agent': nextUA(),
+      },
+    })
+    return buildVehicleDetailResult(encarId, response?.data || {}, fallbackRaw, 'direct')
+  }
+
+  async function fetchVehicleDetailViaProxy(encarId, fallbackRaw = {}) {
+    const data = await fetchViaEncarProxy(
+      {
+        endpoint: 'vehicle',
+        id: encarId,
+      },
+      {
+        timeout: readPositiveInteger(env.ENCAR_REQUEST_TIMEOUT_MS, 25000),
+        headers: {
+          'User-Agent': nextUA(),
+        },
+      },
+      env,
+    )
+
+    return buildVehicleDetailResult(encarId, data || {}, fallbackRaw, 'proxy')
+  }
+
+  async function fetchVehicleDetail(encarId, fallbackRaw = {}) {
+    const preferred = hasEncarProxy(env) && !isEncarProxySuppressed(env)
+      ? getPreferredEncarSource('detail')
+      : 'direct'
+    const sourceDiagnostics = []
+    const fetchers = []
+
+    if (preferred === 'proxy' && hasEncarProxy(env) && !isEncarProxySuppressed(env)) {
+      fetchers.push({ name: 'proxy', run: () => fetchVehicleDetailViaProxy(encarId, fallbackRaw) })
+    }
+    fetchers.push({ name: 'direct', run: () => fetchVehicleDetailDirect(encarId, fallbackRaw) })
+    if (preferred !== 'proxy' && hasEncarProxy(env) && !isEncarProxySuppressed(env)) {
+      fetchers.push({ name: 'proxy', run: () => fetchVehicleDetailViaProxy(encarId, fallbackRaw) })
+    }
+
+    let lastError = null
+
+    for (const fetcher of fetchers) {
+      try {
+        const detail = await fetcher.run()
+        rememberHealthyEncarSource('detail', fetcher.name)
+        return {
+          ...detail,
+          sourceDiagnostics,
+          fallbackUsed: sourceDiagnostics.length > 0,
+        }
+      } catch (error) {
+        if (fetcher.name === 'proxy') {
+          suppressEncarProxy(Number(error?.response?.status) || 0)
+        }
+        sourceDiagnostics.push(buildEncarSourceDiagnostic(fetcher.name, error))
+        lastError = error
+      }
+    }
+
+    if (
+      hasEncarProxy(env)
+      && isEncarProxySuppressed(env)
+      && !sourceDiagnostics.some((item) => item?.source === 'proxy')
+      && shouldRetryViaAlternateEncarSource(lastError)
+    ) {
+      try {
+        const detail = await fetchVehicleDetailViaProxy(encarId, fallbackRaw)
+        rememberHealthyEncarSource('detail', 'proxy')
+        return {
+          ...detail,
+          sourceDiagnostics,
+          fallbackUsed: true,
+        }
+      } catch (error) {
+        suppressEncarProxy(Number(error?.response?.status) || 0)
+        sourceDiagnostics.push(buildEncarSourceDiagnostic('proxy', error, 'suppressed_probe'))
+        lastError = error
+      }
+    }
+
+    if (lastError) {
+      lastError.fetchSourceDiagnostics = sourceDiagnostics
+      decorateEncarSourceError(lastError, 'detail', env)
+      throw lastError
+    }
+
+    throw new Error(`Failed to fetch Encar vehicle ${encarId}`)
   }
 
   async function scanFreshListings({
@@ -917,6 +1128,9 @@ export function createStandaloneEncarClient(env = {}) {
       if (!currentSessions.length) break
 
       const page = await fetchListPage(offset)
+      if (Array.isArray(page?.sourceDiagnostics) && page.sourceDiagnostics.length) {
+        onLog(`LIST_SOURCE_FALLBACK | offset=${offset} | source=${cleanText(page?.source) || 'unknown'} | failures=${page.sourceDiagnostics.map((item) => cleanText(item?.source || 'unknown')).join(',')}`)
+      }
       const pageCars = Array.isArray(page.cars) ? page.cars : []
       if (!pageCars.length) break
 
@@ -950,6 +1164,9 @@ export function createStandaloneEncarClient(env = {}) {
         let detail = null
         try {
           detail = await fetchVehicleDetail(encarId, raw)
+          if (Array.isArray(detail?.sourceDiagnostics) && detail.sourceDiagnostics.length) {
+            onLog(`DETAIL_SOURCE_FALLBACK | encar_id=${encarId} | source=${cleanText(detail?.source) || 'unknown'} | failures=${detail.sourceDiagnostics.map((item) => cleanText(item?.source || 'unknown')).join(',')}`)
+          }
         } catch (error) {
           onLog(`DETAIL_FETCH_FAILED | encar_id=${encarId} | ${cleanText(error?.message) || 'unknown error'}`)
           continue
