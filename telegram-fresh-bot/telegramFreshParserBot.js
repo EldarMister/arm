@@ -48,17 +48,17 @@ const GERMAN_BRAND_ALIASES = [
   'maybach',
   'opel',
 ]
-const BUTTON_START = '\u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433'
-const BUTTON_STOP = '\u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433'
-const BUTTON_STATUS = '\u0421\u0442\u0430\u0442\u0443\u0441'
-const BUTTON_FILTERS = '\u0424\u0438\u043b\u044c\u0442\u0440\u044b'
-const BUTTON_BACK = '\u041d\u0430\u0437\u0430\u0434'
+const BUTTON_START = '\uD83D\uDE80 \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433'
+const BUTTON_STOP = '\u23F9\uFE0F \u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0430\u0440\u0441\u0438\u043D\u0433'
+const BUTTON_STATUS = '\uD83D\uDCCA \u0421\u0442\u0430\u0442\u0443\u0441'
+const BUTTON_FILTERS = '\uD83C\uDFAF \u0424\u0438\u043B\u044C\u0442\u0440\u044B'
+const BUTTON_BACK = '\u2B05\uFE0F \u041D\u0430\u0437\u0430\u0434'
 const FILTER_BUTTONS = Object.freeze({
-  [PARSE_SCOPE_ALL]: '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
-  [PARSE_SCOPE_DOMESTIC]: '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435',
-  [PARSE_SCOPE_IMPORTED]: '\u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435',
-  [PARSE_SCOPE_JAPANESE]: '\u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435',
-  [PARSE_SCOPE_GERMAN]: '\u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435',
+  [PARSE_SCOPE_ALL]: '\uD83D\uDE97 \u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
+  [PARSE_SCOPE_DOMESTIC]: '\uD83C\uDDF0\uD83C\uDDF7 \u041A\u043E\u0440\u0435\u0439\u0441\u043A\u0438\u0435',
+  [PARSE_SCOPE_IMPORTED]: '\uD83C\uDF0D \u0412\u0441\u0435 \u0438\u043C\u043F\u043E\u0440\u0442\u043D\u044B\u0435',
+  [PARSE_SCOPE_JAPANESE]: '\uD83C\uDDEF\uD83C\uDDF5 \u042F\u043F\u043E\u043D\u0441\u043A\u0438\u0435',
+  [PARSE_SCOPE_GERMAN]: '\uD83C\uDDE9\uD83C\uDDEA \u041D\u0435\u043C\u0435\u0446\u043A\u0438\u0435',
 })
 const KEYBOARD_SECTION_MAIN = 'main'
 const KEYBOARD_SECTION_FILTERS = 'filters'
@@ -181,6 +181,13 @@ function formatParseScopeLabel(parseScope) {
   return '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b'
 }
 
+function getFilterButtonLabel(parseScope, activeScope = '') {
+  const baseLabel = FILTER_BUTTONS[parseScope] || FILTER_BUTTONS[PARSE_SCOPE_ALL]
+  return parseScope === normalizeParseScope(activeScope)
+    ? `\u2705 ${baseLabel}`
+    : baseLabel
+}
+
 function getTelegramFreshParserConfig() {
   const env = readEnv()
   return {
@@ -198,13 +205,14 @@ function getTelegramApiUrl(botToken, method) {
 function buildControlKeyboard(session = null, section = KEYBOARD_SECTION_MAIN) {
   const isActive = Boolean(session?.is_active)
   const toggleButtonLabel = isActive ? BUTTON_STOP : BUTTON_START
+  const activeScope = normalizeParseScope(session?.parse_scope)
 
   if (section === KEYBOARD_SECTION_FILTERS) {
     return {
       keyboard: [
-        [{ text: FILTER_BUTTONS[PARSE_SCOPE_ALL] }, { text: FILTER_BUTTONS[PARSE_SCOPE_DOMESTIC] }],
-        [{ text: FILTER_BUTTONS[PARSE_SCOPE_IMPORTED] }, { text: FILTER_BUTTONS[PARSE_SCOPE_JAPANESE] }],
-        [{ text: FILTER_BUTTONS[PARSE_SCOPE_GERMAN] }],
+        [{ text: getFilterButtonLabel(PARSE_SCOPE_ALL, activeScope) }, { text: getFilterButtonLabel(PARSE_SCOPE_DOMESTIC, activeScope) }],
+        [{ text: getFilterButtonLabel(PARSE_SCOPE_IMPORTED, activeScope) }, { text: getFilterButtonLabel(PARSE_SCOPE_JAPANESE, activeScope) }],
+        [{ text: getFilterButtonLabel(PARSE_SCOPE_GERMAN, activeScope) }],
         [{ text: BUTTON_BACK }],
       ],
       resize_keyboard: true,
@@ -442,42 +450,44 @@ function buildTelegramFreshParserStatusText(session) {
   const toggleLabel = isActive ? BUTTON_STOP : BUTTON_START
 
   const lines = [
-    'Fresh-\u043f\u0430\u0440\u0441\u0438\u043d\u0433 Encar \u0447\u0435\u0440\u0435\u0437 Telegram.',
-    `\u0421\u0442\u0430\u0442\u0443\u0441: ${isActive ? '\u0432\u043a\u043b\u044e\u0447\u0435\u043d' : '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d'}`,
-    `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(parseScope)}`,
-    '\u0420\u0435\u0436\u0438\u043c: \u0442\u043e\u043b\u044c\u043a\u043e \u0441\u0432\u0435\u0436\u0438\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f.',
+    '\uD83E\uDD16 Fresh-\u043F\u0430\u0440\u0441\u0438\u043D\u0433 Encar \u0447\u0435\u0440\u0435\u0437 Telegram',
+    `\uD83D\uDCCA \u0421\u0442\u0430\u0442\u0443\u0441: ${isActive ? '\uD83D\uDFE2 \u0432\u043A\u043B\u044E\u0447\u0435\u043D' : '\uD83D\uDD34 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D'}`,
+    `\u2705 \u0422\u0435\u043A\u0443\u0449\u0438\u0439 \u0444\u0438\u043B\u044C\u0442\u0440: ${formatParseScopeLabel(parseScope)}`,
+    '\u2728 \u0420\u0435\u0436\u0438\u043C: \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u0432\u0435\u0436\u0438\u0435 \u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F.',
   ]
 
   if (lastRunAt) {
-    lines.push(`\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u043f\u0443\u0441\u043a: ${lastRunAt}`)
+    lines.push(`\u23F1\uFE0F \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0437\u0430\u043F\u0443\u0441\u043A: ${lastRunAt}`)
   }
 
   if (lastError) {
-    lines.push(`\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430: ${lastError}`)
+    lines.push(`\u26A0\uFE0F \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430: ${lastError}`)
   }
 
   lines.push('')
-  lines.push(`\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435: ${toggleLabel}`)
-  lines.push('\u0424\u0438\u043b\u044c\u0442\u0440\u044b:')
-  lines.push('\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b / \u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435 / \u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435 / \u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435 / \u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435')
+  lines.push(`\uD83D\uDD18 \u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435: ${toggleLabel}`)
+  lines.push('\uD83C\uDFAF \u0424\u0438\u043B\u044C\u0442\u0440\u044B:')
+  lines.push('\uD83D\uDE97 \u0412\u0441\u0435 \u043C\u0430\u0448\u0438\u043D\u044B / \uD83C\uDDF0\uD83C\uDDF7 \u041A\u043E\u0440\u0435\u0439\u0441\u043A\u0438\u0435 / \uD83C\uDF0D \u0412\u0441\u0435 \u0438\u043C\u043F\u043E\u0440\u0442\u043D\u044B\u0435 / \uD83C\uDDEF\uD83C\uDDF5 \u042F\u043F\u043E\u043D\u0441\u043A\u0438\u0435 / \uD83C\uDDE9\uD83C\uDDEA \u041D\u0435\u043C\u0435\u0446\u043A\u0438\u0435')
   return lines.join('\n')
 }
 
 function buildTelegramFreshParserFiltersText(session) {
+  const parseScope = normalizeParseScope(session?.parse_scope)
+
   return [
-    '\u0424\u0438\u043b\u044c\u0442\u0440\u044b:',
-    '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
-    '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435',
-    '\u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435',
-    '\u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435',
-    '\u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435',
+    '\uD83C\uDFAF \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440:',
+    `\u2705 \u0421\u0435\u0439\u0447\u0430\u0441 \u0430\u043A\u0442\u0438\u0432\u0435\u043D: ${formatParseScopeLabel(parseScope)}`,
     '',
-    `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(session?.parse_scope)}`,
+    `${getFilterButtonLabel(PARSE_SCOPE_ALL, parseScope)}`,
+    `${getFilterButtonLabel(PARSE_SCOPE_DOMESTIC, parseScope)}`,
+    `${getFilterButtonLabel(PARSE_SCOPE_IMPORTED, parseScope)}`,
+    `${getFilterButtonLabel(PARSE_SCOPE_JAPANESE, parseScope)}`,
+    `${getFilterButtonLabel(PARSE_SCOPE_GERMAN, parseScope)}`,
   ].join('\n')
 }
 
 function resolveFilterButtonScope(text) {
-  const normalizedText = cleanText(text)
+  const normalizedText = cleanText(text).replace(/^\u2705\s*/u, '')
   return Object.entries(FILTER_BUTTONS).find(([, label]) => label === normalizedText)?.[0] || ''
 }
 
@@ -613,7 +623,7 @@ export async function handleTelegramFreshControlUpdate({
     await sendTelegramControlMessage(
       botToken,
       normalizedChatId,
-      '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b. \u0427\u0442\u043e\u0431\u044b \u0441\u043d\u043e\u0432\u0430 \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u044c \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f, \u043e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 /start.',
+      '\uD83D\uDD15 \u041F\u0430\u0440\u0441\u0438\u043D\u0433 \u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u044B. \u0427\u0442\u043E\u0431\u044B \u0441\u043D\u043E\u0432\u0430 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F, \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 /start.',
       session,
     )
 
@@ -646,10 +656,10 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        `\u0424\u0438\u043b\u044c\u0442\u0440 \u0432\u044b\u0431\u0440\u0430\u043d: ${formatParseScopeLabel(filterScope)}.`,
+        `\u2705 \u0424\u0438\u043B\u044C\u0442\u0440 \u0432\u044B\u0431\u0440\u0430\u043D: ${formatParseScopeLabel(filterScope)}.`,
         session?.is_active
-          ? '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0443\u0436\u0435 \u0432\u043a\u043b\u044e\u0447\u0435\u043d. \u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u043f\u0440\u0438\u0434\u0443\u0442 \u043f\u043e \u043d\u043e\u0432\u043e\u043c\u0443 \u0444\u0438\u043b\u044c\u0442\u0440\u0443.'
-          : '\u0424\u0438\u043b\u044c\u0442\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d. \u0422\u0435\u043f\u0435\u0440\u044c \u043c\u043e\u0436\u043d\u043e \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433.',
+          ? '\uD83D\uDE9A \u041F\u0430\u0440\u0441\u0438\u043D\u0433 \u0443\u0436\u0435 \u0432\u043A\u043B\u044E\u0447\u0435\u043D. \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0435 \u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0440\u0438\u0434\u0443\u0442 \u043F\u043E \u043D\u043E\u0432\u043E\u043C\u0443 \u0444\u0438\u043B\u044C\u0442\u0440\u0443.'
+          : '\uD83D\uDCBE \u0424\u0438\u043B\u044C\u0442\u0440 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D. \u0422\u0435\u043F\u0435\u0440\u044C \u043C\u043E\u0436\u043D\u043E \u0437\u0430\u043F\u0443\u0441\u043A\u0430\u0442\u044C \u043F\u0430\u0440\u0441\u0438\u043D\u0433.',
       ].join('\n'),
       session,
       KEYBOARD_SECTION_FILTERS,
@@ -695,9 +705,9 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0437\u0430\u043f\u0443\u0449\u0435\u043d.',
-        `\u0424\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(session?.parse_scope)}.`,
-        '\u041d\u043e\u0432\u044b\u0435 fresh-\u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u0431\u0443\u0434\u0443\u0442 \u043f\u0440\u0438\u0445\u043e\u0434\u0438\u0442\u044c \u043f\u043e \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u043e\u043c\u0443 \u0444\u0438\u043b\u044c\u0442\u0440\u0443.',
+        '\uD83D\uDE80 \u041F\u0430\u0440\u0441\u0438\u043D\u0433 \u0437\u0430\u043F\u0443\u0449\u0435\u043D.',
+        `\uD83C\uDFAF \u0424\u0438\u043B\u044C\u0442\u0440: ${formatParseScopeLabel(session?.parse_scope)}.`,
+        '\u2728 \u041D\u043E\u0432\u044B\u0435 fresh-\u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u0431\u0443\u0434\u0443\u0442 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442\u044C \u043F\u043E \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u0444\u0438\u043B\u044C\u0442\u0440\u0443.',
       ].join('\n'),
       session,
     )
@@ -717,9 +727,9 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d.',
-        `\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0444\u0438\u043b\u044c\u0442\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d: ${formatParseScopeLabel(session?.parse_scope)}.`,
-        '\u041d\u043e\u0432\u044b\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u0431\u043e\u043b\u044c\u0448\u0435 \u043d\u0435 \u0431\u0443\u0434\u0443\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0442\u044c\u0441\u044f \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.',
+        '\u23F9\uFE0F \u041F\u0430\u0440\u0441\u0438\u043D\u0433 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D.',
+        `\uD83C\uDFAF \u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0439 \u0444\u0438\u043B\u044C\u0442\u0440 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D: ${formatParseScopeLabel(session?.parse_scope)}.`,
+        '\u270B \u041D\u043E\u0432\u044B\u0435 \u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C\u0441\u044F \u0432 \u044D\u0442\u043E\u0442 \u0447\u0430\u0442.',
       ].join('\n'),
       session,
     )
