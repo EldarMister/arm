@@ -1,0 +1,17 @@
+{
+  "name": "telegram-fresh-bot-standalone",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node standalone.js",
+    "dev": "node standalone.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.13.6",
+    "dotenv": "^17.3.1"
+  }
+}
