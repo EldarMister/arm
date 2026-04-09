@@ -1,14 +1,14 @@
 import axios from 'axios'
 import dotenv from 'dotenv'
 import pool from '../db.js'
-import { handleTelegramFreshControlUpdate } from './telegramFreshParser.js'
+import { handleTelegramFreshControlUpdate } from '../../telegram-fresh-bot/telegramFreshParserBot.js'
 
 const DEFAULT_SITE_URL = 'https://avt-autovtrade.com'
 const TELEGRAM_API_BASE = 'https://api.telegram.org'
 const TELEGRAM_TIMEOUT_MS = 15000
 const TELEGRAM_UPDATE_LIMIT = 100
-const TELEGRAM_SYNC_COOLDOWN_MS = 30000
-const TELEGRAM_SYNC_INTERVAL_MS = 60000
+const TELEGRAM_SYNC_COOLDOWN_MS = 250
+const TELEGRAM_SYNC_INTERVAL_MS = 500
 const TELEGRAM_ALLOWED_UPDATES = ['message', 'edited_message', 'callback_query']
 
 dotenv.config()
@@ -583,7 +583,14 @@ async function resolveTelegramRecipients(chatIds = null) {
   const config = getTelegramConfig()
   if (!config.enabled) return []
 
-  const explicitRecipients = normalizeRecipientIds(chatIds)
+  let explicitRecipientSource = chatIds
+  if (typeof explicitRecipientSource === 'function') {
+    explicitRecipientSource = await explicitRecipientSource()
+  } else if (explicitRecipientSource && typeof explicitRecipientSource.then === 'function') {
+    explicitRecipientSource = await explicitRecipientSource
+  }
+
+  const explicitRecipients = normalizeRecipientIds(explicitRecipientSource)
   if (explicitRecipients.length) {
     return explicitRecipients
   }

@@ -19,7 +19,7 @@ import { startTelegramSubscriberSync } from './lib/telegramNotifications.js'
 import {
   configureTelegramFreshParserService,
   startTelegramFreshParserService,
-} from './lib/telegramFreshParser.js'
+} from '../telegram-fresh-bot/telegramFreshParserBot.js'
 import { startWeeklyCatalogMaintenance } from './lib/weeklyCatalogMaintenance.js'
 import {
   applyBasicSecurityHeaders,

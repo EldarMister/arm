@@ -1504,18 +1504,19 @@ export async function runScrapeJob(limit = 100, options = {}) {
     )]
   }
 
-  function resolveTelegramRecipientChatIds(car, meta = {}) {
+  async function resolveTelegramRecipientChatIds(car, meta = {}) {
     if (!telegramRecipientResolver) return null
 
     try {
-      return normalizeRecipientChatIds(telegramRecipientResolver({
+      const resolvedRecipientChatIds = await telegramRecipientResolver({
         car,
         parseScope,
         runPreset,
         parseScopeLabel,
         runPresetLabel,
         ...meta,
-      }))
+      })
+      return normalizeRecipientChatIds(resolvedRecipientChatIds)
     } catch (error) {
       state.warn(
         `TELEGRAM_RECIPIENT_RESOLVER_FAILED | event=${cleanText(meta.event) || 'unknown'} | encar_id=${cleanText(car?.encar_id) || '-'} | error=${cleanText(error?.message) || 'unknown error'}`,
@@ -1526,9 +1527,9 @@ export async function runScrapeJob(limit = 100, options = {}) {
 
   function queueResolvedTelegramNotification(factory, meta, car, extra = {}) {
     if (telegramRecipientResolver) {
-      const recipientChatIds = resolveTelegramRecipientChatIds(car, extra)
-      if (!recipientChatIds.length) return
-      queueTelegramNotification(factory(recipientChatIds), meta)
+      queueTelegramNotification(factory(
+        () => resolveTelegramRecipientChatIds(car, extra),
+      ), meta)
       return
     }
 

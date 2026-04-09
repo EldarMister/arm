@@ -48,16 +48,20 @@ const GERMAN_BRAND_ALIASES = [
   'maybach',
   'opel',
 ]
-const BUTTON_START = 'Запустить fresh-парсинг'
-const BUTTON_STOP = 'Остановить fresh-парсинг'
-const BUTTON_STATUS = 'Статус fresh-парсинга'
+const BUTTON_START = '\u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433'
+const BUTTON_STOP = '\u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433'
+const BUTTON_STATUS = '\u0421\u0442\u0430\u0442\u0443\u0441'
+const BUTTON_FILTERS = '\u0424\u0438\u043b\u044c\u0442\u0440\u044b'
+const BUTTON_BACK = '\u041d\u0430\u0437\u0430\u0434'
 const FILTER_BUTTONS = Object.freeze({
-  [PARSE_SCOPE_ALL]: 'Все машины',
-  [PARSE_SCOPE_DOMESTIC]: 'Корейские',
-  [PARSE_SCOPE_IMPORTED]: 'Все импортные',
-  [PARSE_SCOPE_JAPANESE]: 'Японские',
-  [PARSE_SCOPE_GERMAN]: 'Немецкие',
+  [PARSE_SCOPE_ALL]: '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
+  [PARSE_SCOPE_DOMESTIC]: '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435',
+  [PARSE_SCOPE_IMPORTED]: '\u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435',
+  [PARSE_SCOPE_JAPANESE]: '\u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435',
+  [PARSE_SCOPE_GERMAN]: '\u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435',
 })
+const KEYBOARD_SECTION_MAIN = 'main'
+const KEYBOARD_SECTION_FILTERS = 'filters'
 
 let ensureTelegramFreshParserTablesPromise = null
 let telegramFreshParserTimer = null
@@ -69,8 +73,8 @@ let telegramFreshParserRunFreshScrapeJob = null
 let telegramFreshParserIsScraperRunning = null
 
 const VEHICLE_ORIGIN_LABELS = Object.freeze({
-  korean: 'Корейские авто',
-  imported: 'Импортные авто',
+  korean: '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435 \u0430\u0432\u0442\u043e',
+  imported: '\u0418\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435 \u0430\u0432\u0442\u043e',
 })
 const KOREAN_VEHICLE_BRAND_RE = /\b(kia|gia|hyundai|hyeondae|genesis|jenesiseu|daewoo|renault(?:\s+korea|\s+samsung)|renault samsung|reunokoria|samsung|samseong|ssangyong|kg\s*mobility|kgmobilriti)\b/i
 const KOREAN_VEHICLE_BRAND_HANGUL_RE = /\uAE30\uC544|\uD604\uB300|\uC81C\uB124\uC2DC\uC2A4|\uB300\uC6B0|\uB974\uB178\uCF54\uB9AC\uC544|\uC0BC\uC131|\uC30D\uC6A9|\uBAA8\uBE4C\uB9AC\uD2F0/u
@@ -170,11 +174,11 @@ function normalizeParseScope(value) {
 }
 
 function formatParseScopeLabel(parseScope) {
-  if (parseScope === PARSE_SCOPE_DOMESTIC) return 'Корейские'
-  if (parseScope === PARSE_SCOPE_IMPORTED) return 'Все импортные'
-  if (parseScope === PARSE_SCOPE_JAPANESE) return 'Японские'
-  if (parseScope === PARSE_SCOPE_GERMAN) return 'Немецкие'
-  return 'Все машины'
+  if (parseScope === PARSE_SCOPE_DOMESTIC) return '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435'
+  if (parseScope === PARSE_SCOPE_IMPORTED) return '\u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435'
+  if (parseScope === PARSE_SCOPE_JAPANESE) return '\u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435'
+  if (parseScope === PARSE_SCOPE_GERMAN) return '\u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435'
+  return '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b'
 }
 
 function getTelegramFreshParserConfig() {
@@ -191,20 +195,40 @@ function getTelegramApiUrl(botToken, method) {
   return `${TELEGRAM_API_BASE}/bot${botToken}/${method}`
 }
 
-function buildControlKeyboard() {
+function buildControlKeyboard(session = null, section = KEYBOARD_SECTION_MAIN) {
+  const isActive = Boolean(session?.is_active)
+  const toggleButtonLabel = isActive ? BUTTON_STOP : BUTTON_START
+
+  if (section === KEYBOARD_SECTION_FILTERS) {
+    return {
+      keyboard: [
+        [{ text: FILTER_BUTTONS[PARSE_SCOPE_ALL] }, { text: FILTER_BUTTONS[PARSE_SCOPE_DOMESTIC] }],
+        [{ text: FILTER_BUTTONS[PARSE_SCOPE_IMPORTED] }, { text: FILTER_BUTTONS[PARSE_SCOPE_JAPANESE] }],
+        [{ text: FILTER_BUTTONS[PARSE_SCOPE_GERMAN] }],
+        [{ text: BUTTON_BACK }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+    }
+  }
+
   return {
     keyboard: [
-      [{ text: BUTTON_START }, { text: BUTTON_STOP }],
-      [{ text: FILTER_BUTTONS[PARSE_SCOPE_ALL] }, { text: FILTER_BUTTONS[PARSE_SCOPE_DOMESTIC] }],
-      [{ text: FILTER_BUTTONS[PARSE_SCOPE_IMPORTED] }, { text: FILTER_BUTTONS[PARSE_SCOPE_JAPANESE] }],
-      [{ text: FILTER_BUTTONS[PARSE_SCOPE_GERMAN] }, { text: BUTTON_STATUS }],
+      [{ text: toggleButtonLabel }],
+      [{ text: BUTTON_STATUS }, { text: BUTTON_FILTERS }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
   }
 }
 
-async function sendTelegramControlMessage(botToken, chatId, text) {
+async function sendTelegramControlMessage(
+  botToken,
+  chatId,
+  text,
+  session = null,
+  section = KEYBOARD_SECTION_MAIN,
+) {
   if (!botToken || !normalizeChatId(chatId)) return
 
   await axios.post(
@@ -213,7 +237,7 @@ async function sendTelegramControlMessage(botToken, chatId, text) {
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
-      reply_markup: buildControlKeyboard(),
+      reply_markup: buildControlKeyboard(session, section),
     },
     {
       timeout: TELEGRAM_TIMEOUT_MS,
@@ -415,25 +439,41 @@ function buildTelegramFreshParserStatusText(session) {
   const parseScope = normalizeParseScope(session?.parse_scope)
   const lastRunAt = cleanText(session?.last_run_at)
   const lastError = cleanText(session?.last_error)
+  const toggleLabel = isActive ? BUTTON_STOP : BUTTON_START
 
   const lines = [
-    'Fresh-парсинг Encar в Telegram.',
-    `Статус: ${isActive ? 'включен' : 'выключен'}`,
-    `Фильтр: ${formatParseScopeLabel(parseScope)}`,
-    'Режим: только свежие объявления',
+    'Fresh-\u043f\u0430\u0440\u0441\u0438\u043d\u0433 Encar \u0447\u0435\u0440\u0435\u0437 Telegram.',
+    `\u0421\u0442\u0430\u0442\u0443\u0441: ${isActive ? '\u0432\u043a\u043b\u044e\u0447\u0435\u043d' : '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d'}`,
+    `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(parseScope)}`,
+    '\u0420\u0435\u0436\u0438\u043c: \u0442\u043e\u043b\u044c\u043a\u043e \u0441\u0432\u0435\u0436\u0438\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f.',
   ]
 
   if (lastRunAt) {
-    lines.push(`Последний цикл: ${lastRunAt}`)
+    lines.push(`\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u043f\u0443\u0441\u043a: ${lastRunAt}`)
   }
 
   if (lastError) {
-    lines.push(`Последняя ошибка: ${lastError}`)
+    lines.push(`\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430: ${lastError}`)
   }
 
   lines.push('')
-  lines.push('Выберите фильтр и нажмите кнопку запуска. Пока режим включен, бот присылает только свежие объявления по выбранному фильтру.')
+  lines.push(`\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435: ${toggleLabel}`)
+  lines.push('\u0424\u0438\u043b\u044c\u0442\u0440\u044b:')
+  lines.push('\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b / \u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435 / \u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435 / \u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435 / \u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435')
   return lines.join('\n')
+}
+
+function buildTelegramFreshParserFiltersText(session) {
+  return [
+    '\u0424\u0438\u043b\u044c\u0442\u0440\u044b:',
+    '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
+    '\u041a\u043e\u0440\u0435\u0439\u0441\u043a\u0438\u0435',
+    '\u0412\u0441\u0435 \u0438\u043c\u043f\u043e\u0440\u0442\u043d\u044b\u0435',
+    '\u042f\u043f\u043e\u043d\u0441\u043a\u0438\u0435',
+    '\u041d\u0435\u043c\u0435\u0446\u043a\u0438\u0435',
+    '',
+    `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(session?.parse_scope)}`,
+  ].join('\n')
 }
 
 function resolveFilterButtonScope(text) {
@@ -451,6 +491,15 @@ function scheduleTelegramFreshParserImmediateRun(delayMs = 1000) {
     void runTelegramFreshParserCycle({ force: true })
   }, Math.max(250, delayMs))
   telegramFreshParserImmediateTimer.unref?.()
+}
+
+function cancelTelegramFreshParserPendingRuns() {
+  if (telegramFreshParserImmediateTimer) {
+    clearTimeout(telegramFreshParserImmediateTimer)
+    telegramFreshParserImmediateTimer = null
+  }
+
+  telegramFreshParserRerunRequested = false
 }
 
 export async function runTelegramFreshParserCycle({ force = false } = {}) {
@@ -483,7 +532,10 @@ export async function runTelegramFreshParserCycle({ force = false } = {}) {
       await getTelegramFreshParserRunFreshScrapeJob()({
         limit: config.runLimit,
         activeSessions,
-        recipientResolver: ({ car }) => resolveRecipientChatIdsForCar(activeSessions, car),
+        recipientResolver: async ({ car }) => {
+          const currentSessions = await getActiveTelegramFreshParserSessions()
+          return resolveRecipientChatIdsForCar(currentSessions, car)
+        },
       })
 
       await setTelegramFreshParserLastRunSuccess(activeSessions.map((session) => session.chatId))
@@ -552,7 +604,8 @@ export async function handleTelegramFreshControlUpdate({
 
   const text = cleanText(message?.text)
   if (action === 'unsubscribe') {
-    await updateTelegramFreshParserSession(normalizedChatId, {
+    cancelTelegramFreshParserPendingRuns()
+    const session = await updateTelegramFreshParserSession(normalizedChatId, {
       isActive: false,
       clearError: true,
     })
@@ -560,7 +613,8 @@ export async function handleTelegramFreshControlUpdate({
     await sendTelegramControlMessage(
       botToken,
       normalizedChatId,
-      'Уведомления и fresh-парсинг отключены. Чтобы включить снова, отправьте /start.',
+      '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b. \u0427\u0442\u043e\u0431\u044b \u0441\u043d\u043e\u0432\u0430 \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u044c \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f, \u043e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 /start.',
+      session,
     )
 
     return { handled: true, skipDefaultAck: true }
@@ -572,6 +626,7 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       buildTelegramFreshParserStatusText(session),
+      session,
     )
     return { handled: true, skipDefaultAck: true }
   }
@@ -591,17 +646,42 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        `Фильтр сохранен: ${formatParseScopeLabel(filterScope)}.`,
+        `\u0424\u0438\u043b\u044c\u0442\u0440 \u0432\u044b\u0431\u0440\u0430\u043d: ${formatParseScopeLabel(filterScope)}.`,
         session?.is_active
-          ? 'Fresh-парсинг уже включен. Следующий цикл пойдет с новым фильтром.'
-          : 'Fresh-парсинг пока выключен. Нажмите кнопку запуска.',
+          ? '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0443\u0436\u0435 \u0432\u043a\u043b\u044e\u0447\u0435\u043d. \u0421\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u043f\u0440\u0438\u0434\u0443\u0442 \u043f\u043e \u043d\u043e\u0432\u043e\u043c\u0443 \u0444\u0438\u043b\u044c\u0442\u0440\u0443.'
+          : '\u0424\u0438\u043b\u044c\u0442\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d. \u0422\u0435\u043f\u0435\u0440\u044c \u043c\u043e\u0436\u043d\u043e \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u043f\u0430\u0440\u0441\u0438\u043d\u0433.',
       ].join('\n'),
+      session,
+      KEYBOARD_SECTION_FILTERS,
     )
 
     if (session?.is_active) {
-      scheduleTelegramFreshParserImmediateRun()
+      scheduleTelegramFreshParserImmediateRun(500)
     }
 
+    return { handled: true, skipDefaultAck: false }
+  }
+
+  if (text === BUTTON_FILTERS) {
+    const session = await getTelegramFreshParserSession(normalizedChatId)
+    await sendTelegramControlMessage(
+      botToken,
+      normalizedChatId,
+      buildTelegramFreshParserFiltersText(session),
+      session,
+      KEYBOARD_SECTION_FILTERS,
+    )
+    return { handled: true, skipDefaultAck: false }
+  }
+
+  if (text === BUTTON_BACK || text === '/menu') {
+    const session = await getTelegramFreshParserSession(normalizedChatId)
+    await sendTelegramControlMessage(
+      botToken,
+      normalizedChatId,
+      buildTelegramFreshParserStatusText(session),
+      session,
+    )
     return { handled: true, skipDefaultAck: false }
   }
 
@@ -615,17 +695,19 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        'Fresh-парсинг включен.',
-        `Фильтр: ${formatParseScopeLabel(session?.parse_scope)}.`,
-        'Бот будет присылать только свежие объявления по этому фильтру.',
+        '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u0437\u0430\u043f\u0443\u0449\u0435\u043d.',
+        `\u0424\u0438\u043b\u044c\u0442\u0440: ${formatParseScopeLabel(session?.parse_scope)}.`,
+        '\u041d\u043e\u0432\u044b\u0435 fresh-\u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u0431\u0443\u0434\u0443\u0442 \u043f\u0440\u0438\u0445\u043e\u0434\u0438\u0442\u044c \u043f\u043e \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u043e\u043c\u0443 \u0444\u0438\u043b\u044c\u0442\u0440\u0443.',
       ].join('\n'),
+      session,
     )
 
-    scheduleTelegramFreshParserImmediateRun()
+    scheduleTelegramFreshParserImmediateRun(250)
     return { handled: true, skipDefaultAck: false }
   }
 
   if (text === BUTTON_STOP || text === '/fresh_off') {
+    cancelTelegramFreshParserPendingRuns()
     const session = await updateTelegramFreshParserSession(normalizedChatId, {
       isActive: false,
       clearError: true,
@@ -635,20 +717,23 @@ export async function handleTelegramFreshControlUpdate({
       botToken,
       normalizedChatId,
       [
-        'Fresh-парсинг отключен.',
-        `Текущий фильтр сохранен: ${formatParseScopeLabel(session?.parse_scope)}.`,
+        '\u041f\u0430\u0440\u0441\u0438\u043d\u0433 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d.',
+        `\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0444\u0438\u043b\u044c\u0442\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d: ${formatParseScopeLabel(session?.parse_scope)}.`,
+        '\u041d\u043e\u0432\u044b\u0435 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u044f \u0431\u043e\u043b\u044c\u0448\u0435 \u043d\u0435 \u0431\u0443\u0434\u0443\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0442\u044c\u0441\u044f \u0432 \u044d\u0442\u043e\u0442 \u0447\u0430\u0442.',
       ].join('\n'),
+      session,
     )
 
     return { handled: true, skipDefaultAck: false }
   }
 
-  if (text === BUTTON_STATUS || text === '/status' || text === '/menu') {
+  if (text === BUTTON_STATUS || text === '/status') {
     const session = await getTelegramFreshParserSession(normalizedChatId)
     await sendTelegramControlMessage(
       botToken,
       normalizedChatId,
       buildTelegramFreshParserStatusText(session),
+      session,
     )
     return { handled: true, skipDefaultAck: false }
   }
